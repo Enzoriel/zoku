@@ -1,0 +1,83 @@
+.sidebar {
+  position: relative;
+  width: 64px;
+  height: 100vh;
+  background: #000000;
+  color: white;
+  padding: 20px;
+  position: fixed;
+  left: 0;
+  top: 0;
+  border-right: 3px solid #ff1e1e;
+  box-sizing: border-box;
+}
+
+.logo {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translate(-50%, 0%);
+}
+
+.logo img {
+  width: 40px;
+  height: 40px;
+}
+
+.containerList {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.navList {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  gap: 0;
+}
+
+.navList a {
+  display: flex;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 2px;
+}
+
+.navList a svg {
+  padding-bottom: 25px;
+  padding-top: 25px;
+}
+.navList a.active {
+  color: #ff1e1e;
+}
+
+.navList a:hover {
+  color: #ffd700;
+  filter: drop-shadow(0 0 3px #ffd700);
+}
+
+.configuration {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translate(-50%, 0%);
+}
+
+.configuration a {
+  color: #ffffff;
+}
+
+.configuration a.active {
+  color: #ff1e1e;
+}
+
+.configuration a:hover {
+  color: #ffd700;
+  filter: drop-shadow(0 0 3px #ffd700);
+}
