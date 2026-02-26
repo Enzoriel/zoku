@@ -1,0 +1,123 @@
+.header {
+  height: 70px;
+  background-color: var(--background-color);
+  border-bottom: 2px solid #202020;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px 0 94px;
+  color: #ffffff;
+  box-sizing: border-box;
+  -webkit-app-region: drag;
+}
+
+.brand {
+  display: flex;
+  position: relative;
+  align-items: center;
+  margin-left: 20px;
+  -webkit-app-region: no-drag;
+}
+
+.brandShapeLeft {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  z-index: 1;
+}
+
+.brandShapeRight {
+  position: absolute;
+  bottom: -25px;
+  right: -20px;
+  z-index: 1;
+}
+
+.brandTitle {
+  margin: 0;
+  font-family: "Saira-BlackItalic";
+  font-size: 3rem;
+  color: #ffffff;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--primary-color);
+  z-index: 2;
+}
+
+/* Controles de búsqueda y perfil */
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  -webkit-app-region: no-drag;
+}
+
+.searchContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: #888;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.searchBar {
+  background-color: #141414;
+  border: 1px solid #333;
+  border-radius: 20px;
+  padding: 8px 15px 8px 34px;
+  color: #ffffff;
+  font-size: 0.85rem;
+  outline: none;
+  width: 200px;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-family: inherit;
+}
+
+.searchBar::placeholder {
+  color: #666;
+  font-weight: 500;
+}
+
+.searchBar:focus {
+  border-color: #ff1e1e;
+  width: 250px;
+  box-shadow: 0 0 10px rgba(255, 30, 30, 0.2);
+}
+
+.userProfile {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff1e1e 0%, #a00000 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 2px 8px rgba(255, 30, 30, 0.3);
+}
+
+.userProfile:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(255, 30, 30, 0.5);
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 30, 30, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(255, 30, 30, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 30, 30, 0);
+  }
+}

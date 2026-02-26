@@ -1,14 +1,13 @@
 .sidebar {
-  position: relative;
+  position: fixed;
+  padding: 20px;
   width: 64px;
   height: 100vh;
-  background: #000000;
+  background: var(--background-color);
   color: white;
-  padding: 20px;
-  position: fixed;
   left: 0;
   top: 0;
-  border-right: 3px solid #ff1e1e;
+  border-right: 3px solid var(--primary-color);
   box-sizing: border-box;
 }
 
@@ -54,12 +53,12 @@
   padding-top: 25px;
 }
 .navList a.active {
-  color: #ff1e1e;
+  color: var(--primary-color);
 }
 
 .navList a:hover {
-  color: #ffd700;
-  filter: drop-shadow(0 0 3px #ffd700);
+  color: var(--secondary-color);
+  filter: drop-shadow(0 0 3px var(--secondary-color));
 }
 
 .configuration {
@@ -74,10 +73,10 @@
 }
 
 .configuration a.active {
-  color: #ff1e1e;
+  color: var(--primary-color);
 }
 
 .configuration a:hover {
-  color: #ffd700;
-  filter: drop-shadow(0 0 3px #ffd700);
+  color: var(--secondary-color);
+  filter: drop-shadow(0 0 3px var(--secondary-color));
 }
