@@ -4,7 +4,9 @@ function Header({ name }) {
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
-        <h1 className={styles.brandTitle}>{name}</h1>
+        <h1 className={styles.brandTitle} data-text={name}>
+          {name}
+        </h1>
         <div className={styles.brandShapeLeft}>
           <svg width="20" height="20" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
