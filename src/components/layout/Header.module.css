@@ -1,21 +1,20 @@
 .header {
   height: 70px;
-  background-color: var(--background-color);
-  border-bottom: 2px solid #202020;
+  background-color: transparent;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 30px 0 94px;
   color: #ffffff;
   box-sizing: border-box;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 
 .brand {
   display: flex;
   position: relative;
   align-items: center;
-  margin-left: 20px;
+  margin-left: 10px;
   -webkit-app-region: no-drag;
 }
 
@@ -25,7 +24,7 @@
   left: -30px;
   z-index: 1;
   filter: drop-shadow(1px 1px 0px var(--primary-color));
-  animation: target 2s ease-in-out infinite;
+  animation: target 10s ease-in-out infinite;
 }
 
 .brandShapeRight {
@@ -34,16 +33,17 @@
   right: -30px;
   z-index: 1;
   filter: drop-shadow(-1px -1px 0px var(--primary-color));
-  animation: target 2s ease-in-out infinite;
+  animation: target 10s ease-in-out infinite;
 }
 
 .brandTitle {
   margin: 0;
   font-family: "Saira-BlackItalic";
-  font-size: 3rem;
+  font-size: clamp(2rem, 4.5vw, 3rem);
   color: #ffffff;
   text-transform: uppercase;
   text-shadow: 2px 2px 0 var(--primary-color);
+  user-select: none;
   z-index: 2;
 }
 
@@ -59,46 +59,134 @@
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
+  height: 45px;
+  width: 45px;
+  background-color: transparent;
+  border-radius: 25px; /* Redondo absoluto para curvar los bordes laterales */
+  border: none; /* ELIMINADO '1px solid transparent' por el aliasing */
+  cursor: pointer;
+  transition:
+    width 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+    background-color 0.4s;
+  overflow: visible; /* para que las tapas resplandezcan por fuera libres del borde */
+}
+
+/* Pseudo-elementos que fungen como 'Paréntesis' rojos a los lados */
+.searchContainer::before,
+.searchContainer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 20px; /* Ancho de la elipse */
+  border-radius: 50%; /* ELIPSE PURA. Garantiza curvas sin línea horizontal recta */
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Tapa 'C' Izquierda usando solo borde izquierdo de la elipse */
+.searchContainer::before {
+  left: 0;
+  border-left: 1.5px solid transparent;
+}
+
+/* Tapa ')' Derecha usando solo borde derecho de la elipse */
+.searchContainer::after {
+  right: 0;
+  border-right: 1.5px solid transparent;
+}
+
+/* Hover suave inactivo */
+.searchContainer:not(.searchActive):hover::before {
+  opacity: 1;
+  border-left-color: rgba(255, 30, 30, 0.4);
+  filter: drop-shadow(0 0 2px rgba(255, 30, 30, 0.4));
+}
+.searchContainer:not(.searchActive):hover::after {
+  opacity: 1;
+  border-right-color: rgba(255, 30, 30, 0.4);
+  filter: drop-shadow(0 0 2px rgba(255, 30, 30, 0.4));
+}
+
+.searchContainer:not(.searchActive):hover .searchIcon {
+  color: #ff1e1e;
+  filter: drop-shadow(0 0 5px rgba(255, 30, 30, 0.6));
+  transform: scale(1.1);
+}
+
+/* Estado Activo y Expansión */
+.searchActive {
+  width: 250px;
+  background-color: #0f0f0f;
+  cursor: default;
+  border: none;
+}
+
+/* Activación Neón de los Brackets Laterales C ) */
+.searchActive::before {
+  opacity: 1;
+  border-left-color: #ff1e1e;
+  filter: drop-shadow(0 0 4px rgba(255, 30, 30, 0.8));
+}
+
+.searchActive::after {
+  opacity: 1;
+  border-right-color: #ff1e1e;
+  filter: drop-shadow(0 0 4px rgba(255, 30, 30, 0.8));
 }
 
 .searchIcon {
   position: absolute;
-  left: 12px;
+  left: 15px; /* Espacio limpio para la tapa redonda */
   color: #888;
-  width: 14px;
-  height: 14px;
+  width: 18px; /* Lupa agrandada por feedback */
+  height: 18px;
   pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  z-index: 2;
+}
+
+/* La lupa se vuelve roja cuando la caja de texto recibe focus */
+.searchActive:focus-within .searchIcon {
+  color: #ff1e1e;
+  filter: drop-shadow(0 0 3px rgba(255, 30, 30, 0.8));
+  transform: scale(1.1) rotate(-5deg);
 }
 
 .searchBar {
-  background-color: #141414;
-  border: 1px solid #333;
-  border-radius: 20px;
-  padding: 8px 15px 8px 34px;
+  background-color: transparent;
+  border: none;
+  width: 100%;
+  height: 100%;
+  padding: 0 15px 0 42px; /* Margen para no chocar con la tapa ni la lupa */
   color: #ffffff;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   outline: none;
-  width: 200px;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   font-family: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
 }
 
-.searchBar::placeholder {
-  color: #666;
-  font-weight: 500;
+/* Mostrar la barra y resplandor rojo solo cuando está activa y completó la expansión */
+.searchActive .searchBar {
+  opacity: 1;
+  pointer-events: all;
+  transition-delay: 0.2s;
 }
 
-.searchBar:focus {
-  border-color: #ff1e1e;
-  width: 250px;
-  box-shadow: 0 0 10px rgba(255, 30, 30, 0.2);
+/* El resplandor rojo del texto al tipear */
+.searchActive .searchBar:focus {
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
 .userProfile {
+  position: relative;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff1e1e 0%, #a00000 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -106,25 +194,80 @@
   font-size: 0.9rem;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 2px 8px rgba(255, 30, 30, 0.3);
+  z-index: 1;
+}
+
+.userProfile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff1e1e 0%, #a00000 100%);
+  z-index: -1;
 }
 
 .userProfile:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(255, 30, 30, 0.5);
+}
+
+.userProfile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--secondary-color) 0%, var(--secondary-color) 100%);
+  outline: 1px solid transparent;
+  z-index: -2;
+}
+
+.userProfile:hover::before {
+  animation: pulsation 1s ease-in-out infinite;
+  outline: 1px solid var(--secondary-color);
+}
+
+@keyframes pulsation {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 var(--secondary-color));
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1.3);
+    filter: drop-shadow(0 0 0 var(--secondary-color));
+    opacity: 0;
+  }
 }
 
 @keyframes target {
   0% {
-    opacity: 1;
-  }
-  33% {
-    opacity: 1;
-  }
-  66% {
     opacity: 0;
   }
-  100% {
+  44% {
+    opacity: 0;
+  }
+  45% {
     opacity: 1;
+  }
+  46% {
+    opacity: 0;
+  }
+  47% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 1;
+  }
+  98% {
+    opacity: 0;
+  }
+  99% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
   }
 }

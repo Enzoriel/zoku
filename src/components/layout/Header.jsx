@@ -1,6 +1,20 @@
+import { useState, useRef, useEffect } from "react";
 import styles from "./Header.module.css";
 
 function Header({ name }) {
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const searchInputRef = useRef(null);
+
+  // Cerrar el buscador al clickear afuera
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchInputRef.current && !searchInputRef.current.contains(event.target)) {
+        setIsSearchActive(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
@@ -27,7 +41,11 @@ function Header({ name }) {
       </div>
 
       <div className={styles.headerRight}>
-        <div className={styles.searchContainer}>
+        <div
+          className={`${styles.searchContainer} ${isSearchActive ? styles.searchActive : ""}`}
+          onClick={() => setIsSearchActive(true)}
+          ref={searchInputRef}
+        >
           <svg
             className={styles.searchIcon}
             xmlns="http://www.w3.org/2000/svg"
@@ -41,7 +59,12 @@ function Header({ name }) {
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input type="text" placeholder="Buscar anime..." className={styles.searchBar} />
+          <input
+            type="text"
+            className={styles.searchBar}
+            placeholder={isSearchActive ? "" : undefined}
+            autoFocus={isSearchActive}
+          />
         </div>
 
         <div className={styles.userProfile} title="Perfil">
