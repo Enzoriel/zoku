@@ -63,13 +63,13 @@
   height: 45px;
   width: 45px;
   background-color: transparent;
-  border-radius: 25px; /* Redondo absoluto para curvar los bordes laterales */
-  border: none; /* ELIMINADO '1px solid transparent' por el aliasing */
+  border-radius: 25px;
+  border: none;
   cursor: pointer;
   transition:
     width 0.6s cubic-bezier(0.25, 1, 0.5, 1),
     background-color 0.4s;
-  overflow: visible; /* para que las tapas resplandezcan por fuera libres del borde */
+  overflow: visible;
 }
 
 /* Pseudo-elementos que fungen como 'Paréntesis' rojos a los lados */
@@ -79,8 +79,8 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 20px; /* Ancho de la elipse */
-  border-radius: 50%; /* ELIPSE PURA. Garantiza curvas sin línea horizontal recta */
+  width: 40px;
+  border-radius: 50%;
   opacity: 0;
   pointer-events: none;
   transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
@@ -89,13 +89,13 @@
 /* Tapa 'C' Izquierda usando solo borde izquierdo de la elipse */
 .searchContainer::before {
   left: 0;
-  border-left: 1.5px solid transparent;
+  border-left: 3px solid transparent;
 }
 
 /* Tapa ')' Derecha usando solo borde derecho de la elipse */
 .searchContainer::after {
   right: 0;
-  border-right: 1.5px solid transparent;
+  border-right: 3px solid transparent;
 }
 
 /* Hover suave inactivo */
@@ -139,13 +139,16 @@
 
 .searchIcon {
   position: absolute;
-  left: 15px; /* Espacio limpio para la tapa redonda */
-  color: #888;
-  width: 18px; /* Lupa agrandada por feedback */
-  height: 18px;
+  color: #ffffff;
+  width: 20px; /* Lupa agrandada por feedback */
+  height: 20px;
   pointer-events: none;
   transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   z-index: 2;
+}
+
+.searchIconActive {
+  left: 14px;
 }
 
 /* La lupa se vuelve roja cuando la caja de texto recibe focus */

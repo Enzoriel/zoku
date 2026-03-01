@@ -47,7 +47,7 @@ function Header({ name }) {
           ref={searchInputRef}
         >
           <svg
-            className={styles.searchIcon}
+            className={`${styles.searchIcon} ${isSearchActive ? styles.searchIconActive : ""}`}
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="none"
