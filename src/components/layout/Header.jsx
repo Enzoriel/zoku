@@ -3,12 +3,13 @@ import styles from "./Header.module.css";
 
 function Header({ name }) {
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const searchInputRef = useRef(null);
+  const searchContainerRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Cerrar el buscador al clickear afuera
   useEffect(() => {
     function handleClickOutside(event) {
-      if (searchInputRef.current && !searchInputRef.current.contains(event.target)) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
         setIsSearchActive(false);
       }
     }
@@ -43,8 +44,11 @@ function Header({ name }) {
       <div className={styles.headerRight}>
         <div
           className={`${styles.searchContainer} ${isSearchActive ? styles.searchActive : ""}`}
-          onClick={() => setIsSearchActive(true)}
-          ref={searchInputRef}
+          onClick={() => {
+            setIsSearchActive(true);
+            inputRef.current?.focus();
+          }}
+          ref={searchContainerRef}
         >
           <svg
             className={`${styles.searchIcon} ${isSearchActive ? styles.searchIconActive : ""}`}
@@ -60,15 +64,58 @@ function Header({ name }) {
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
           <input
+            ref={inputRef}
             type="text"
             className={styles.searchBar}
             placeholder={isSearchActive ? "" : undefined}
-            autoFocus={isSearchActive}
           />
         </div>
 
         <div className={styles.userProfile} title="Perfil">
-          E
+          E{/* Brackets de esquina estilo brandTitle */}
+          <svg
+            className={`${styles.profileCorner} ${styles.cornerTL}`}
+            width="12"
+            height="12"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
+          </svg>
+          <svg
+            className={`${styles.profileCorner} ${styles.cornerTR}`}
+            width="12"
+            height="12"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ transform: "rotate(90deg)" }}
+          >
+            <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
+          </svg>
+          <svg
+            className={`${styles.profileCorner} ${styles.cornerBR}`}
+            width="12"
+            height="12"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ transform: "rotate(180deg)" }}
+          >
+            <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
+          </svg>
+          <svg
+            className={`${styles.profileCorner} ${styles.cornerBL}`}
+            width="12"
+            height="12"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ transform: "rotate(270deg)" }}
+          >
+            <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
+          </svg>
         </div>
       </div>
     </header>
