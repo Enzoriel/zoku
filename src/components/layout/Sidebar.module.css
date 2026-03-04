@@ -9,6 +9,7 @@
   top: 0;
   border-right: 3px solid var(--primary-color);
   box-sizing: border-box;
+  overflow: visible;
 }
 
 .logo {
@@ -43,12 +44,14 @@
 
 .navList a {
   display: flex;
+  position: relative;
+  overflow: visible;
   color: #ffffff;
   text-decoration: none;
   border-radius: 2px;
 }
 
-.navList a svg {
+.navList a svg:not([data-corner]) {
   padding-bottom: 25px;
   padding-top: 25px;
 }
@@ -61,6 +64,11 @@
   filter: drop-shadow(0 0 3px var(--secondary-color));
 }
 
+.navList a:hover [data-corner] {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(255, 30, 30, 0.8));
+}
+
 .configuration {
   position: absolute;
   bottom: 20px;
@@ -69,6 +77,9 @@
 }
 
 .configuration a {
+  display: flex;
+  position: relative;
+  overflow: visible;
   color: #ffffff;
 }
 
@@ -79,4 +90,9 @@
 .configuration a:hover {
   color: var(--secondary-color);
   filter: drop-shadow(0 0 3px var(--secondary-color));
+}
+
+.configuration a:hover [data-corner] {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(255, 30, 30, 0.8));
 }
