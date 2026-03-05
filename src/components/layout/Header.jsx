@@ -51,19 +51,22 @@ function Header({ name }) {
           }}
           ref={searchContainerRef}
         >
-          <svg
-            className={`${styles.searchIcon} ${isSearchActive ? styles.searchIconActive : ""}`}
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
+          <div className={`${styles.searchIconWrapper} ${isSearchActive ? styles.iconActive : ""}`}>
+            <svg
+              className={styles.searchIcon}
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="square"
+            >
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="M21 21l-4.35-4.35"></path>
+              <path className={styles.iconDecorator} d="M11 8v1M11 13v1M8 11h1M13 11h1"></path>
+            </svg>
+            <div className={styles.iconGlitch}></div>
+          </div>
           <input
             ref={inputRef}
             type="text"

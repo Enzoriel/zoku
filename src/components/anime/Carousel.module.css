@@ -1,0 +1,78 @@
+.carousel {
+  margin: 10px 0;
+  position: relative;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.title {
+  font-family: "Saira-Bold";
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--primary-color);
+  box-shadow: 3px 3px 0px var(--secondary-color);
+  padding: 10px 50px;
+}
+
+.title::before {
+  display: none;
+}
+
+.titleIcon {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
+  flex-shrink: 0;
+}
+
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  padding: 0 10px;
+}
+
+.scroll {
+  flex: 1;
+  display: flex;
+  gap: 20px;
+  overflow: hidden;
+  scroll-behavior: smooth;
+  padding: 15px 5px;
+  scrollbar-width: none;
+  /* El scroll ahora es manejado por rueda también */
+}
+
+.scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 180px; /* Altura de la AnimeCard aproximadamente */
+  background: rgba(255, 255, 255, 0.03);
+  color: white;
+  font-size: 34px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.5;
+  padding: 1px 10px;
+}
+
+.arrow:hover {
+  opacity: 1;
+  background: rgba(255, 30, 30, 0.1);
+}
