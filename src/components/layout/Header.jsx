@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import styles from "./Header.module.css";
+import CornerBrackets from "../ui/CornerBrackets";
 
 function Header({ name }) {
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -67,55 +68,15 @@ function Header({ name }) {
             ref={inputRef}
             type="text"
             className={styles.searchBar}
-            placeholder={isSearchActive ? "" : undefined}
+            placeholder={isSearchActive ? "BUSCAR EN LA RED ZOKU..." : undefined}
           />
+          <div className={styles.scanline}></div>
+          <CornerBrackets size={10} />
         </div>
 
         <div className={styles.userProfile} title="Perfil">
-          E{/* Brackets de esquina estilo brandTitle */}
-          <svg
-            className={`${styles.profileCorner} ${styles.cornerTL}`}
-            width="12"
-            height="12"
-            viewBox="0 0 30 30"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
-          </svg>
-          <svg
-            className={`${styles.profileCorner} ${styles.cornerTR}`}
-            width="12"
-            height="12"
-            viewBox="0 0 30 30"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            style={{ transform: "rotate(90deg)" }}
-          >
-            <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
-          </svg>
-          <svg
-            className={`${styles.profileCorner} ${styles.cornerBR}`}
-            width="12"
-            height="12"
-            viewBox="0 0 30 30"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            style={{ transform: "rotate(180deg)" }}
-          >
-            <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
-          </svg>
-          <svg
-            className={`${styles.profileCorner} ${styles.cornerBL}`}
-            width="12"
-            height="12"
-            viewBox="0 0 30 30"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            style={{ transform: "rotate(270deg)" }}
-          >
-            <polyline points="8,50 8,8 50,8" stroke="white" strokeWidth="6" fill="none" strokeLinecap="square" />
-          </svg>
+          E
+          <CornerBrackets size={10} />
         </div>
       </div>
     </header>

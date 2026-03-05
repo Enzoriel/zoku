@@ -2,10 +2,11 @@
   position: absolute;
   opacity: 0;
   pointer-events: none;
-  filter: drop-shadow(1px 1px 0px var(--primary-color));
+  filter: drop-shadow(3px 3px 3px var(--primary-color));
   transition:
     opacity 0.3s ease,
-    filter 0.3s ease;
+    filter 0.3s ease,
+    scale 0.3s ease;
   z-index: 3;
 }
 

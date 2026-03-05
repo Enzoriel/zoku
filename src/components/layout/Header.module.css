@@ -55,135 +55,155 @@
   -webkit-app-region: no-drag;
 }
 
+/* --- Búsqueda de Precisión Técnica (v2) --- */
 .searchContainer {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 45px;
-  width: 45px;
+  height: 38px;
+  width: 38px;
   background-color: transparent;
-  border-radius: 25px;
+  border-radius: 4px;
   border: none;
   cursor: pointer;
-  transition:
-    width 0.6s cubic-bezier(0.25, 1, 0.5, 1),
-    background-color 0.4s;
+  /* El ancho cambia suavemente, pero el icono se posiciona de forma independiente */
+  transition: width 0.5s cubic-bezier(0.19, 1, 0.22, 1);
   overflow: visible;
+  /* Ya no usamos flex para evitar saltos del icono */
 }
 
-/* Pseudo-elementos que fungen como 'Paréntesis' rojos a los lados */
+/* Base de los obturadores horizontales (Fase 1: Desbloqueo) */
 .searchContainer::before,
 .searchContainer::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 40px;
-  border-radius: 50%;
-  opacity: 0;
-  pointer-events: none;
-  transition: all 1.5s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-/* Tapa 'C' Izquierda usando solo borde izquierdo de la elipse */
-.searchContainer::before {
   left: 0;
-  border-left: 3px solid transparent;
+  width: 100%;
+  height: 1px;
+  background: var(--primary-color);
+  opacity: 0;
+  transform: scaleX(0);
+  transition:
+    opacity 0.3s ease,
+    transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  z-index: 1;
 }
 
-/* Tapa ')' Derecha usando solo borde derecho de la elipse */
+.searchContainer::before {
+  top: 0;
+  transform-origin: left;
+}
 .searchContainer::after {
-  right: 0;
-  border-right: 3px solid transparent;
+  bottom: 0;
+  transform-origin: right;
 }
 
-/* Hover suave inactivo */
-.searchContainer:not(.searchActive):hover::before {
-  opacity: 1;
-  border-left-color: rgba(255, 30, 30, 0.4);
-  filter: drop-shadow(0 0 2px rgba(255, 30, 30, 0.4));
-}
-.searchContainer:not(.searchActive):hover::after {
-  opacity: 1;
-  border-right-color: rgba(255, 30, 30, 0.4);
-  filter: drop-shadow(0 0 2px rgba(255, 30, 30, 0.4));
+/* Hover Premium: Efecto circular de pre-carga */
+.searchContainer:not(.searchActive):hover {
+  background-color: color-mix(in srgb, var(--primary-color), transparent 94%);
 }
 
 .searchContainer:not(.searchActive):hover .searchIcon {
-  color: #ff1e1e;
-  filter: drop-shadow(0 0 5px rgba(255, 30, 30, 0.6));
-  transform: scale(1.1);
+  color: var(--secondary-color);
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
-/* Estado Activo y Expansión */
+/* Estado Activo: Fase 2 (Expansión) */
 .searchActive {
-  width: 300px;
-  background-color: #0f0f0f;
+  width: 280px;
+  background-color: rgba(10, 10, 10, 0.9);
+  backdrop-filter: blur(12px);
   cursor: default;
-  border: none;
 }
 
-/* Activación Neón de los Brackets Laterales C ) */
-.searchActive::before {
-  opacity: 1;
-  border-left-color: #ff1e1e;
-  filter: drop-shadow(0 0 4px rgba(255, 30, 30, 0.8));
-}
-
+.searchActive::before,
 .searchActive::after {
   opacity: 1;
-  border-right-color: #ff1e1e;
-  filter: drop-shadow(0 0 4px rgba(255, 30, 30, 0.8));
+  transform: scaleX(1);
+  box-shadow: 0 0 10px var(--primary-color);
 }
 
+/* Icono: Posicionamiento absoluto anclado para evitar saltos */
 .searchIcon {
   position: absolute;
-  left: 12.5px;
+  top: 50%;
+  left: 50%; /* Centro absoluto por defecto */
+  transform: translate(-50%, -50%);
   color: #ffffff;
-  width: 20px; /* Lupa agrandada por feedback */
-  height: 20px;
+  width: 18px;
+  height: 18px;
   pointer-events: none;
-  transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-  z-index: 2;
+  transition:
+    left 0.5s cubic-bezier(0.19, 1, 0.22, 1),
+    transform 0.5s cubic-bezier(0.19, 1, 0.22, 1),
+    color 0.3s ease;
+  z-index: 3;
 }
 
 .searchIconActive {
-  left: 14px;
+  left: 24px; /* Se ancla a la izquierda del contenedor expandido */
+  color: var(--primary-color);
 }
 
-/* La lupa se vuelve roja cuando la caja de texto recibe focus */
-.searchActive:focus-within .searchIcon {
-  color: #ff1e1e;
-  filter: drop-shadow(0 0 3px rgba(255, 30, 30, 0.8));
-  transform: scale(1.1) rotate(-5deg);
+/* Brackets con Inercia (Staggered) */
+.searchActive [data-corner] {
+  opacity: 1;
+  transition-delay: 0.1s; /* Retraso sutil para sensación de inercia */
 }
 
 .searchBar {
-  background-color: transparent;
-  border: none;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  padding: 0 15px 0 42px; /* Margen para no chocar con la tapa ni la lupa */
+  padding: 0 15px 0 48px;
+  background-color: transparent;
+  border: none;
   color: #ffffff;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   outline: none;
   font-family: inherit;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.4s ease;
+  z-index: 2;
 }
 
-/* Mostrar la barra y resplandor rojo solo cuando está activa y completó la expansión */
 .searchActive .searchBar {
   opacity: 1;
   pointer-events: all;
-  transition-delay: 0.2s;
+  transition-delay: 0.3s; /* Aparece después de que los shutters se fijan */
 }
 
-/* El resplandor rojo del texto al tipear */
 .searchActive .searchBar:focus {
-  text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 0 10px var(--primary-color);
+}
+
+/* Scanline v2: Integración vertical */
+.scanline {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  background: linear-gradient(to bottom, transparent 0%, rgba(255, 30, 30, 0.08) 50%, transparent 100%);
+  background-size: 100% 3px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+}
+
+.searchActive .scanline {
+  opacity: 0.6;
+  animation: scanTech 3s linear infinite;
+}
+
+@keyframes scanTech {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 100%;
+  }
 }
 
 .userProfile {
@@ -211,44 +231,12 @@
 }
 
 .userProfile:hover {
-  transform: scale(1.05);
+  transform: scale(1);
 }
 
-/* Brackets de esquina del perfil */
-.profileCorner {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  filter: drop-shadow(1px 1px 0px var(--primary-color));
-  transition:
-    opacity 0.3s ease,
-    filter 0.3s ease;
-  z-index: 3;
-}
-
-.cornerTL {
-  top: -10px;
-  left: -10px;
-}
-
-.cornerTR {
-  top: -10px;
-  right: -10px;
-}
-
-.cornerBR {
-  bottom: -10px;
-  right: -10px;
-}
-
-.cornerBL {
-  bottom: -10px;
-  left: -10px;
-}
-
-.userProfile:hover .profileCorner {
+/* El componente CornerBrackets maneja sus propios estilos bases y posiciones */
+.userProfile:hover [data-corner] {
   opacity: 1;
-  filter: drop-shadow(0 0 4px rgba(255, 30, 30, 0.8));
 }
 
 @keyframes target {
