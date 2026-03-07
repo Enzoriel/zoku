@@ -1,5 +1,5 @@
 .carousel {
-  margin: 10px 0;
+  margin-bottom: 20px;
   position: relative;
   width: 100%;
   overflow-x: hidden;
@@ -35,18 +35,17 @@
   align-items: center;
   gap: 10px;
   position: relative;
-  padding: 0 10px;
+  padding: 0;
 }
 
 .scroll {
   flex: 1;
   display: flex;
-  gap: 20px;
+  gap: 30px;
   overflow: hidden;
   scroll-behavior: smooth;
-  padding: 15px 5px;
   scrollbar-width: none;
-  /* El scroll ahora es manejado por rueda también */
+  padding: 10px 25px;
 }
 
 .scroll::-webkit-scrollbar {
@@ -54,25 +53,33 @@
 }
 
 .arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 180px; /* Altura de la AnimeCard aproximadamente */
-  background: rgba(255, 255, 255, 0.03);
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 60px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
   color: white;
-  font-size: 34px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  opacity: 0.5;
+  opacity: 0;
   padding: 1px 10px;
+  border: 0;
+  z-index: 10;
+}
+
+.left {
+  left: 0;
+}
+
+.right {
+  right: 0;
 }
 
 .arrow:hover {
-  opacity: 1;
-  background: rgba(255, 30, 30, 0.1);
+  opacity: 0.5;
 }
