@@ -18,31 +18,12 @@ async function safeFetch(url) {
 }
 
 // Animes en emisión
-export async function getSeasonNow(page = 1) {
-  const data = await safeFetch(`${url}/seasons/now?page=${page}&limit=24`);
+export async function getSeasonNow(page = 1, filter = "tv") {
+  const data = await safeFetch(`${url}/seasons/now?page=${page}&limit=24&filter=${filter}&sfw=true`);
   return {
     data: data.data || [],
-    pagination: data.pagination || {}
+    pagination: data.pagination || {},
   };
-}
-
-// Obtener TODOS los animes en emisión
-export async function getAllSeasonNow() {
-  let allAnimes = [];
-  let page = 1;
-  let hasNext = true;
-
-  while (hasNext && page <= 5) { // Limitamos a 5 páginas por seguridad, ajusta si es necesario
-    const { data, pagination } = await getSeasonNow(page);
-    allAnimes = [...allAnimes, ...data];
-    hasNext = pagination.has_next_page;
-    page++;
-    
-    // Pequeña pausa extra para no saturar
-    if (hasNext) await new Promise(resolve => setTimeout(resolve, 100));
-  }
-
-  return allAnimes;
 }
 
 // Buscar anime por nombre
@@ -50,15 +31,15 @@ export async function searchAnime(query, page = 1) {
   const data = await safeFetch(`${url}/anime?q=${query}&page=${page}&limit=24`);
   return {
     data: data.data || [],
-    pagination: data.pagination || {}
+    pagination: data.pagination || {},
   };
 }
 
 // Obtener recomendaciones recientes
 export async function getRecentAnimeRecommendations() {
-  const data = await safeFetch(`${url}/recommendations/anime`);
+  const data = await safeFetch(`${url}/recommendations/anime?sfw=true`);
   const recommendations = data.data || [];
-  
+
   // Extraer los animes únicos de las recomendaciones (cada recomendación tiene un array 'entry' con 2 animes)
   const uniqueAnimes = [];
   const seenIds = new Set();

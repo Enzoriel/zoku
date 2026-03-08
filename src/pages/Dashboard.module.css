@@ -46,7 +46,6 @@
   box-shadow: 3px 3px 0px var(--secondary-color);
 }
 
-/* Cuadrados negros centrados en las 4 esquinas del cartel rojo */
 .welcome p::before {
   content: "";
   position: absolute;

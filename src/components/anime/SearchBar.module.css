@@ -1,27 +1,71 @@
 .searchContainer {
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.searchForm {
+  display: flex;
+  gap: 10px;
+}
+
+.inputWrapper {
   position: relative;
-  margin-bottom: 24px;
+  flex: 1;
 }
 
 .searchInput {
   width: 100%;
-  max-width: 500px;
-  padding: 12px 16px;
-  font-size: 16px;
-  border: 1px solid #333;
-  border-radius: 8px;
-  background: #1a1a2e;
-  color: white;
+  padding: 10px 15px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #fff;
+  font-family: inherit;
+  outline: none;
 }
 
 .searchInput:focus {
-  outline: none;
-  border-color: #e94560;
+  border-color: var(--primary-color);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.clearButton {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.searchButton {
+  padding: 0 20px;
+  background-color: var(--primary-color);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.searchButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .spinner {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

@@ -1,7 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import styles from "./Sidebar.module.css";
-import logo from "../../assets/logo.png";
 import CornerBrackets from "../ui/CornerBrackets";
 
 export const Sidebar = () => {
@@ -31,8 +30,9 @@ export const Sidebar = () => {
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.logo}>
-        <img src={logo} alt="Logo" />
+      <div className={styles.userProfile} title="Perfil">
+        E
+        <CornerBrackets size={10} />
       </div>
       <section className={styles.containerList}>
         <nav>
