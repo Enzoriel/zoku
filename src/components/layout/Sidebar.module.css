@@ -3,7 +3,8 @@
   padding: 20px;
   width: 64px;
   height: 100vh;
-  background: var(--background-color);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(1px);
   color: white;
   left: 0;
   top: 0;

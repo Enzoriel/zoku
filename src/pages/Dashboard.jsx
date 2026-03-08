@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useStore } from "../hooks/useStore";
 import { getSeasonNow, getRecentAnimeRecommendations } from "../services/api";
 import { getContinueWatching, getNewEpisodes, getRecentlyAdded } from "../utils/dashboard";
+import { Link } from "react-router-dom";
 import Carousel from "../components/anime/Carousel";
+import Button from "../components/ui/Button";
 import styles from "./Dashboard.module.css";
 
 function Dashboard() {
@@ -34,8 +36,23 @@ function Dashboard() {
     <div className={styles.dashboard}>
       {isEmpty ? (
         <section className={styles.welcome}>
-          <div className={styles.welcomeHeader}>
-            {loading ? "" : <p>Empieza a explorar para añadir animes a tu biblioteca</p>}
+          <div className={styles.welcomeContainer}>
+            {loading ? "" : <h1>Bienvenido a Zoku</h1>}
+            <div className={styles.welcomeHeader}>
+              {loading ? "" : <p>Agrega una carpeta para empezar o explora para añadir animes a tu biblioteca</p>}
+            </div>
+            {loading ? (
+              ""
+            ) : (
+              <div className={styles.welcomeButtons}>
+                <Link to="/library">
+                  <Button>Añadir carpeta</Button>
+                </Link>
+                <Link to="/discover">
+                  <Button>Explorar animes</Button>
+                </Link>
+              </div>
+            )}
           </div>
           <Carousel title="Animes en emisión" animes={airingAnimes.data || []} loading={loading} />
           <Carousel title="Recomendaciones" animes={recommendations} loading={loading} />

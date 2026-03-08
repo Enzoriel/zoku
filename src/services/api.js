@@ -17,6 +17,15 @@ async function safeFetch(url) {
   return response.json();
 }
 
+// Top animes
+export async function getTopAnime(page = 1, filter = "") {
+  const data = await safeFetch(`${url}/top/anime?page=${page}&limit=24${filter ? `&filter=${filter}` : ""}&sfw=true`);
+  return {
+    data: data.data || [],
+    pagination: data.pagination || {},
+  };
+}
+
 // Animes en emisión
 export async function getSeasonNow(page = 1, filter = "tv") {
   const data = await safeFetch(`${url}/seasons/now?page=${page}&limit=24&filter=${filter}&sfw=true`);
@@ -38,6 +47,7 @@ export async function searchAnime(query, page = 1) {
 // Obtener recomendaciones recientes
 export async function getRecentAnimeRecommendations() {
   const data = await safeFetch(`${url}/recommendations/anime?sfw=true`);
+  console.log("Recommendations data:", data);
   const recommendations = data.data || [];
 
   // Extraer los animes únicos de las recomendaciones (cada recomendación tiene un array 'entry' con 2 animes)
@@ -50,9 +60,9 @@ export async function getRecentAnimeRecommendations() {
         seenIds.add(anime.mal_id);
         uniqueAnimes.push(anime);
       }
-      if (uniqueAnimes.length >= 30) break;
+      if (uniqueAnimes.length >= 50) break;
     }
-    if (uniqueAnimes.length >= 30) break;
+    if (uniqueAnimes.length >= 50) break;
   }
 
   return uniqueAnimes;

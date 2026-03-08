@@ -1,8 +1,13 @@
 import styles from "./Button.module.css";
 
-function Button({ children, onClick, variant = "primary", className = "" }) {
+function Button({ children, onClick, color = "", hoverColor = "", className = "" }) {
+  const customStyles = {
+    "--bg-color": color,
+    "--hover-color": hoverColor,
+  };
+
   return (
-    <button className={`${styles.button} ${styles[variant]} ${className}`} onClick={onClick}>
+    <button className={`${styles.btn} ${className}`} onClick={onClick} style={customStyles}>
       {children}
     </button>
   );

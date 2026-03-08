@@ -6,20 +6,44 @@
   scrollbar-gutter: stable;
 }
 
-.welcome {
+.welcome h1 {
+  font-family: "Saira-BlackItalic", sans-serif;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 3px 3px 0px var(--primary-color);
+  margin-bottom: 20px;
+  margin-top: 0;
+  letter-spacing: -2px;
+  position: relative;
+  z-index: 2;
+}
+
+.welcomeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 20px;
+  padding: 40px 0;
+}
+
+.welcomeButtons {
   display: flex;
   justify-content: center;
-  text-align: center;
-  flex-direction: column;
-  gap: 24px;
-  padding: 0;
+  align-items: center;
+  gap: 20px;
+}
+
+.welcomeButtons a {
+  text-decoration: none;
 }
 
 .welcomeHeader {
   display: flex;
   justify-content: center;
-  margin-top: 30px;
   position: relative;
+  width: 100%;
 }
 
 .welcomeHeader::before {
@@ -40,7 +64,7 @@
   font-size: clamp(1rem, 1.5vw, 1.5rem);
   color: white;
   background-color: var(--primary-color);
-  padding: 0.1vw 1vw;
+  padding: 1vw 1vw;
   text-transform: uppercase;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 3px 3px 0px var(--secondary-color);

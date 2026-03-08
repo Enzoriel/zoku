@@ -1,0 +1,34 @@
+.btn {
+  font-family: "Saira-Bold", sans-serif;
+  font-size: 18px;
+  color: #08080c;
+  background: #ffff00;
+  border: none;
+  border-radius: 0px;
+  padding: 10px 15px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  transition:
+    background 0.2s,
+    transform 0.15s,
+    box-shadow 0.15s;
+  box-shadow:
+    3px 3px 0 #000,
+    6px 6px 0 #ff0000;
+}
+
+.btn:hover {
+  transform: translate(-3px, -3px);
+  box-shadow:
+    6px 6px 0 #000,
+    10px 10px 0 #ff0000;
+  background: white;
+}
+
+.btn:active {
+  transform: translate(3px, 3px);
+  box-shadow:
+    0 0 0 #000,
+    0 0 0 #ff0000;
+}
