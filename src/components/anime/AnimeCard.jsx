@@ -23,7 +23,7 @@ function AnimeCard({ anime, showAddButton = false, onAdd }) {
           <LoadingSpinner size={40} />
         </div>
         <div className={styles.info}>
-          <div style={{ width: "80%", height: "20px", background: "rgba(255,255,255,0.1)", borderRadius: "4px" }}></div>
+          <div></div>
         </div>
       </div>
     );
@@ -42,7 +42,7 @@ function AnimeCard({ anime, showAddButton = false, onAdd }) {
 
     const animeData = {
       malId: animeId,
-      title: anime.title_english || anime.title,
+      title: anime.title || anime.title_english,
       coverImage: anime.images?.jpg?.large_image_url,
       totalEpisodes: fullAnime.episodes,
       episodeDuration: parseDuration(fullAnime.duration),
@@ -78,7 +78,14 @@ function AnimeCard({ anime, showAddButton = false, onAdd }) {
         <img src={image} alt={anime.title} className={styles.image} />
       </div>
       <div className={styles.info}>
-        <h3 className={styles.title}>{anime.title_english || anime.title}</h3>
+        <h3 className={styles.title}>{anime.title || anime.title_english}</h3>
+        <div className={styles.genres}>
+          {anime.genres?.map((genre) => (
+            <span key={genre.name} className={styles.genre}>
+              {genre.name}
+            </span>
+          ))}
+        </div>
         {showAddButton && !isInLibrary && (
           <button className={styles.addButton} onClick={handleAddToLibrary}>
             + Añadir

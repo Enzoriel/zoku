@@ -28,10 +28,6 @@
   transition: transform 0.4s ease;
 }
 
-.card:hover .image {
-  transform: scale(1.03);
-}
-
 .progress {
   position: absolute;
   bottom: 10px;
@@ -56,22 +52,17 @@
   right: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: space-around;
+  padding: 10px;
   gap: 4px;
-  padding: 45px 15px 15px;
   opacity: 0;
   transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
   transform: translateY(100%);
   z-index: 5;
-
-  /* Fondo Espacial: Negro translúcido + Blur */
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.7) 50%, transparent 100%);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-
-  /* Máscara para desvanecer el blur en el top (20% aprox) */
-  mask-image: linear-gradient(to top, black 75%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, black 75%, transparent 100%);
+  background-color: rgba(0, 0, 0, 0.7);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
 }
 
 .card:hover .info {
@@ -84,10 +75,35 @@
   font-size: 1.2rem;
   color: #ffffff;
   margin: 0;
-  white-space: wrap;
+  text-align: center;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
   transition: color 0.3s ease;
+}
+
+.genres {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  text-align: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+  padding: 5px;
+}
+
+.genres span {
+  font-size: 0.6rem;
+  color: #000;
+  font-weight: 700;
+  padding: 0 4px;
+  text-transform: uppercase;
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 1px 1px 0px var(--primary-color);
 }
 
 .episodes {
