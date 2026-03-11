@@ -29,15 +29,23 @@ export async function getTopAnime(page = 1, filter = "") {
 // Animes en emisión
 export async function getSeasonNow(page = 1, filter = "tv") {
   const data = await safeFetch(`${url}/seasons/now?page=${page}&limit=24&filter=${filter}&sfw=true`);
+  const malIds = new Set();
+  const animes = [];
+  data.data.forEach((anime) => {
+    if (anime.mal_id && !malIds.has(anime.mal_id)) {
+      malIds.add(anime.mal_id);
+      animes.push(anime);
+    }
+  });
   return {
-    data: data.data || [],
+    data: animes || [],
     pagination: data.pagination || {},
   };
 }
 
 // Buscar anime por nombre
 export async function searchAnime(query, page = 1) {
-  const data = await safeFetch(`${url}/anime?q=${query}&page=${page}&limit=24`);
+  const data = await safeFetch(`${url}/anime?q=${query}&page=${page}&limit=24&sfw=true`);
   return {
     data: data.data || [],
     pagination: data.pagination || {},

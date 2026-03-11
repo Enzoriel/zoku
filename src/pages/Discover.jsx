@@ -1,25 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
-import { getSeasonNow, searchAnime } from "../services/api";
-import SearchBar from "../components/anime/SearchBar";
-import AnimeGrid from "../components/anime/AnimeGrid";
+import { getSeasonNow } from "../services/api";
+import AnimeList from "../components/anime/AnimeList";
 import styles from "./Discover.module.css";
 
 function Discover() {
   const [animes, setAnimes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
+  const [type, setType] = useState("tv");
 
-  const loadAnimes = useCallback(async (currentQuery, currentPage) => {
+  const loadAnimes = useCallback(async (currentPage, currentType) => {
     setLoading(true);
     try {
-      let result;
-      if (currentQuery.trim()) {
-        result = await searchAnime(currentQuery, currentPage);
-      } else {
-        result = await getSeasonNow(currentPage);
-      }
+      const result = await getSeasonNow(currentPage, currentType);
       setAnimes(result.data);
       setPagination(result.pagination);
     } catch (error) {
@@ -30,13 +24,14 @@ function Discover() {
   }, []);
 
   useEffect(() => {
-    loadAnimes(query, page);
-  }, [query, page, loadAnimes]);
+    loadAnimes(page, type);
+    console.log(animes);
+  }, [page, type, loadAnimes]);
 
-  const handleSearch = (newQuery) => {
-    if (newQuery !== query) {
-      setQuery(newQuery);
-      setPage(1); // Reset page on new search
+  const handleTypeChange = (newType) => {
+    if (newType !== type) {
+      setType(newType);
+      setPage(1);
     }
   };
 
@@ -56,18 +51,41 @@ function Discover() {
 
   return (
     <div className={styles.discover}>
-      <h1 className={styles.title}>
-        <svg style={{ width: "34px", height: "34px" }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 18.5V5.5L22 12L16 18.5Z" fill="white" />
-          <path d="M9 18.5V5.5L15 12L9 18.5Z" fill="white" fillOpacity="0.7" />
-          <path d="M2 18.5V5.5L8 12L2 18.5Z" fill="white" fillOpacity="0.4" />
-        </svg>
-        Descubrir
-      </h1>
-
-      <div style={{ padding: "0 20px" }}>
-        <SearchBar onSearch={handleSearch} isLoading={loading} />
-
+      <div className={styles.toggleGroup}>
+        <div className={styles.buttonsContainer}>
+          <button
+            className={`${styles.toggleButton} ${type === "tv" ? styles.active : ""}`}
+            onClick={() => handleTypeChange("tv")}
+          >
+            TV
+          </button>
+          <button
+            className={`${styles.toggleButton} ${type === "movie" ? styles.active : ""}`}
+            onClick={() => handleTypeChange("movie")}
+          >
+            Movie
+          </button>
+          <button
+            className={`${styles.toggleButton} ${type === "ova" ? styles.active : ""}`}
+            onClick={() => handleTypeChange("ova")}
+          >
+            OVA
+          </button>
+          <button
+            className={`${styles.toggleButton} ${type === "ona" ? styles.active : ""}`}
+            onClick={() => handleTypeChange("ona")}
+          >
+            ONA
+          </button>
+          <button
+            className={`${styles.toggleButton} ${type === "special" ? styles.active : ""}`}
+            onClick={() => handleTypeChange("special")}
+          >
+            Special
+          </button>
+        </div>
+      </div>
+      <div>
         {loading ? (
           <div className={styles.loadingContainer}>
             <div className="loader"></div>
@@ -75,7 +93,7 @@ function Discover() {
           </div>
         ) : (
           <>
-            <AnimeGrid animes={animes} />
+            <AnimeList animes={animes} />
 
             <div className={styles.pagination}>
               <button onClick={handlePrevPage} disabled={page === 1} className={styles.pageButton}>

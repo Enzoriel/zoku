@@ -20,7 +20,7 @@ function Dashboard() {
         const [airing, recs] = await Promise.all([getSeasonNow(), getRecentAnimeRecommendations()]);
         setAiringAnimes(airing);
         setRecommendations(recs);
-        console.log(airing);
+        console.log(recs);
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -55,7 +55,7 @@ function Dashboard() {
             )}
           </div>
           <Carousel title="Animes en emisión" animes={airingAnimes.data || []} loading={loading} />
-          <Carousel title="Recomendaciones" animes={recommendations} loading={loading} />
+          <Carousel title="Recomendaciones" animes={recommendations || []} loading={loading} />
         </section>
       ) : (
         <>

@@ -79,13 +79,15 @@ function AnimeCard({ anime, showAddButton = false, onAdd }) {
       </div>
       <div className={styles.info}>
         <h3 className={styles.title}>{anime.title || anime.title_english}</h3>
-        <div className={styles.genres}>
-          {anime.genres?.map((genre) => (
-            <span key={genre.name} className={styles.genre}>
-              {genre.name}
-            </span>
-          ))}
-        </div>
+        {anime.genres && (
+          <div className={styles.genres}>
+            {anime.genres?.map((genre) => (
+              <span key={genre.name} className={styles.genre}>
+                {genre.name}
+              </span>
+            ))}
+          </div>
+        )}
         {showAddButton && !isInLibrary && (
           <button className={styles.addButton} onClick={handleAddToLibrary}>
             + Añadir

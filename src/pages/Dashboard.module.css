@@ -7,7 +7,8 @@
 }
 
 .welcome h1 {
-  font-family: "Saira-BlackItalic", sans-serif;
+  font-weight: 900;
+  font-style: italic;
   font-size: clamp(2.5rem, 5vw, 4rem);
   text-transform: uppercase;
   color: #ffffff;
@@ -60,12 +61,10 @@
 
 .welcome p {
   position: relative;
-  font-family: "Saira-Bold", sans-serif;
   font-size: clamp(1rem, 1.5vw, 1.5rem);
   color: white;
   background-color: var(--primary-color);
   padding: 1vw 1vw;
-  text-transform: uppercase;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 3px 3px 0px var(--secondary-color);
 }

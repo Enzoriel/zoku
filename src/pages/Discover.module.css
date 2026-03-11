@@ -5,18 +5,78 @@
   animation: fadeIn 0.8s ease-out;
 }
 
-.title {
-  font-family: "Saira-Bold";
-  font-size: 1.5rem;
-  text-transform: uppercase;
-  margin-bottom: 30px;
-  color: #ffffff;
+.toggleGroup {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 12px;
-  background-color: var(--primary-color);
-  box-shadow: 3px 3px 0px var(--secondary-color);
-  padding: 10px 50px;
+  padding: 15px;
+  margin: 20px 0;
+}
+
+.buttonsContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: white;
+  border-radius: 50px;
+  overflow: hidden;
+  box-shadow:
+    3px 3px 0 #000,
+    6px 6px 0 #ff0000;
+}
+
+.toggleButton {
+  position: relative;
+  color: #727272;
+  border-radius: 0;
+  border: none;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  background-color: transparent;
+  box-shadow: 0 0 0;
+  border-right: 2px solid black;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.toggleButton::after {
+  content: "";
+  position: absolute;
+  border-right: 2px solid var(--secondary-color);
+  outline: 2px solid var(--secondary-color);
+  outline-offset: 3px;
+  width: 100%;
+  height: 0%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  background-color: var(--secondary-color);
+  transition:
+    height 0.4s ease,
+    opacity 0.1s ease;
+  z-index: -1;
+}
+
+.toggleButton:hover::after {
+  height: 100%;
+  opacity: 1;
+}
+
+.toggleButton:last-child {
+  border-right: none;
+}
+
+.toggleButton:hover {
+  color: #000;
+  font-size: 1.2rem;
+}
+
+.toggleButton.active {
+  background-color: var(--secondary-color);
+  color: #000;
+  font-size: 1.2rem;
 }
 
 .loadingContainer {

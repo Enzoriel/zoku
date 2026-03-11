@@ -1,32 +1,33 @@
 @font-face {
   font-family: "Saira-Black";
   src: url("./assets/fonts/Saira-Black.ttf") format("woff2");
-  font-weight: 400;
 }
 
 @font-face {
   font-family: "Saira-Bold";
   src: url("./assets/fonts/Saira-Bold.ttf") format("woff2");
-  font-weight: 700;
 }
 
 @font-face {
   font-family: "Saira-BlackItalic";
   src: url("./assets/fonts/Saira-BlackItalic.ttf") format("woff2");
-  font-weight: 900;
 }
 
 @font-face {
   font-family: "Saira-BoldItalic";
   src: url("./assets/fonts/Saira-BoldItalic.ttf") format("woff2");
-  font-weight: 900;
+}
+
+@font-face {
+  font-family: "Tektur";
+  src: url("./assets/fonts/Tektur.ttf") format("woff2");
 }
 
 :root {
-  font-family: "Saira-Regular", sans-serif;
+  font-family: "Tektur", sans-serif;
+  font-weight: 500;
   font-size: 16px;
   line-height: 24px;
-  font-weight: 700;
 
   color: #f6f6f6;
   background-color: #000000;
@@ -241,14 +242,6 @@ button {
 
 button {
   cursor: pointer;
-}
-
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
 }
 
 input,
