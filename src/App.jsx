@@ -7,6 +7,7 @@ import Search from "./pages/Search";
 import Library from "./pages/Library";
 import Stats from "./pages/Stats";
 import Configuration from "./pages/Configuration";
+import AnimeDetails from "./pages/AnimeDetails";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="library" element={<Library />} />
           <Route path="stats" element={<Stats />} />
           <Route path="configuration" element={<Configuration />} />
+          <Route path="anime/:id" element={<AnimeDetails />} />
         </Route>
       </Routes>
     </BrowserRouter>

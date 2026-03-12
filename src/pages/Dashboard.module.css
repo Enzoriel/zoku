@@ -3,7 +3,6 @@
   min-height: calc(100vh - 70px);
   color: #ffffff;
   animation: fadeIn 0.8s ease-out;
-  scrollbar-gutter: stable;
 }
 
 .welcome h1 {

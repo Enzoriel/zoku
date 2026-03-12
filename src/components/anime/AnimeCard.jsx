@@ -3,7 +3,7 @@ import { useStore } from "../../hooks/useStore";
 import styles from "./AnimeCard.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
-function AnimeCard({ anime, showAddButton = false, onAdd }) {
+function AnimeCard({ anime, showAddButton = false, onAdd, type = false }) {
   const navigate = useNavigate();
   const { data, setMyAnimes } = useStore();
 
@@ -75,6 +75,7 @@ function AnimeCard({ anime, showAddButton = false, onAdd }) {
   return (
     <div className={styles.card} onClick={handleClick}>
       <div className={styles.imageWrapper}>
+        {type && <span className={styles.type}>{anime.type}</span>}
         <img src={image} alt={anime.title} className={styles.image} />
       </div>
       <div className={styles.info}>

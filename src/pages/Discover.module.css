@@ -21,21 +21,22 @@
   border-radius: 50px;
   overflow: hidden;
   box-shadow:
-    3px 3px 0 #000,
-    6px 6px 0 #ff0000;
+    2px 2px 0 #000,
+    4px 4px 0 #ff0000;
 }
 
 .toggleButton {
+  font-family: "Tektur";
+  font-size: 17px;
   position: relative;
   color: #727272;
   border-radius: 0;
   border: none;
+  padding: 10px 15px;
+  border-right: 2px solid #000;
   font-weight: 700;
-  text-transform: uppercase;
   transition: all 0.3s ease;
   background-color: transparent;
-  box-shadow: 0 0 0;
-  border-right: 2px solid black;
   overflow: hidden;
   z-index: 1;
 }
@@ -44,23 +45,27 @@
   content: "";
   position: absolute;
   border-right: 2px solid var(--secondary-color);
-  outline: 2px solid var(--secondary-color);
-  outline-offset: 3px;
-  width: 100%;
+  width: 0%;
   height: 0%;
   top: 50%;
   left: 50%;
+  border-radius: 100px;
   transform: translate(-50%, -50%);
   opacity: 0;
   background-color: var(--secondary-color);
   transition:
-    height 0.4s ease,
-    opacity 0.1s ease;
+    width 0.2s ease,
+    height 0.2s ease,
+    opacity 0.2s ease,
+    border-radius 0.2s ease;
   z-index: -1;
 }
 
 .toggleButton:hover::after {
+  animation: fadeInOut 0.7s ease infinite;
+  width: 100%;
   height: 100%;
+  border-radius: 0px;
   opacity: 1;
 }
 
@@ -70,13 +75,11 @@
 
 .toggleButton:hover {
   color: #000;
-  font-size: 1.2rem;
 }
 
 .toggleButton.active {
   background-color: var(--secondary-color);
   color: #000;
-  font-size: 1.2rem;
 }
 
 .loadingContainer {
@@ -88,46 +91,6 @@
   gap: 20px;
 }
 
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-  margin: 40px 0;
-  padding: 20px;
-}
-
-.pageButton {
-  background-color: transparent;
-  border: 2px solid #333;
-  color: #fff;
-  padding: 10px 25px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: "Saira-Bold", sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  transition: all 0.3s ease;
-}
-
-.pageButton:hover:not(:disabled) {
-  background-color: #fff;
-  color: #000;
-  border-color: #fff;
-}
-
-.pageButton:disabled {
-  opacity: 0.2;
-  cursor: not-allowed;
-}
-
-.pageInfo {
-  color: rgba(255, 255, 255, 0.5);
-  font-family: "Saira-Bold", sans-serif;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -136,5 +99,17 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.3;
   }
 }

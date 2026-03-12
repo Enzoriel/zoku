@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSeasonNow } from "../services/api";
 import AnimeList from "../components/anime/AnimeList";
+import Pagination from "../components/ui/Pagination";
 import styles from "./Discover.module.css";
 
 function Discover() {
@@ -25,7 +26,6 @@ function Discover() {
 
   useEffect(() => {
     loadAnimes(page, type);
-    console.log(animes);
   }, [page, type, loadAnimes]);
 
   const handleTypeChange = (newType) => {
@@ -49,6 +49,13 @@ function Discover() {
     }
   };
 
+  const handlePageClick = (pageNumber) => {
+    if (page !== pageNumber) {
+      setPage(pageNumber);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <div className={styles.discover}>
       <div className={styles.toggleGroup}>
@@ -58,6 +65,12 @@ function Discover() {
             onClick={() => handleTypeChange("tv")}
           >
             TV
+          </button>
+          <button
+            className={`${styles.toggleButton} ${type === "tv_special" ? styles.active : ""}`}
+            onClick={() => handleTypeChange("tv_special")}
+          >
+            TV Special
           </button>
           <button
             className={`${styles.toggleButton} ${type === "movie" ? styles.active : ""}`}
@@ -89,23 +102,17 @@ function Discover() {
         {loading ? (
           <div className={styles.loadingContainer}>
             <div className="loader"></div>
-            <div className="pulse" style={{ width: "100%", height: "400px", borderRadius: "8px" }}></div>
+            <div className="pulse"></div>
           </div>
         ) : (
           <>
-            <AnimeList animes={animes} />
+            <AnimeList animes={animes} type={true} />
 
-            <div className={styles.pagination}>
-              <button onClick={handlePrevPage} disabled={page === 1} className={styles.pageButton}>
-                Anterior
-              </button>
-              <span className={styles.pageInfo}>
-                Página {page} {pagination.last_visible_page ? `de ${pagination.last_visible_page}` : ""}
-              </span>
-              <button onClick={handleNextPage} disabled={!pagination.has_next_page} className={styles.pageButton}>
-                Siguiente
-              </button>
-            </div>
+            <Pagination 
+              currentPage={page} 
+              totalPages={pagination.last_visible_page} 
+              onPageChange={handlePageClick} 
+            />
           </>
         )}
       </div>

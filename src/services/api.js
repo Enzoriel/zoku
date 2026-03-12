@@ -28,7 +28,7 @@ export async function getTopAnime(page = 1, filter = "") {
 
 // Animes en emisión
 export async function getSeasonNow(page = 1, filter = "tv") {
-  const data = await safeFetch(`${url}/seasons/now?page=${page}&limit=24&filter=${filter}&sfw=true`);
+  const data = await safeFetch(`${url}/seasons/now?page=${page}&limit=20&filter=${filter}&sfw=true`);
   const malIds = new Set();
   const animes = [];
   data.data.forEach((anime) => {
@@ -37,6 +37,7 @@ export async function getSeasonNow(page = 1, filter = "tv") {
       animes.push(anime);
     }
   });
+  console.log("ESTOS SON LOS RESULTADOS:", animes);
   return {
     data: animes || [],
     pagination: data.pagination || {},

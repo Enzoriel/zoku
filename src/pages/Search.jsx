@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { searchAnime } from "../services/api";
 import SearchBar from "../components/anime/SearchBar";
 import AnimeList from "../components/anime/AnimeList";
+import Pagination from "../components/ui/Pagination";
 import styles from "./Search.module.css";
 
 function Search() {
@@ -41,20 +42,10 @@ function Search() {
     }
   };
 
-  const handleNextPage = () => {
-    if (pagination.has_next_page) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      loadResults(query, nextPage);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (page > 1) {
-      const prevPage = page - 1;
-      setPage(prevPage);
-      loadResults(query, prevPage);
+  const handlePageChange = (newPage) => {
+    if (page !== newPage) {
+      setPage(newPage);
+      loadResults(query, newPage);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -71,19 +62,13 @@ function Search() {
           </div>
         ) : hasSearched ? (
           <>
-            <AnimeList animes={animes} />
+            <AnimeList animes={animes} type={true} />
 
-            <div className={styles.pagination}>
-              <button onClick={handlePrevPage} disabled={page === 1} className={styles.pageButton}>
-                Anterior
-              </button>
-              <span className={styles.pageInfo}>
-                Página {page} {pagination.last_visible_page ? `de ${pagination.last_visible_page}` : ""}
-              </span>
-              <button onClick={handleNextPage} disabled={!pagination.has_next_page} className={styles.pageButton}>
-                Siguiente
-              </button>
-            </div>
+            <Pagination 
+              currentPage={page} 
+              totalPages={pagination.last_visible_page} 
+              onPageChange={handlePageChange} 
+            />
           </>
         ) : (
           <div className={styles.emptyState}>

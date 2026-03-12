@@ -3,7 +3,7 @@
   font-weight: 600;
   font-size: 16px;
   color: #08080c;
-  background: #ffff00;
+  background: white;
   border: none;
   border-radius: 0px;
   padding: 10px 15px;
@@ -24,7 +24,7 @@
   box-shadow:
     6px 6px 0 #000,
     10px 10px 0 #ff0000;
-  background: white;
+  background: var(--secondary-color);
 }
 
 .btn:active {
@@ -32,4 +32,21 @@
   box-shadow:
     0 0 0 #000,
     0 0 0 #ff0000;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:hover:not(:disabled) {
+  color: #000;
+}
+
+.btn:disabled:hover {
+  background-color: white;
+  transform: none;
+  box-shadow:
+    3px 3px 0 #000,
+    6px 6px 0 #ff0000;
 }
