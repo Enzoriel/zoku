@@ -1,81 +1,122 @@
 .library {
-  padding: 32px;
+  padding: 40px 60px;
   min-height: 100vh;
-  animation: fadeIn 0.6s ease-out;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.header {
+  margin-bottom: 40px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
 }
 
-.title {
-  font-family: "Saira-Black", sans-serif;
-  font-size: 3rem;
-  color: white;
-  margin-bottom: 4px;
+.titleGroup h1 {
+  font-family: 'Saira-BlackItalic', sans-serif;
+  font-size: 3.5rem;
+  margin: 0;
   text-transform: uppercase;
-  letter-spacing: -1px;
+  letter-spacing: 2px;
+  color: white;
   line-height: 1;
 }
 
-.count {
-  font-family: "Tektur", sans-serif;
-  color: rgba(255, 255, 255, 0.4);
-  margin-bottom: 40px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.titleGroup p {
+  font-family: 'Tektur', sans-serif;
+  color: var(--primary-color);
+  font-size: 0.8rem;
+  margin-top: 10px;
+  letter-spacing: 4px;
 }
 
-.count::after {
-  content: "";
+/* Vault Stats */
+.statsRow {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.statCard {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 20px 30px;
+  border-radius: 12px;
   flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(255, 30, 30, 0.4), transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.statValue {
+  font-family: 'Odibee', sans-serif;
+  font-size: 2.5rem;
+  color: #fff;
+}
+
+.statLabel {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 5px;
+  border-radius: 8px;
+  width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.tab.activeTab {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 4px 15px rgba(255, 30, 30, 0.3);
+}
+
+/* Grid & Content */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 30px;
 }
 
 .empty {
+  height: 40vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   text-align: center;
-  padding: 100px 20px;
-  color: rgba(255, 255, 255, 0.3);
-  font-family: "Tektur", sans-serif;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 2px dashed rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
 }
 
-.empty p:first-child {
-  font-family: "Saira-Bold", sans-serif;
-  font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 8px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 32px;
-}
-
-/* Responsive adjustments */
 @media (max-width: 768px) {
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 16px;
-  }
-
-  .title {
-    font-size: 2.2rem;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 }

@@ -42,7 +42,6 @@
   flex: 1;
   display: flex;
   gap: 30px;
-  overflow: hidden;
   scroll-behavior: smooth;
   scrollbar-width: none;
   padding: 10px 25px;

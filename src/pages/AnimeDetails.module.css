@@ -56,7 +56,7 @@
   width: 100%;
 }
 
-.linkButton, .updateButton {
+.linkButton, .updateButton, .changeLinkButton, .removeLinkButton {
   width: 100%;
   padding: 14px;
   border-radius: 8px;
@@ -74,15 +74,40 @@
 
 .updateButton {
   background: #21262d;
-  color: var(--primary-color);
-  border: 1px solid var(--primary-color);
+  color: var(--secondary-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.changeLinkButton {
+  background: rgba(33, 150, 243, 0.1);
+  color: #2196f3;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  font-size: 0.75rem;
+  padding: 10px;
+}
+
+.removeLinkButton {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  padding: 10px;
 }
 
 .updateButton:hover:not(:disabled) {
-  background: var(--primary-color);
-  color: #fff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(255, 30, 30, 0.3);
+  background: var(--secondary-color);
+  color: #000;
+}
+
+.changeLinkButton:hover {
+  background: #2196f3;
+  color: white;
+}
+
+.removeLinkButton:hover {
+  background: #ff1e1e;
+  color: white;
+  border-color: #ff1e1e;
 }
 
 .linkButton:hover:not(:disabled) {
@@ -91,11 +116,137 @@
   filter: brightness(1.1);
 }
 
+
 .lastUpdate {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.4);
   text-align: center;
   font-family: 'Tektur', sans-serif;
+}
+
+/* BÓVEDA CONTROLS */
+.vaultControls {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.vaultGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.vaultItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vaultItem label {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.6rem;
+  color: var(--primary-color);
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.vaultValue {
+  background: #1a1a1a;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'Saira', sans-serif;
+  font-size: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.statusBadgeValue {
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-family: 'Tektur', sans-serif;
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.statusBadgeValue.watching {
+  background: rgba(255, 30, 30, 0.1);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+.statusBadgeValue.completed {
+  background: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+  border: 1px solid #4caf50;
+}
+
+.statusBadgeValue.paused {
+  background: rgba(255, 152, 0, 0.1);
+  color: #ff9800;
+  border: 1px solid #ff9800;
+}
+
+.statusBadgeValue.dropped {
+  background: rgba(117, 117, 117, 0.1);
+  color: #757575;
+  border: 1px solid #757575;
+}
+
+.statusBadgeValue.plan_to_watch {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.historySection {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 15px;
+}
+
+.historySection label {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.historyItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.01);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: 'Saira', sans-serif;
+}
+
+.histEp {
+  font-family: 'Tektur', sans-serif;
+  font-weight: 800;
+  color: #fff;
+}
+
+.histDate {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 /* Stats Grid */
@@ -317,7 +468,8 @@
 .epMeta {
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .epDate {
@@ -337,10 +489,194 @@
   letter-spacing: 1px;
 }
 
-.watched { background: rgba(46, 125, 50, 0.1); color: #4caf50; border: 1px solid rgba(46, 125, 50, 0.2); }
+/* Estados de episodio */
+.watched { background: rgba(46, 125, 50, 0.12); color: #4caf50; border: 1px solid rgba(46, 125, 50, 0.25); }
 .downloaded { background: rgba(33, 150, 243, 0.1); color: #2196f3; border: 1px solid rgba(33, 150, 243, 0.2); }
-.pending { background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); }
+.pending { background: rgba(255, 255, 255, 0.04); color: rgba(255, 255, 255, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); }
+.local { background: rgba(255, 193, 7, 0.1); color: #ffc107; border: 1px solid rgba(255, 193, 7, 0.2); }
 .upcoming { background: transparent; color: rgba(255, 255, 255, 0.2); border: 1px dashed rgba(255, 255, 255, 0.1); }
+
+/* Fila episodio visto */
+.episodeWatchedRow {
+  opacity: 0.65;
+  background: rgba(46, 125, 50, 0.04) !important;
+}
+.episodeWatchedRow:hover {
+  opacity: 1;
+}
+
+/* Fila episodio reproduciéndose */
+.episodePlayingRow {
+  background: rgba(255, 193, 7, 0.06) !important;
+  border-color: rgba(255, 193, 7, 0.25) !important;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.timerBadgeBtn {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: pulse 1.2s ease-in-out infinite;
+  transition: all 0.2s ease;
+}
+
+.timerBadgeBtn:hover {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: #ffc107;
+  animation: none;
+  transform: scale(1.02);
+}
+
+.cancelLink {
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.55rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.timerBadgeBtn:hover .cancelLink {
+  background: #ffc107;
+  color: #000;
+}
+
+/* Botón toggle visto */
+.watchToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.watchToggle:hover {
+  border-color: #4caf50;
+  color: #4caf50;
+  background: rgba(46, 125, 50, 0.15);
+  transform: scale(1.1);
+}
+
+.watchToggleWatched {
+  background: rgba(46, 125, 50, 0.2);
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+.watchToggleWatched:hover {
+  background: rgba(255, 30, 30, 0.15);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* Contador de episodios en título de sección */
+.epCountBadge {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  text-transform: none;
+}
+
+/* Barra de progreso */
+.progressBox {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progressTextSide {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progressLabel {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 1px;
+}
+
+.cleanGhostsBtn {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  color: #ffc107;
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.cleanGhostsBtn:hover {
+  background: #ffc107;
+  color: #000;
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(255, 193, 7, 0.2);
+}
+
+
+.progressFraction {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #4caf50;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #81c784);
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Local episode row */
+.localEp {
+  border-color: rgba(255, 193, 7, 0.1);
+}
 
 /* Modal Styles */
 .modalOverlay {

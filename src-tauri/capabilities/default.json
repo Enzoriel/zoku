@@ -8,6 +8,12 @@
   "permissions": [
     "core:default",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        { "path": "**" }
+      ]
+    },
     "store:default",
     "dialog:default",
     "fs:allow-exists",
@@ -23,6 +29,19 @@
       ]
     },
     "shell:allow-open",
-    "shell:default"
+    "shell:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "powershell",
+          "cmd": "powershell",
+          "args": [
+            "-Command",
+            { "validator": ".+" }
+          ]
+        }
+      ]
+    }
   ]
 }

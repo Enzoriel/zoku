@@ -8,21 +8,25 @@ export function StoreProvider({ children }) {
     folderPath: "",
     myAnimes: {},
     localFiles: {},
+    settings: {
+      player: "mpv" // Reproductor por defecto
+    }
   });
   const [loading, setLoading] = useState(true);
   
-  // Cola de escritura para evitar colisiones en el disco
+  // Cola de escritura secuencial para evitar race conditions al persistir en disco
   const storeWritePromise = useRef(Promise.resolve());
 
-  // Cargar datos iniciales
+
   useEffect(() => {
     async function loadData() {
       try {
         const folderPath = (await getStore("folderPath")) || "";
         const myAnimes = (await getStore("myAnimes")) || {};
         const localFiles = (await getStore("localFiles")) || {};
+        const settings = (await getStore("settings")) || { player: "mpv" };
 
-        setData({ folderPath, myAnimes, localFiles });
+        setData({ folderPath, myAnimes, localFiles, settings });
       } catch (error) {
         console.error("[Store] Error al cargar datos:", error);
       } finally {
@@ -32,7 +36,6 @@ export function StoreProvider({ children }) {
     loadData();
   }, []);
 
-  // Función genérica para actualizar el store y el estado
   const updateStore = useCallback(async (key, valueOrAction) => {
     storeWritePromise.current = storeWritePromise.current.then(async () => {
       try {
@@ -51,13 +54,15 @@ export function StoreProvider({ children }) {
   const setFolderPath = useCallback((path) => updateStore("folderPath", path), [updateStore]);
   const setMyAnimes = useCallback((action) => updateStore("myAnimes", action), [updateStore]);
   const setLocalFiles = useCallback((files) => updateStore("localFiles", files), [updateStore]);
+  const setSettings = useCallback((settings) => updateStore("settings", settings), [updateStore]);
 
   const value = {
     data,
     loading,
     setFolderPath,
     setMyAnimes,
-    setLocalFiles
+    setLocalFiles,
+    setSettings
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

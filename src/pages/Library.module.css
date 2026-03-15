@@ -1,0 +1,383 @@
+.container {
+  padding: 40px;
+  min-height: 100vh;
+  background: #0d1117;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 50px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 30px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 15px;
+}
+
+.header h1 {
+  font-family: 'Saira-BlackItalic', sans-serif;
+  font-size: 2.5rem;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: white;
+}
+
+.viewToggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.viewToggle button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.viewToggle button.activeView {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 0 10px rgba(255, 30, 30, 0.3);
+}
+
+.path {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0;
+}
+
+.path span {
+  color: var(--secondary-color);
+  opacity: 0.8;
+}
+
+.headerActions {
+  display: flex;
+  gap: 15px;
+}
+
+/* Secciones */
+.section {
+  margin-bottom: 60px;
+}
+
+.sectionTitle {
+  font-family: 'Saira-Black', sans-serif;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.sectionTitle::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent);
+}
+
+.sectionTitle span {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.8rem;
+  color: var(--primary-color);
+  font-weight: 400;
+}
+
+/* Grid & List Layouts */
+.folderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 30px;
+}
+
+.folderList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Card Styles (Grid) */
+.animeCard {
+  background: #161b22;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.animeCard:hover {
+  transform: translateY(-8px);
+  border-color: var(--primary-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.posterWrapper {
+  position: relative;
+  aspect-ratio: 2/3;
+  background: #0d1117;
+  overflow: hidden;
+}
+
+.posterImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.animeCard:hover .posterImage {
+  transform: scale(1.15) rotate(2deg);
+}
+
+.folderIcon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #30363d;
+}
+
+.folderIcon svg {
+  width: 50%;
+  opacity: 0.5;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 20%, transparent 80%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 15px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.animeCard:hover .overlay {
+  opacity: 1;
+}
+
+.cardActions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actionBtn {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.actionBtn:hover {
+  background: var(--primary-color);
+  border-color: white;
+  transform: scale(1.1);
+}
+
+.actionBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.folderRealName {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardInfo {
+  padding: 15px;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cardTitle {
+  font-family: 'Saira', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+  color: #fff;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.epCount {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  background: rgba(255, 30, 30, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.cardMeta {
+  display: flex;
+  gap: 8px;
+}
+
+.typeBadge {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.6rem;
+  color: var(--secondary-color);
+  letter-spacing: 0.5px;
+}
+
+.localBadge {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 800;
+}
+
+/* List Item Styles */
+.listItem {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px 20px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.listItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--primary-color);
+  transform: translateX(10px);
+}
+
+.listItem .posterWrapper {
+  width: 40px;
+  height: 55px;
+  aspect-ratio: auto;
+  flex-shrink: 0;
+}
+
+.listItem .cardInfo {
+  padding: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.listItem .cardHeader {
+  margin: 0;
+  flex: 1;
+  align-items: center;
+}
+
+.listItem .cardTitle {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  font-size: 1rem;
+}
+
+.listActions {
+  display: flex;
+  gap: 10px;
+}
+
+.listActionBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.listActionBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-color: white;
+}
+
+/* Empty State */
+.emptyState {
+  height: 80vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.emptyContent {
+  text-align: center;
+  max-width: 400px;
+}
+
+.emptyContent h1 {
+  font-family: 'Saira-Black', sans-serif;
+  margin-bottom: 20px;
+}
+
+.emptyContent p {
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 30px;
+  line-height: 1.6;
+}
+
+.folderIconLarge {
+  font-size: 5rem;
+  margin-bottom: 20px;
+  opacity: 0.3;
+}

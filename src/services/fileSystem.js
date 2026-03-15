@@ -1,8 +1,30 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { readDir } from "@tauri-apps/plugin-fs"; 
+import { open, confirm } from "@tauri-apps/plugin-dialog";
+import { readDir, remove } from "@tauri-apps/plugin-fs"; 
 import { openPath } from "@tauri-apps/plugin-opener";
+import { Command } from "@tauri-apps/plugin-shell";
 
-// Normalizar texto para comparación robusta
+const PLAYER_PROCESS_NAMES = {
+  mpv: 'mpv',
+  vlc: 'vlc',
+  'mpc-hc': 'mpc-hc64',
+  'mpc-be': 'mpc-be64',
+  potplayer: 'PotPlayerMini64',
+};
+
+// Verifica si el proceso del reproductor sigue activo en Windows
+export async function isPlayerStillOpen(playerName) {
+  const processName = PLAYER_PROCESS_NAMES[playerName] || playerName;
+  try {
+    const output = await Command.create('powershell', [
+      '-Command',
+      `Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Select-Object -First 1`
+    ]).execute();
+    return output.stdout.trim().length > 0;
+  } catch (err) {
+    console.error(`[FS] Error verificando proceso ${processName}:`, err);
+    return false;
+  }
+}
 export function normalizeForSearch(text) {
   if (!text) return "";
   return text
@@ -12,28 +34,25 @@ export function normalizeForSearch(text) {
     .trim();
 }
 
-// Extracción de Título Base
+
 export function extractBaseTitle(fileName) {
   if (!fileName) return "";
   let name = fileName.replace(/\.[^/.]+$/, ""); 
 
-  // 1. Quitar tags de fansubs
+  // Limpieza agresiva de metadatos para quedarnos solo con el título nominal de la serie
   name = name.replace(/\[.*?\]/g, "");
   name = name.replace(/\(.*?\)/g, "");
   name = name.replace(/\{.*?\}/g, "");
   
-  // 2. Quitar resoluciones y formatos
   const junk = [/1080p/gi, /720p/gi, /480p/gi, /bdrip/gi, /h264/gi, /x264/gi, /h265/gi, /x265/gi, /hevc/gi, /10bit/gi, /multi-subs/gi, /aac/gi, /dual-audio/gi, /bluray/gi, /web-dl/gi, /hd/gi, /remux/gi];
   junk.forEach(pattern => { name = name.replace(pattern, ""); });
 
-  // 3. Quitar temporada
   name = name.replace(/S[0-9]{1,2}/gi, "");
   name = name.replace(/Season [0-9]{1,2}/gi, "");
   name = name.replace(/v[0-9]{1}/gi, "");
 
-  // 4. Cortar en episodio
   const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/i; 
-  const endingPattern = /\b(end|final|ova|special)\b/i; 
+  const endingPattern = /\b(end|final|ova|special|movie|film)\b/i; 
 
   let match = name.match(episodePattern);
   if (match) {
@@ -45,11 +64,32 @@ export function extractBaseTitle(fileName) {
     }
   }
   
-  // 5. Limpieza final
   name = name.replace(/^[ \-_.]+|[ \-_.]+$/g, ""); 
   name = name.replace(/\s+/g, " ");
   
   return name.trim() || fileName; 
+}
+
+
+// Borrar carpeta del disco
+export async function deleteFolderFromDisk(folderPath) {
+  if (!folderPath) return false;
+  
+  try {
+    const isConfirmed = await confirm(
+      `¿Estás seguro de que quieres borrar permanentemente esta carpeta y todos sus archivos?\n\n${folderPath}`,
+      { title: "Confirmar Borrado Físico", kind: "warning" }
+    );
+
+    if (isConfirmed) {
+      await remove(folderPath, { recursive: true });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("[FS] Error al borrar carpeta:", error);
+    return false;
+  }
 }
 
 // Abrir dialog para seleccionar carpeta
@@ -61,14 +101,12 @@ export async function selectFolder() {
 export async function openFile(filePath) {
   if (!filePath) return false;
   try {
-    // En Windows Tauri maneja bien las rutas si usamos openPath directamente
-    // pero asegurémonos de que no haya dobles slashes problemáticos
-    const normalizedPath = filePath.replace(/\/+/g, "/");
-    console.log(`[Opener] Intentando abrir ruta: ${normalizedPath}`);
-    await openPath(normalizedPath);
+    const winPath = filePath.replace(/\//g, "\\");
+    console.log(`[Opener] Intentando abrir: ${winPath}`);
+    await openPath(winPath);
     return true;
   } catch (error) {
-    console.error("[Opener] Error crítico al abrir archivo:", error);
+    console.error("[Opener] Falló openPath:", error);
     return false;
   }
 }
@@ -90,7 +128,7 @@ async function getVideosInFolder(folderPath) {
   }
 }
 
-// Escáner Maestro VIRTUAL
+// Escáner Maestro VIRTUAL mejorado
 export async function scanLibrary(basePath, myAnimes) {
   if (!basePath) return {};
 
@@ -99,58 +137,77 @@ export async function scanLibrary(basePath, myAnimes) {
   
   try {
     const rootEntries = await readDir(basePath);
-    let allFiles = [];
 
-    // 1. Recolectar archivos
+    // 1. Recolectar archivos por carpeta física y archivos en raíz
     for (const entry of rootEntries) {
       const fullPath = `${basePath}/${entry.name}`.replace(/\/+/g, "/");
       
       if (entry.isFile) {
         const videoExts = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
         if (videoExts.some(ext => entry.name.toLowerCase().endsWith(ext))) {
-          allFiles.push({ name: entry.name, path: fullPath });
+          const baseTitle = extractBaseTitle(entry.name);
+          if (!virtualLibrary[baseTitle]) virtualLibrary[baseTitle] = { files: [], folderName: baseTitle, isRootFile: true };
+          virtualLibrary[baseTitle].files.push({ name: entry.name, path: fullPath });
         }
       } else if (entry.isDirectory) {
         const subFiles = await getVideosInFolder(fullPath);
-        allFiles.push(...subFiles);
+        if (subFiles.length >= 0) { 
+          virtualLibrary[entry.name] = { 
+            files: subFiles, 
+            folderName: entry.name, 
+            physicalPath: fullPath,
+            isRootFile: false 
+          };
+        }
       }
     }
 
-    // 2. Agrupar VIRTUALMENTE
-    for (const file of allFiles) {
-      const baseTitle = extractBaseTitle(file.name);
-      if (!baseTitle) continue; 
 
-      const normalizedFileTitle = normalizeForSearch(baseTitle);
-
+    // 2. Vincular con MyAnimes (Priorizando folderName explícito)
+    Object.keys(virtualLibrary).forEach(key => {
+      const folder = virtualLibrary[key];
+      const normalizedKey = normalizeForSearch(key);
+      
       const matchedAnime = animeList.find(a => {
-        const normalizedListTitle = normalizeForSearch(a.title);
-        return normalizedFileTitle.includes(normalizedListTitle) || normalizedListTitle.includes(normalizedFileTitle);
+        const storedFolder = a.folderName ? normalizeForSearch(a.folderName) : null;
+        const normalizedTitle = normalizeForSearch(a.title);
+
+        return (
+          (storedFolder && (storedFolder === normalizedKey || normalizedKey.includes(storedFolder))) || 
+          normalizedTitle === normalizedKey ||
+          normalizedKey.includes(normalizedTitle)
+        );
       });
 
-      const key = matchedAnime ? matchedAnime.title : baseTitle; 
-
-      if (!virtualLibrary[key]) {
-        virtualLibrary[key] = {
-          files: [],
-          isLinked: !!matchedAnime,
-          malId: matchedAnime?.malId || null,
-          animeData: matchedAnime || null,
-          folderName: key 
-        };
+      if (matchedAnime) {
+        folder.isLinked = true;
+        folder.malId = matchedAnime.malId;
+        folder.animeData = matchedAnime;
+        // Importante: Actualizar el folderName en el store si ha cambiado ligeramente 
+        // pero se ha detectado como el mismo para mantener consistencia
+        if (matchedAnime.folderName !== key) {
+           matchedAnime.tempDetectedFolder = key; 
+        }
+      } else {
+        folder.isLinked = false;
+        folder.malId = null;
+        folder.animeData = null;
       }
-      virtualLibrary[key].files.push(file);
-    }
+    });
 
-    // 3. Incluir animes sin archivos
+
+    // 3. Incluir animes de la biblioteca que no tienen archivos
     animeList.forEach(anime => {
-      if (!virtualLibrary[anime.title]) {
-        virtualLibrary[anime.title] = {
+      const alreadyInListByMalId = Object.values(virtualLibrary).some(f => f.malId === anime.malId);
+      if (!alreadyInListByMalId) {
+        const key = anime.title;
+        virtualLibrary[key] = {
           files: [],
           isLinked: true,
           malId: anime.malId,
           animeData: anime,
-          folderName: anime.title 
+          folderName: anime.title,
+          isMissing: true
         };
       }
     });
@@ -163,6 +220,5 @@ export async function scanLibrary(basePath, myAnimes) {
 }
 
 export async function syncLibraryFolders() {
-  console.log("[FS] Sincronización virtual.");
   return; 
 }

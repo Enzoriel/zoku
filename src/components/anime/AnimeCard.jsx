@@ -1,11 +1,20 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useStore } from "../../hooks/useStore";
+import { getAnimeDetails } from "../../services/api";
+import { openFile, isPlayerStillOpen } from "../../services/fileSystem";
+import { calculateUserStatus } from "../../utils/animeStatus";
 import styles from "./AnimeCard.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
+
+const WATCH_TIMER_MS = 60 * 1000;
 
 function AnimeCard({ anime, showAddButton = false, onAdd, type = false }) {
   const navigate = useNavigate();
   const { data, setMyAnimes } = useStore();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const watchIntervalRef = useRef(null);
+  const watchStartTimeRef = useRef(null);
 
   if (!anime) {
     return (
@@ -23,79 +32,213 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false }) {
           <LoadingSpinner size={40} />
         </div>
         <div className={styles.info}>
-          <div></div>
+          <div className={styles.loadingPulse}></div>
         </div>
       </div>
     );
   }
 
+  const animeId = anime.malId || anime.mal_id;
+  const isInLibrary = data.myAnimes[animeId];
+  const displayAnime = isInLibrary ? { ...anime, ...isInLibrary } : anime;
+
   const handleClick = () => {
-    navigate(`/anime/${anime.malId || anime.mal_id}`);
+    navigate(`/anime/${animeId}`);
   };
+
+  const markEpisodeAsWatched = useCallback(async (id, epNum) => {
+    await setMyAnimes((prev) => {
+      const current = prev[id];
+      if (!current) return prev;
+
+      const watchedEps = Array.isArray(current.watchedEpisodes) ? [...current.watchedEpisodes] : [];
+      if (!watchedEps.includes(epNum)) {
+        watchedEps.push(epNum);
+      }
+
+      const newHistory = Array.isArray(current.watchHistory) ? [...current.watchHistory] : [];
+      newHistory.push({ episode: epNum, watchedAt: new Date().toISOString() });
+
+      return {
+        ...prev,
+        [id]: {
+          ...current,
+          watchedEpisodes: watchedEps,
+          lastEpisodeWatched: Math.max(...watchedEps),
+          watchHistory: newHistory,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+    });
+  }, [setMyAnimes]);
+
+  const handleQuickPlay = async (e) => {
+    e.stopPropagation();
+    if (!displayAnime.nextEpisodeFile) return;
+
+    const ok = await openFile(displayAnime.nextEpisodeFile.path);
+    if (!ok) return;
+
+    if (watchIntervalRef.current) {
+      clearInterval(watchIntervalRef.current);
+      watchIntervalRef.current = null;
+    }
+    
+    setIsPlaying(true);
+    watchStartTimeRef.current = Date.now();
+
+    watchIntervalRef.current = setInterval(async () => {
+      const player = data?.settings?.player || "mpv";
+      const stillOpen = await isPlayerStillOpen(player);
+
+      if (!stillOpen) {
+        clearInterval(watchIntervalRef.current);
+        watchIntervalRef.current = null;
+        setIsPlaying(false);
+        return;
+      }
+
+      const elapsed = Date.now() - watchStartTimeRef.current;
+      if (elapsed >= WATCH_TIMER_MS) {
+        markEpisodeAsWatched(animeId, displayAnime.nextEpisode);
+        clearInterval(watchIntervalRef.current);
+        watchIntervalRef.current = null;
+        setIsPlaying(false);
+      }
+    }, 5000);
+  };
+
+  const handleCancelPlay = (e) => {
+    e.stopPropagation();
+    if (watchIntervalRef.current) {
+      clearInterval(watchIntervalRef.current);
+      watchIntervalRef.current = null;
+    }
+    setIsPlaying(false);
+  };
+
+
+  useEffect(() => {
+    return () => {
+      if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
+    };
+  }, []);
 
   const handleAddToLibrary = async (e) => {
     e.stopPropagation();
-
-    // Obtener datos completos de la API
-    const animeId = anime.malId || anime.mal_id;
-    const fullAnime = await getAnimeById(animeId);
-
+    const detailData = await getAnimeDetails(animeId);
+    
     const animeData = {
       malId: animeId,
-      title: anime.title || anime.title_english,
-      coverImage: anime.images?.jpg?.large_image_url,
-      totalEpisodes: fullAnime.episodes,
-      episodeDuration: parseDuration(fullAnime.duration),
+      title: detailData?.title || anime.title,
+      coverImage: detailData?.images?.jpg?.large_image_url || anime.images?.jpg?.large_image_url || anime.coverImage,
+      totalEpisodes: detailData?.episodes || anime.episodes || 0,
+      episodeList: detailData?.episodeList || [],
       watchedEpisodes: [],
       lastEpisodeWatched: 0,
+      userStatus: "PLAN_TO_WATCH",
+      notes: "",
       watchHistory: [],
       addedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
     };
 
-    await setMyAnimes((prev) => ({
-      ...prev,
-      [animeId]: animeData,
-    }));
-
+    await setMyAnimes((prev) => ({ ...prev, [animeId]: animeData }));
     if (onAdd) onAdd(animeData);
   };
 
-  const parseDuration = (duration) => {
-    if (!duration) return 24;
-    const match = duration.match(/(\d+)/);
-    return match ? parseInt(match[1]) : 24;
-  };
+  const image = displayAnime.images?.jpg?.large_image_url || displayAnime.coverImage || "";
+  const title = displayAnime.title || displayAnime.title_english || "Unknown Title";
 
-  const image = anime.images?.jpg?.large_image_url || anime.coverImage || "";
+  const total = displayAnime.totalEpisodes || displayAnime.episodes || 0;
+  const watchedList = Array.isArray(displayAnime.watchedEpisodes) ? displayAnime.watchedEpisodes : [];
+  const validWatchedCount = watchedList.filter(ep => total === 0 || ep <= total).length;
+  const progress = total > 0 ? Math.round((validWatchedCount / total) * 100) : 0;
 
-  const isInLibrary = data.myAnimes[anime.malId || anime.mal_id];
+  const nextEp = displayAnime.nextEpisode;
 
   return (
     <div className={styles.card} onClick={handleClick}>
       <div className={styles.imageWrapper}>
-        {type && <span className={styles.type}>{anime.type}</span>}
-        <img src={image} alt={anime.title} className={styles.image} />
-      </div>
-      <div className={styles.info}>
-        <h3 className={styles.title}>{anime.title || anime.title_english}</h3>
-        {anime.genres && (
-          <div className={styles.genres}>
-            {anime.genres?.map((genre) => (
-              <span key={genre.name} className={styles.genre}>
-                {genre.name}
-              </span>
-            ))}
-          </div>
+        <div className={styles.overlay} />
+        
+        {/* Badges superiores dinámicos */}
+        <div className={styles.topBadges}>
+          {type && displayAnime.type && <span className={styles.typeBadge}>{displayAnime.type}</span>}
+          {isInLibrary && (
+             <span className={styles.statusBadge} data-status={calculateUserStatus(displayAnime)}>
+                {calculateUserStatus(displayAnime) === 'PLAN_TO_WATCH' ? 'PENDIENTE' : 
+                 calculateUserStatus(displayAnime) === 'WATCHING' ? 'VIENDO' :
+                 calculateUserStatus(displayAnime) === 'COMPLETED' ? 'COMPLETADO' :
+                 calculateUserStatus(displayAnime) === 'PAUSED' ? 'PAUSADO' :
+                 calculateUserStatus(displayAnime) === 'DROPPED' ? 'ABANDONADO' : 'EN LISTA'}
+             </span>
+          )}
+        </div>
+
+        {!isInLibrary && displayAnime.score > 0 && (
+           <div className={styles.ratingBadge}>
+             ⭐ {displayAnime.score.toFixed(1)}
+           </div>
         )}
-        {showAddButton && !isInLibrary && (
-          <button className={styles.addButton} onClick={handleAddToLibrary}>
-            + Añadir
+
+        {nextEp && !isPlaying && <span className={styles.nextBadge}>Siguiente: EP. {nextEp}</span>}
+        
+        {isPlaying && (
+          <span className={styles.playingBadge} onClick={handleCancelPlay}>
+            VIENDO... <span className={styles.cancelX}>✕</span>
+          </span>
+        )}
+        
+        <img src={image} alt={title} className={styles.image} />
+        
+        {displayAnime.nextEpisodeFile && !isPlaying && (
+          <button className={styles.quickPlayButton} onClick={handleQuickPlay}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
           </button>
         )}
-        {isInLibrary && <span className={styles.added}>✓ En biblioteca</span>}
+
+        {/* Barra de progreso sutil */}
+        {progress > 0 && (
+          <div className={styles.progressBar}>
+            <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+          </div>
+        )}
+
+        {/* Contenedor Inferior de Información */}
+        <div className={styles.titleContainer}>
+          <div className={styles.hoverMeta}>
+             {isInLibrary && (
+                <span className={styles.epCount}>
+                   {validWatchedCount}/{total || '?'} EPISODIOS
+                </span>
+             )}
+             {showAddButton && !isInLibrary && (
+               <button className={styles.addButton} onClick={handleAddToLibrary}>
+                 + AÑADIR A LA BÓVEDA
+               </button>
+             )}
+          </div>
+
+          <h3 className={styles.title} title={title}>{title}</h3>
+          
+          {displayAnime.genres && (
+            <div className={styles.genres}>
+              {displayAnime.genres?.slice(0, 2).map((genre) => (
+                <span key={genre.name || genre} className={styles.genreTag}>
+                  {genre.name || genre}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 export default AnimeCard;
+
+

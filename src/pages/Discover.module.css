@@ -1,115 +1,175 @@
 .discover {
-  padding: 0;
-  min-height: calc(100vh - 70px);
-  color: #ffffff;
-  animation: fadeIn 0.8s ease-out;
+  padding: 40px;
+  min-height: 100vh;
+  background-color: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 30px;
+  flex-wrap: wrap;
+  gap: 30px;
+}
+
+.headerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pageTitle {
+  font-family: 'Saira-BlackItalic', sans-serif;
+  font-size: 4rem;
+  margin: 0;
+  color: #fff;
+  line-height: 0.9;
+  letter-spacing: -2px;
+  text-transform: uppercase;
+}
+
+.pageSubtitle {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.8rem;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  margin-top: 10px;
+}
+
+/* Filtros */
+.filterSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.filterLabel {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  letter-spacing: 1.5px;
 }
 
 .toggleGroup {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 15px;
-  margin: 20px 0;
-}
-
-.buttonsContainer {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: white;
-  border-radius: 50px;
-  overflow: hidden;
-  box-shadow:
-    2px 2px 0 #000,
-    4px 4px 0 #ff0000;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(5px);
 }
 
 .toggleButton {
-  font-family: "Tektur";
-  font-size: 17px;
-  position: relative;
-  color: #727272;
-  border-radius: 0;
+  padding: 8px 20px;
   border: none;
-  padding: 10px 15px;
-  border-right: 2px solid #000;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Tektur', sans-serif;
   font-weight: 700;
-  transition: all 0.3s ease;
-  background-color: transparent;
-  overflow: hidden;
-  z-index: 1;
-}
-
-.toggleButton::after {
-  content: "";
-  position: absolute;
-  border-right: 2px solid var(--secondary-color);
-  width: 0%;
-  height: 0%;
-  top: 50%;
-  left: 50%;
-  border-radius: 100px;
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  background-color: var(--secondary-color);
-  transition:
-    width 0.2s ease,
-    height 0.2s ease,
-    opacity 0.2s ease,
-    border-radius 0.2s ease;
-  z-index: -1;
-}
-
-.toggleButton:hover::after {
-  animation: fadeInOut 0.7s ease infinite;
-  width: 100%;
-  height: 100%;
-  border-radius: 0px;
-  opacity: 1;
-}
-
-.toggleButton:last-child {
-  border-right: none;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  letter-spacing: 1px;
 }
 
 .toggleButton:hover {
-  color: #000;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .toggleButton.active {
-  background-color: var(--secondary-color);
-  color: #000;
+  background: var(--primary-color);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(255, 30, 30, 0.3);
+}
+
+/* Contenido */
+.content {
+  flex: 1;
 }
 
 .loadingContainer {
+  height: 60vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 50vh;
+  gap: 20px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'Tektur', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.loaderSpinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(255, 30, 30, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.resultsArea {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.resultsHeader {
+  display: flex;
+  align-items: center;
   gap: 20px;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.resultsCount {
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.4);
 }
 
-@keyframes fadeInOut {
-  0% {
-    opacity: 0.3;
+.countNumber {
+  color: #fff;
+  font-weight: 800;
+}
+
+.accentLine {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent);
+}
+
+/* Response */
+@media (max-width: 1024px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
   }
-  50% {
-    opacity: 0.8;
+  
+  .filterSection {
+    align-items: flex-start;
+    width: 100%;
   }
-  100% {
-    opacity: 0.3;
+  
+  .toggleGroup {
+    width: 100%;
+    overflow-x: auto;
+  }
+  
+  .pageTitle {
+    font-size: 2.5rem;
   }
 }

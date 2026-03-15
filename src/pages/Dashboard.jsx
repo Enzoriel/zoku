@@ -120,7 +120,7 @@ function Dashboard() {
         </section>
       ) : (
         <>
-          <Carousel title="Continuar viendo" animes={getContinueWatching(data.myAnimes)} />
+          <Carousel title="Continuar viendo" animes={getContinueWatching(data.myAnimes, data.localFiles)} />
           <Carousel title="Nuevos episodios disponibles" animes={getNewEpisodes(data.myAnimes, data.localFiles)} />
           <Carousel title="En emisión esta temporada" animes={airingAnimes.data || []} loading={loading} />
           <Carousel title="Recomendaciones" animes={recommendations} loading={loading} />

@@ -6,7 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import Discover from "./pages/Discover";
 import Search from "./pages/Search";
 import MyAnimes from "./pages/MyAnimes";
-import Biblioteca from "./pages/Biblioteca";
+import Library from "./pages/Library";
 import Stats from "./pages/Stats";
 import Configuration from "./pages/Configuration";
 import AnimeDetails from "./pages/AnimeDetails";
@@ -21,7 +21,7 @@ function App() {
             <Route path="discover" element={<Discover />} />
             <Route path="search" element={<Search />} />
             <Route path="my-animes" element={<MyAnimes />} />
-            <Route path="library" element={<Biblioteca />} />
+            <Route path="library" element={<Library />} />
             <Route path="stats" element={<Stats />} />
             <Route path="configuration" element={<Configuration />} />
             <Route path="anime/:id" element={<AnimeDetails />} />

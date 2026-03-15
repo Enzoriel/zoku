@@ -115,10 +115,10 @@
 .loader:after {
   content: "CARGANDO...";
   grid-area: 1/1;
-  -webkit-mask-size:
-    2ch 100%,
-    100% 100%;
+  -webkit-mask-size: 2ch 100%, 100% 100%;
+  mask-size: 2ch 100%, 100% 100%;
   -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   animation: l36-1 1s infinite;
@@ -126,10 +126,12 @@
 
 .loader:before {
   -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
 }
 
 .loader:after {
   -webkit-mask-image: linear-gradient(#000 0 0);
+  mask-image: linear-gradient(#000 0 0);
   animation:
     l36-1 1s infinite,
     l36-2 0.2s infinite cubic-bezier(0.5, 200, 0.5, -200);
@@ -137,34 +139,28 @@
 
 @keyframes l36-1 {
   0% {
-    -webkit-mask-position:
-      0 0,
-      0 0;
+    -webkit-mask-position: 0 0, 0 0;
+    mask-position: 0 0, 0 0;
   }
   20% {
-    -webkit-mask-position:
-      1ch 0,
-      0 0;
+    -webkit-mask-position: 1ch 0, 0 0;
+    mask-position: 1ch 0, 0 0;
   }
   40% {
-    -webkit-mask-position:
-      100% 0,
-      0 0;
+    -webkit-mask-position: 100% 0, 0 0;
+    mask-position: 100% 0, 0 0;
   }
   60% {
-    -webkit-mask-position:
-      6ch 0,
-      0 0;
+    -webkit-mask-position: 6ch 0, 0 0;
+    mask-position: 6ch 0, 0 0;
   }
   80% {
-    -webkit-mask-position:
-      10ch 0,
-      0 0;
+    -webkit-mask-position: 10ch 0, 0 0;
+    mask-position: 10ch 0, 0 0;
   }
   100% {
-    -webkit-mask-position:
-      4ch 0,
-      0 0;
+    -webkit-mask-position: 4ch 0, 0 0;
+    mask-position: 4ch 0, 0 0;
   }
 }
 
@@ -230,15 +226,6 @@ h1 {
   text-align: center;
 }
 
-button {
-  cursor: pointer;
-}
-
-input,
-button {
-  outline: none;
-}
-
 #greet-input {
   margin-right: 5px;
 }
@@ -264,11 +251,5 @@ button {
 
   a:hover {
     color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
   }
 }

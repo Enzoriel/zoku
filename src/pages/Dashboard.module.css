@@ -20,7 +20,7 @@
 .dashTitle h1 {
   font-size: 2.5rem;
   margin: 0;
-  font-family: 'Saira', sans-serif;
+  font-family: "Saira", sans-serif;
   font-weight: 900;
   font-style: italic;
   text-transform: uppercase;
@@ -68,8 +68,12 @@
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .welcome h1 {

@@ -1,105 +1,101 @@
-import { useState, useEffect, useCallback } from "react";
-import { getSeasonNow } from "../services/api";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { getFullSeasonAnime } from "../services/api";
 import AnimeList from "../components/anime/AnimeList";
-import Pagination from "../components/ui/Pagination";
 import styles from "./Discover.module.css";
 
-function Discover() {
-  const [animes, setAnimes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({});
-  const [type, setType] = useState("tv");
+let cachedSeasonAnimes = null;
+let lastFetchTime = 0;
+const CACHE_DURATION = 1000 * 60 * 60; // 1 hora
 
-  const loadAnimes = useCallback(async (currentPage, currentType) => {
+function Discover() {
+  const [allAnimes, setAllAnimes] = useState(cachedSeasonAnimes || []);
+  const [loading, setLoading] = useState(!cachedSeasonAnimes);
+  const [type, setType] = useState("ALL");
+
+  const loadAnimes = useCallback(async () => {
+    const now = Date.now();
+    if (cachedSeasonAnimes && (now - lastFetchTime < CACHE_DURATION)) {
+      setAllAnimes(cachedSeasonAnimes);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const result = await getSeasonNow(currentPage, currentType);
-      setAnimes(result.data);
-      setPagination(result.pagination);
+      const data = await getFullSeasonAnime();
+      cachedSeasonAnimes = data;
+      lastFetchTime = now;
+      setAllAnimes(data);
     } catch (error) {
-      console.error("Error loading animes:", error);
+      console.error("Error loading seasonal animes:", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadAnimes(page, type);
-  }, [page, type, loadAnimes]);
+    loadAnimes();
+  }, [loadAnimes]);
+
+  const filteredAnimes = useMemo(() => {
+    if (type === "ALL") return allAnimes;
+    return allAnimes.filter(anime => anime.format === type || anime.type === type);
+  }, [allAnimes, type]);
 
   const handleTypeChange = (newType) => {
-    if (newType !== type) {
-      setType(newType);
-      setPage(1);
-    }
+    setType(newType);
   };
 
-  const handlePageClick = (pageNumber) => {
-    if (page !== pageNumber) {
-      setPage(pageNumber);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
+  const types = [
+    { id: "ALL", label: "TODOS" },
+    { id: "TV", label: "TV" },
+    { id: "MOVIE", label: "MOVIES" },
+    { id: "OVA", label: "OVA" },
+    { id: "ONA", label: "ONA" },
+    { id: "SPECIAL", label: "SPECIALS" }
+  ];
 
   return (
     <div className={styles.discover}>
-      <div className={styles.toggleGroup}>
-        <div className={styles.buttonsContainer}>
-          <button
-            className={`${styles.toggleButton} ${type === "tv" ? styles.active : ""}`}
-            onClick={() => handleTypeChange("tv")}
-          >
-            TV
-          </button>
-          <button
-            className={`${styles.toggleButton} ${type === "tv_special" ? styles.active : ""}`}
-            onClick={() => handleTypeChange("tv_special")}
-          >
-            TV Special
-          </button>
-          <button
-            className={`${styles.toggleButton} ${type === "movie" ? styles.active : ""}`}
-            onClick={() => handleTypeChange("movie")}
-          >
-            Movie
-          </button>
-          <button
-            className={`${styles.toggleButton} ${type === "ova" ? styles.active : ""}`}
-            onClick={() => handleTypeChange("ova")}
-          >
-            OVA
-          </button>
-          <button
-            className={`${styles.toggleButton} ${type === "ona" ? styles.active : ""}`}
-            onClick={() => handleTypeChange("ona")}
-          >
-            ONA
-          </button>
-          <button
-            className={`${styles.toggleButton} ${type === "special" ? styles.active : ""}`}
-            onClick={() => handleTypeChange("special")}
-          >
-            Special
-          </button>
+      <header className={styles.header}>
+        <div className={styles.headerInfo}>
+          <h1 className={styles.pageTitle}>DESCUBRIR</h1>
+          <p className={styles.pageSubtitle}>Explora los lanzamientos de la temporada actual</p>
         </div>
-      </div>
-      <div>
+        
+        <div className={styles.filterSection}>
+          <span className={styles.filterLabel}>FILTRAR POR TIPO:</span>
+          <div className={styles.toggleGroup}>
+            {types.map(t => (
+              <button
+                key={t.id}
+                className={`${styles.toggleButton} ${type === t.id ? styles.active : ""}`}
+                onClick={() => handleTypeChange(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.content}>
         {loading ? (
           <div className={styles.loadingContainer}>
-            <div className="loader"></div>
-            <div className="pulse"></div>
+            <div className={styles.loaderSpinner}></div>
+            <p>Sincronizando con AniList...</p>
           </div>
         ) : (
-          <>
-            <AnimeList animes={animes} type={true} />
-
-            <Pagination 
-              currentPage={page} 
-              totalPages={pagination.last_visible_page} 
-              onPageChange={handlePageClick} 
-            />
-          </>
+          <div className={styles.resultsArea}>
+            <div className={styles.resultsHeader}>
+              <div className={styles.resultsCount}>
+                <span className={styles.countNumber}>{filteredAnimes.length}</span> resultados encontrados
+              </div>
+              <div className={styles.accentLine}></div>
+            </div>
+            
+            <AnimeList animes={filteredAnimes} type={true} />
+          </div>
         )}
       </div>
     </div>
