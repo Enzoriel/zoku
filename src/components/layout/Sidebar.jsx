@@ -70,6 +70,38 @@ export const Sidebar = () => {
             </li>
             <li>
               <NavLink
+                to="/my-animes"
+                className={({ isActive }) =>
+                  [isActive ? styles.active : "", animando === "/my-animes" ? styles.animando : ""]
+                    .filter(Boolean)
+                    .join(" ")
+                }
+                onMouseDown={() => handleMouseDown("/my-animes")}
+                onMouseUp={handleMouseUpOrLeave}
+                onMouseLeave={handleMouseUpOrLeave}
+                title="Mis animes"
+              >
+                <div className={styles.rippleContainer}>
+                  {animando === "/my-animes" && (
+                    <div className={styles.rippleAnim} onAnimationEnd={() => handleAnimationEnd("/my-animes")} />
+                  )}
+                </div>
+                <div className={styles.iconWrapper}>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    width="24"
+                    height="24"
+                  >
+                    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z" />
+                  </svg>
+                  <CornerBrackets size={10} />
+                </div>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
                 to="/library"
                 className={({ isActive }) =>
                   [isActive ? styles.active : "", animando === "/library" ? styles.animando : ""]
@@ -79,7 +111,7 @@ export const Sidebar = () => {
                 onMouseDown={() => handleMouseDown("/library")}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
-                title="Mi biblioteca"
+                title="Biblioteca"
               >
                 <div className={styles.rippleContainer}>
                   {animando === "/library" && (
@@ -94,7 +126,7 @@ export const Sidebar = () => {
                     width="24"
                     height="24"
                   >
-                    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z" />
+                    <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
                   </svg>
                   <CornerBrackets size={10} />
                 </div>

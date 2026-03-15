@@ -1,0 +1,193 @@
+:root {
+  --folder-color: #ffca28;
+  --folder-bg: #2a2a2a;
+  --folder-border: #333;
+  --folder-tab-color: #ffca28;
+}
+
+.container {
+  padding: 2rem;
+  min-height: 100vh;
+  background-color: #121212;
+  color: white;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid #333;
+  padding-bottom: 1rem;
+}
+
+.headerInfo h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.path {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.path span {
+  color: #ffca28;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.syncStatus {
+  font-size: 0.8rem;
+  color: #888;
+  font-style: italic;
+}
+
+.emptyState {
+  height: 80vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.folderIconLarge {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+}
+
+.folderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 25px;
+  padding-bottom: 50px;
+}
+
+.animeCard {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  position: relative;
+}
+
+.animeCard:hover {
+  transform: translateY(-8px);
+  border-color: #ffca28;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.posterWrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2/3;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+.posterImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.animeCard:hover .posterImage {
+  transform: scale(1.1);
+}
+
+.folderIconLarge {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #444;
+  gap: 10px;
+}
+
+.folderIconLarge svg {
+  width: 60px;
+  height: 60px;
+}
+
+.folderIconLarge span {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #666;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  display: flex;
+  align-items: flex-end;
+  padding: 15px;
+}
+
+.animeCard:hover .overlay {
+  opacity: 1;
+}
+
+.folderRealName {
+  color: #fff;
+  font-size: 0.7rem;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.cardInfo {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #eee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.localBadge {
+  font-size: 0.6rem;
+  font-weight: 900;
+  background: #ffca28;
+  color: #000;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.localFolder {
+  border-style: dashed;
+}
+
+.noAnimes {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem;
+  color: #666;
+}

@@ -1,26 +1,24 @@
 .card {
   display: flex;
-  background-color: rgba(14, 18, 25, 0.4); /* Fondo oscuro general */
-  border: 1px solid rgba(255, 255, 255, 0.08); /* Borde sutil general */
-  border-radius: 4px; /* Un poco de radio siempre es elegante, pero si lo quieres bien cuadriculado cambiar a 0 */
+  background-color: rgba(14, 18, 25, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
   overflow: hidden;
-  height: 220px; /* Altura fija para consistencia en la lista horizontal */
+  height: 220px;
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
 }
 
-/* Efecto Hover estilo imagen */
 .card:hover {
-  border-color: rgba(255, 30, 30, 0.6); /* Borde rojo que se ilumina al pasar ratón */
+  border-color: rgba(255, 30, 30, 0.6);
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  background-color: rgba(20, 25, 35, 0.6); /* Un poco más claro al hacer hover */
+  background-color: rgba(20, 25, 35, 0.6);
 }
 
-/* ---------------- IMAGEN (IZQUIERDA) ---------------- */
 .imageSection {
-  flex: 0 0 160px; /* Ancho fijo para la imagen */
+  flex: 0 0 160px;
   height: 100%;
   position: relative;
   background-color: rgba(255, 255, 255, 0.05);
@@ -50,16 +48,14 @@
   line-height: 1;
 }
 
-/* ---------------- INFO (DERECHA) ---------------- */
 .infoSection {
   flex: 1;
   display: flex;
   flex-direction: column;
   padding: 16px;
-  min-width: 0; /* Important for text truncation in flex children */
+  min-width: 0;
 }
 
-/* Cabecera (Estudio y Puntaje) */
 .header {
   display: flex;
   justify-content: space-between;
@@ -70,7 +66,7 @@
 .studio {
   font-family: "Tektur", sans-serif;
   font-weight: 700;
-  color: #ff3c3c; /* Tono rojo claro para el estudio */
+  color: #ff3c3c;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -82,7 +78,7 @@
 .score {
   font-family: "Tektur", sans-serif;
   font-weight: 600;
-  color: var(--secondary-color); /* Dorado para el score */
+  color: var(--secondary-color);
   font-size: 0.85rem;
   display: flex;
   align-items: center;
@@ -102,7 +98,6 @@
   margin: 0 0 16px 0;
   line-height: 1.1;
   text-transform: uppercase;
-  /* Truncamiento a 2 líneas si es muy largo */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;

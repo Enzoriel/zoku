@@ -52,12 +52,10 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false }) {
       addedAt: new Date().toISOString(),
     };
 
-    const newMyAnimes = {
-      ...data.myAnimes,
+    await setMyAnimes((prev) => ({
+      ...prev,
       [animeId]: animeData,
-    };
-
-    await setMyAnimes(newMyAnimes);
+    }));
 
     if (onAdd) onAdd(animeData);
   };

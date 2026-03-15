@@ -3,7 +3,7 @@ import { useStore } from "../../hooks/useStore";
 import styles from "./AnimeCardExt.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
-function AnimeCardExt({ anime, showAddButton = false, onAdd }) {
+function AnimeCardExt({ anime, onAdd, onRemove }) {
   const navigate = useNavigate();
   const { data, setMyAnimes } = useStore();
 
@@ -24,35 +24,42 @@ function AnimeCardExt({ anime, showAddButton = false, onAdd }) {
     navigate(`/anime/${anime.malId || anime.mal_id}`);
   };
 
-  const handleAddToLibrary = async (e) => {
+  const handleToggleLibrary = async (e) => {
     e.stopPropagation();
 
     const animeId = anime.malId || anime.mal_id;
-    // Si necesitas detalles extra como episodios, etc. Descomenta si `getAnimeById` aplica
-    // const fullAnime = await getAnimeById(animeId);
+    const isCurrentlyInLibrary = data?.myAnimes && data.myAnimes[animeId];
 
-    const animeData = {
-      malId: animeId,
-      title: anime.title,
-      coverImage: anime.images?.jpg?.large_image_url,
-      totalEpisodes: anime.episodes || 24, // fallback temporal
-      episodeDuration: 24, // fallback
-      watchedEpisodes: [],
-      lastEpisodeWatched: 0,
-      watchHistory: [],
-      addedAt: new Date().toISOString(),
-    };
+    if (isCurrentlyInLibrary) {
+      // Eliminar
+      await setMyAnimes((prev) => {
+        const newState = { ...prev };
+        delete newState[animeId];
+        return newState;
+      });
+      if (onRemove) onRemove(animeId);
+    } else {
+      // Añadir
+      const animeData = {
+        malId: animeId,
+        title: anime.title,
+        coverImage: anime.images?.jpg?.large_image_url || anime.coverImage,
+        totalEpisodes: anime.episodes || 24,
+        episodeDuration: 24,
+        watchedEpisodes: [],
+        lastEpisodeWatched: 0,
+        watchHistory: [],
+        addedAt: new Date().toISOString(),
+      };
 
-    const newMyAnimes = {
-      ...data.myAnimes,
-      [animeId]: animeData,
-    };
-
-    await setMyAnimes(newMyAnimes);
-    if (onAdd) onAdd(animeData);
+      await setMyAnimes((prev) => ({
+        ...prev,
+        [animeId]: animeData,
+      }));
+      if (onAdd) onAdd(animeData);
+    }
   };
 
-  // Safe checks para las propiedades que pueden venir nulas de la API
   const image = anime.images?.jpg?.large_image_url || anime.coverImage || "";
   const title = anime.title || anime.title_english || "Unknown Title";
   const studioName = anime.studios && anime.studios.length > 0 ? anime.studios[0].name : "UNKNOWN STUDIO";
@@ -118,9 +125,8 @@ function AnimeCardExt({ anime, showAddButton = false, onAdd }) {
           <div className={styles.decorativeBar}></div>
           <button
             className={`${styles.addButton} ${isInLibrary ? styles.inLibrary : ""}`}
-            onClick={handleAddToLibrary}
-            disabled={isInLibrary}
-            title={isInLibrary ? "Ya está en tu biblioteca" : "Añadir a la biblioteca"}
+            onClick={handleToggleLibrary}
+            title={isInLibrary ? "Eliminar de la biblioteca" : "Añadir a la biblioteca"}
           >
             {isInLibrary ? (
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18">

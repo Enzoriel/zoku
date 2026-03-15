@@ -1,8 +1,75 @@
 .dashboard {
-  padding: 0;
+  padding: 20px 40px;
   min-height: calc(100vh - 70px);
   color: #ffffff;
   animation: fadeIn 0.8s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dashHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dashTitle h1 {
+  font-size: 2.5rem;
+  margin: 0;
+  font-family: 'Saira', sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1;
+}
+
+.dashTitle p {
+  margin: 10px 0 0 0;
+  color: #888;
+  font-size: 1rem;
+}
+
+.refreshButton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 202, 40, 0.05);
+  border: 1px solid rgba(255, 202, 40, 0.2);
+  color: #ffca28;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  height: fit-content;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.refreshButton:hover {
+  background: rgba(255, 202, 40, 0.15);
+  border-color: rgba(255, 202, 40, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(255, 202, 40, 0.1);
+}
+
+.refreshButton:active {
+  transform: translateY(0);
+}
+
+.spinning svg {
+  animation: rotate 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .welcome h1 {

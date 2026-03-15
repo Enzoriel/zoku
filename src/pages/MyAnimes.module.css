@@ -1,0 +1,81 @@
+.library {
+  padding: 32px;
+  min-height: 100vh;
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.title {
+  font-family: "Saira-Black", sans-serif;
+  font-size: 3rem;
+  color: white;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.count {
+  font-family: "Tektur", sans-serif;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 40px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.count::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 30, 30, 0.4), transparent);
+}
+
+.empty {
+  text-align: center;
+  padding: 100px 20px;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: "Tektur", sans-serif;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.empty p:first-child {
+  font-family: "Saira-Bold", sans-serif;
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 32px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+  }
+
+  .title {
+    font-size: 2.2rem;
+  }
+}

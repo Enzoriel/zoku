@@ -1,10 +1,18 @@
 const url = "https://api.jikan.moe/v4";
 
-// Rate limit: 3 requests por minuto
+// Caché por sesión (se limpia al reiniciar la app)
+const sessionCache = {};
+
+// Rate limit: Jikan permite ~3 requests por segundo (60 por minuto)
 let lastRequest = 0;
 const MIN_INTERVAL = 350;
 
-async function safeFetch(url) {
+async function safeFetch(endpoint) {
+  // Si está en caché, retornarlo inmediatamente
+  if (sessionCache[endpoint]) {
+    return sessionCache[endpoint];
+  }
+
   const now = Date.now();
   const timeLastRequest = now - lastRequest;
 
@@ -13,8 +21,23 @@ async function safeFetch(url) {
   }
 
   lastRequest = Date.now();
-  const response = await fetch(url);
-  return response.json();
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    
+    // Guardar en caché si la respuesta es válida
+    if (data && !data.error) {
+      sessionCache[endpoint] = data;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`[API] Error en fetch para ${endpoint}:`, error);
+    return { data: null, error: true };
+  }
 }
 
 // Top animes
@@ -31,15 +54,18 @@ export async function getSeasonNow(page = 1, filter = "tv") {
   const data = await safeFetch(`${url}/seasons/now?page=${page}&limit=20&filter=${filter}&sfw=true`);
   const malIds = new Set();
   const animes = [];
-  data.data.forEach((anime) => {
-    if (anime.mal_id && !malIds.has(anime.mal_id)) {
-      malIds.add(anime.mal_id);
-      animes.push(anime);
-    }
-  });
-  console.log("ESTOS SON LOS RESULTADOS:", animes);
+  
+  if (data?.data) {
+    data.data.forEach((anime) => {
+      if (anime.mal_id && !malIds.has(anime.mal_id)) {
+        malIds.add(anime.mal_id);
+        animes.push(anime);
+      }
+    });
+  }
+
   return {
-    data: animes || [],
+    data: animes,
     pagination: data.pagination || {},
   };
 }
@@ -56,10 +82,8 @@ export async function searchAnime(query, page = 1) {
 // Obtener recomendaciones recientes
 export async function getRecentAnimeRecommendations() {
   const data = await safeFetch(`${url}/recommendations/anime?sfw=true`);
-  console.log("Recommendations data:", data);
   const recommendations = data.data || [];
 
-  // Extraer los animes únicos de las recomendaciones (cada recomendación tiene un array 'entry' con 2 animes)
   const uniqueAnimes = [];
   const seenIds = new Set();
 

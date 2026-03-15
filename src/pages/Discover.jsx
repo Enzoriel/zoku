@@ -35,20 +35,6 @@ function Discover() {
     }
   };
 
-  const handleNextPage = () => {
-    if (pagination.has_next_page) {
-      setPage((prev) => prev + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (page > 1) {
-      setPage((prev) => prev - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
-
   const handlePageClick = (pageNumber) => {
     if (page !== pageNumber) {
       setPage(pageNumber);
