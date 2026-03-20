@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useState, useEffect, useCallback, useRef } from "react";
 import { getStore, setStore } from "../services/store";
 
 export const StoreContext = createContext();
@@ -9,14 +9,13 @@ export function StoreProvider({ children }) {
     myAnimes: {},
     localFiles: {},
     settings: {
-      player: "mpv" // Reproductor por defecto
-    }
+      player: "mpv", // Reproductor por defecto
+    },
   });
   const [loading, setLoading] = useState(true);
-  
+
   // Cola de escritura secuencial para evitar race conditions al persistir en disco
   const storeWritePromise = useRef(Promise.resolve());
-
 
   useEffect(() => {
     async function loadData() {
@@ -41,7 +40,7 @@ export function StoreProvider({ children }) {
       try {
         const currentValue = (await getStore(key)) || (key === "folderPath" ? "" : {});
         const newValue = typeof valueOrAction === "function" ? valueOrAction(currentValue) : valueOrAction;
-        
+
         await setStore(key, newValue);
         setData((prev) => ({ ...prev, [key]: newValue }));
       } catch (error) {
@@ -62,7 +61,7 @@ export function StoreProvider({ children }) {
     setFolderPath,
     setMyAnimes,
     setLocalFiles,
-    setSettings
+    setSettings,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

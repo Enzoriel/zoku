@@ -9,18 +9,17 @@ const CACHE_DURATION = 1000 * 60 * 60; // 1 hora
 
 function Discover() {
   const [allAnimes, setAllAnimes] = useState(cachedSeasonAnimes || []);
-  const [loading, setLoading] = useState(!cachedSeasonAnimes);
+  const [loading, setLoading] = useState(true);
   const [type, setType] = useState("ALL");
 
   const loadAnimes = useCallback(async () => {
     const now = Date.now();
-    if (cachedSeasonAnimes && (now - lastFetchTime < CACHE_DURATION)) {
+    if (cachedSeasonAnimes && now - lastFetchTime < CACHE_DURATION) {
       setAllAnimes(cachedSeasonAnimes);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
     try {
       const data = await getFullSeasonAnime();
       cachedSeasonAnimes = data;
@@ -39,7 +38,7 @@ function Discover() {
 
   const filteredAnimes = useMemo(() => {
     if (type === "ALL") return allAnimes;
-    return allAnimes.filter(anime => anime.format === type || anime.type === type);
+    return allAnimes.filter((anime) => anime.format === type || anime.type === type);
   }, [allAnimes, type]);
 
   const handleTypeChange = (newType) => {
@@ -52,7 +51,7 @@ function Discover() {
     { id: "MOVIE", label: "MOVIES" },
     { id: "OVA", label: "OVA" },
     { id: "ONA", label: "ONA" },
-    { id: "SPECIAL", label: "SPECIALS" }
+    { id: "SPECIAL", label: "SPECIALS" },
   ];
 
   return (
@@ -62,11 +61,11 @@ function Discover() {
           <h1 className={styles.pageTitle}>DESCUBRIR</h1>
           <p className={styles.pageSubtitle}>Explora los lanzamientos de la temporada actual</p>
         </div>
-        
+
         <div className={styles.filterSection}>
           <span className={styles.filterLabel}>FILTRAR POR TIPO:</span>
           <div className={styles.toggleGroup}>
-            {types.map(t => (
+            {types.map((t) => (
               <button
                 key={t.id}
                 className={`${styles.toggleButton} ${type === t.id ? styles.active : ""}`}
@@ -93,7 +92,7 @@ function Discover() {
               </div>
               <div className={styles.accentLine}></div>
             </div>
-            
+
             <AnimeList animes={filteredAnimes} type={true} />
           </div>
         )}

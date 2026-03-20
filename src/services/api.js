@@ -80,20 +80,21 @@ function mapMedia(media) {
   let normalizedType = media.format || "TV";
   if (normalizedType === "TV_SHORT") normalizedType = "TV";
 
-  // Generar lista de episodios simulada
+  // Calcular episodios sin generar lista simulada (generación lazy)
   let episodesCount = media.episodes || 0;
-  
-  // Si está en emisión y no tenemos total, usamos el último emitido
   if (!episodesCount && media.nextAiringEpisode) {
     episodesCount = media.nextAiringEpisode.episode - 1;
   }
 
-  const episodeList = Array.from({ length: episodesCount || 0 }, (_, i) => ({
-    mal_id: i + 1,
-    title: `Episodio ${i + 1}`,
-    aired: null,
-  }));
-
+  // Helper para generar la lista de episodios solo cuando se necesita
+  // Evita bloquear el main thread con miles de objetos innecesarios
+  const getEpisodeList = () => {
+    return Array.from({ length: episodesCount || 0 }, (_, i) => ({
+      mal_id: i + 1,
+      title: `Episodio ${i + 1}`,
+      aired: null,
+    }));
+  };
 
   return {
     mal_id: media.idMal || media.id,
@@ -118,7 +119,7 @@ function mapMedia(media) {
     status: statusMap[media.status] || media.status || "UNKNOWN",
     episodes: episodesCount,
     totalEpisodes: episodesCount, // Alias para compatibilidad global
-    episodeList: episodeList,
+    get episodeList() { return getEpisodeList(); }, // Lazy: solo se genera al acceder
     duration: media.duration ? `${media.duration} min` : "24 min",
     genres: media.genres ? media.genres.map((g, idx) => ({ mal_id: idx, name: g })) : [],
     demographics: [{ name: demographic }],
