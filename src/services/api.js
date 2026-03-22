@@ -256,10 +256,12 @@ export async function getFullSeasonAnime() {
   let hasNextPage = true;
   let page = 1;
 
-  while (hasNextPage && page <= 4) {
+  // Cargar solo 2 páginas en la carga inicial (100 animes) para respuesta rápida
+  // Las páginas restantes se pueden cargar en segundo plano si es necesario
+  while (hasNextPage && page <= 2) {
     const result = await queryAniList(query, { page, season, seasonYear: year });
     if (!result) break;
-    
+
     allAnimes = [...allAnimes, ...result.Page.media.map(mapMedia)];
     hasNextPage = result.Page.pageInfo.hasNextPage;
     page++;

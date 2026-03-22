@@ -54,7 +54,6 @@
 }
 
 .rankBadge {
-  position: absolute;
   top: 10px;
   left: 10px;
   background: var(--primary-color);
@@ -68,7 +67,6 @@
 }
 
 .typeBadge {
-  position: absolute;
   background: white;
   color: black;
   font-family: "Tektur", sans-serif;
@@ -171,12 +169,14 @@
 }
 
 .genreTag {
-  font-size: 0.55rem;
   font-family: "Tektur", sans-serif;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 2px;
+  font-weight: 700;
+  font-size: 0.55rem;
+  color: #000;
+  padding: 0 6px;
+  text-transform: uppercase;
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 1px 1px 0px var(--primary-color);
 }
 
 .statsRow {
@@ -256,7 +256,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  pointer-events: none;
 }
 
 .title {
@@ -274,7 +273,6 @@
   line-clamp: 3;
   overflow: hidden;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 1);
-  pointer-events: auto;
 }
 
 .hoverMeta {
