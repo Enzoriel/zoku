@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { searchAnime } from "../services/api";
 import SearchBar from "../components/anime/SearchBar";
 import AnimeList from "../components/anime/AnimeList";
-import Pagination from "../components/ui/Pagination";
 import styles from "./Search.module.css";
 import { useAnime } from "../context/AnimeContext";
 
@@ -67,11 +66,7 @@ function Search() {
           <>
             <AnimeList animes={animes} type={true} />
 
-            <Pagination 
-              currentPage={page} 
-              totalPages={pagination.last_visible_page} 
-              onPageChange={handlePageChange} 
-            />
+            <Pagination currentPage={page} totalPages={pagination.last_visible_page} onPageChange={handlePageChange} />
           </>
         ) : (
           <div className={styles.emptyState}>

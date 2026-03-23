@@ -2,14 +2,22 @@ const url = "https://graphql.anilist.co";
 let lastRequest = 0;
 
 const MIN_INTERVAL = 170;
+const FETCH_TIMEOUT = 9000; // 9 segundos
 
 async function queryAniList(query, variables = {}) {
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequest;
+
   if (timeSinceLastRequest < MIN_INTERVAL) {
-    await new Promise((resolve) => setTimeout(resolve, MIN_INTERVAL - timeSinceLastRequest));
+    const wait = MIN_INTERVAL - timeSinceLastRequest;
+    lastRequest = Date.now() + wait;
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  } else {
+    lastRequest = Date.now();
   }
-  lastRequest = Date.now();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
   try {
     const response = await fetch(url, {
@@ -19,6 +27,7 @@ async function queryAniList(query, variables = {}) {
         Accept: "application/json",
       },
       body: JSON.stringify({ query, variables }),
+      signal: controller.signal,
     });
 
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -31,8 +40,14 @@ async function queryAniList(query, variables = {}) {
 
     return json.data;
   } catch (error) {
-    console.error("[AniList] Fetch Error:", error);
+    if (error.name === "AbortError") {
+      console.error("[AniList] Request timeout después de 9 segundos");
+    } else {
+      console.error("[AniList] Fetch Error:", error);
+    }
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -41,12 +56,14 @@ function mapMedia(media) {
 
   const cleanDescription = media.description
     ? media.description
-        .replace(/<br>/g, "\n")
-        .replace(/<i>/g, "")
-        .replace(/<\/i>/g, "")
-        .replace(/<b>/g, "")
-        .replace(/<\/b>/g, "")
+        .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .trim()
     : "No description available.";
 
   const statusMap = {

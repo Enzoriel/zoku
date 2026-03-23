@@ -21,7 +21,7 @@
 }
 
 .header h1 {
-  font-family: 'Saira-BlackItalic', sans-serif;
+  font-family: "Saira-BlackItalic", sans-serif;
   font-size: 2.5rem;
   margin: 0;
   text-transform: uppercase;
@@ -41,7 +41,7 @@
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.4);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.65rem;
   font-weight: 800;
   padding: 6px 12px;
@@ -57,7 +57,7 @@
 }
 
 .path {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.3);
   margin: 0;
@@ -79,7 +79,7 @@
 }
 
 .sectionTitle {
-  font-family: 'Saira-Black', sans-serif;
+  font-family: "Saira-Black", sans-serif;
   font-size: 1.1rem;
   color: rgba(255, 255, 255, 0.8);
   margin-bottom: 25px;
@@ -91,14 +91,14 @@
 }
 
 .sectionTitle::after {
-  content: '';
+  content: "";
   flex: 1;
   height: 1px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent);
 }
 
 .sectionTitle span {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.8rem;
   color: var(--primary-color);
   font-weight: 400;
@@ -169,7 +169,7 @@
 .overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 20%, transparent 80%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 20%, transparent 80%);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -218,7 +218,7 @@
 }
 
 .folderRealName {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.6rem;
   color: rgba(255, 255, 255, 0.5);
   white-space: nowrap;
@@ -239,7 +239,7 @@
 }
 
 .cardTitle {
-  font-family: 'Saira', sans-serif;
+  font-family: "Saira", sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   margin: 0;
@@ -253,7 +253,7 @@
 }
 
 .epCount {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.6rem;
   font-weight: 800;
   color: var(--primary-color);
@@ -269,14 +269,14 @@
 }
 
 .typeBadge {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.6rem;
   color: var(--secondary-color);
   letter-spacing: 0.5px;
 }
 
 .localBadge {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.6rem;
   color: rgba(255, 255, 255, 0.3);
   font-weight: 800;
@@ -337,7 +337,7 @@
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.4);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.6rem;
   font-weight: 800;
   padding: 5px 12px;
@@ -366,7 +366,7 @@
 }
 
 .emptyContent h1 {
-  font-family: 'Saira-Black', sans-serif;
+  font-family: "Saira-Black", sans-serif;
   margin-bottom: 20px;
 }
 
@@ -380,4 +380,20 @@
   font-size: 5rem;
   margin-bottom: 20px;
   opacity: 0.3;
+}
+
+.trackingFolder {
+  opacity: 0.8;
+}
+
+.trackingBadge {
+  font-family: "Tektur", sans-serif;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 2px;
 }

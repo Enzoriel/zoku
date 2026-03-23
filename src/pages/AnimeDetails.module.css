@@ -56,7 +56,10 @@
   width: 100%;
 }
 
-.linkButton, .updateButton, .changeLinkButton, .removeLinkButton {
+.linkButton,
+.updateButton,
+.changeLinkButton,
+.removeLinkButton {
   width: 100%;
   padding: 14px;
   border-radius: 8px;
@@ -68,7 +71,7 @@
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-transform: uppercase;
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   letter-spacing: 1px;
 }
 
@@ -116,12 +119,11 @@
   filter: brightness(1.1);
 }
 
-
 .lastUpdate {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.4);
   text-align: center;
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
 }
 
 /* BÓVEDA CONTROLS */
@@ -149,7 +151,7 @@
 }
 
 .vaultItem label {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.6rem;
   color: var(--primary-color);
   font-weight: 800;
@@ -161,7 +163,7 @@
   padding: 8px 12px;
   border-radius: 6px;
   color: #fff;
-  font-family: 'Saira', sans-serif;
+  font-family: "Saira", sans-serif;
   font-size: 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -169,7 +171,7 @@
 .statusBadgeValue {
   padding: 10px 15px;
   border-radius: 8px;
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-weight: 800;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -213,7 +215,7 @@
 }
 
 .historySection label {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.6rem;
   color: rgba(255, 255, 255, 0.3);
   font-weight: 800;
@@ -236,11 +238,11 @@
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 0.75rem;
-  font-family: 'Saira', sans-serif;
+  font-family: "Saira", sans-serif;
 }
 
 .histEp {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-weight: 800;
   color: #fff;
 }
@@ -276,7 +278,7 @@
   font-size: 0.6rem;
   color: rgba(255, 255, 255, 0.4);
   margin-bottom: 6px;
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   letter-spacing: 1px;
 }
 
@@ -284,7 +286,7 @@
   font-size: 1rem;
   font-weight: 700;
   color: var(--secondary-color);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
 }
 
 .infoList {
@@ -306,7 +308,7 @@
 
 .infoItem strong {
   color: rgba(255, 255, 255, 0.4);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.8rem;
   text-transform: uppercase;
 }
@@ -324,7 +326,7 @@
 }
 
 .title {
-  font-family: 'Saira-BlackItalic', sans-serif;
+  font-family: "Saira-BlackItalic", sans-serif;
   font-size: 3.5rem;
   margin: 0 0 20px 0;
   line-height: 1.1;
@@ -344,13 +346,13 @@
   border-radius: 4px;
   font-size: 0.8rem;
   border: 1px solid rgba(255, 30, 30, 0.2);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-weight: 600;
   text-transform: uppercase;
 }
 
 .sectionTitle {
-  font-family: 'Saira-Black', sans-serif;
+  font-family: "Saira-Black", sans-serif;
   font-size: 1.2rem;
   margin-bottom: 20px;
   color: #fff;
@@ -362,7 +364,7 @@
 }
 
 .sectionTitle::after {
-  content: '';
+  content: "";
   flex: 1;
   height: 2px;
   background: linear-gradient(90deg, var(--primary-color), transparent);
@@ -424,7 +426,7 @@
 
 .epNumber {
   color: var(--primary-color);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-weight: 800;
   font-size: 0.9rem;
   min-width: 60px;
@@ -443,7 +445,7 @@
   font-size: 1rem;
   font-weight: 600;
   color: #fff;
-  font-family: 'Saira', sans-serif;
+  font-family: "Saira", sans-serif;
 }
 
 .playButton {
@@ -475,11 +477,11 @@
 .epDate {
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.3);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
 }
 
 .epStatus {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.65rem;
   padding: 4px 12px;
   border-radius: 2px;
@@ -490,11 +492,31 @@
 }
 
 /* Estados de episodio */
-.watched { background: rgba(46, 125, 50, 0.12); color: #4caf50; border: 1px solid rgba(46, 125, 50, 0.25); }
-.downloaded { background: rgba(33, 150, 243, 0.1); color: #2196f3; border: 1px solid rgba(33, 150, 243, 0.2); }
-.pending { background: rgba(255, 255, 255, 0.04); color: rgba(255, 255, 255, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); }
-.local { background: rgba(255, 193, 7, 0.1); color: #ffc107; border: 1px solid rgba(255, 193, 7, 0.2); }
-.upcoming { background: transparent; color: rgba(255, 255, 255, 0.2); border: 1px dashed rgba(255, 255, 255, 0.1); }
+.watched {
+  background: rgba(46, 125, 50, 0.12);
+  color: #4caf50;
+  border: 1px solid rgba(46, 125, 50, 0.25);
+}
+.downloaded {
+  background: rgba(33, 150, 243, 0.1);
+  color: #2196f3;
+  border: 1px solid rgba(33, 150, 243, 0.2);
+}
+.pending {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.local {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.2);
+}
+.upcoming {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
 
 /* Fila episodio visto */
 .episodeWatchedRow {
@@ -512,15 +534,20 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .timerBadgeBtn {
   background: rgba(255, 193, 7, 0.1);
   border: 1px solid rgba(255, 193, 7, 0.3);
   color: #ffc107;
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.65rem;
   padding: 2px 8px;
   border-radius: 4px;
@@ -590,7 +617,7 @@
 
 /* Contador de episodios en título de sección */
 .epCountBadge {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.35);
   font-weight: 400;
@@ -622,7 +649,7 @@
 }
 
 .progressLabel {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.35);
   letter-spacing: 1px;
@@ -632,7 +659,7 @@
   background: rgba(255, 193, 7, 0.1);
   border: 1px solid rgba(255, 193, 7, 0.4);
   color: #ffc107;
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.55rem;
   font-weight: 800;
   padding: 3px 8px;
@@ -650,9 +677,8 @@
   box-shadow: 0 0 15px rgba(255, 193, 7, 0.2);
 }
 
-
 .progressFraction {
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
   color: #4caf50;
@@ -703,7 +729,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
 }
 
 .modalHeader {
@@ -716,7 +742,7 @@
 
 .modalHeader h2 {
   margin: 0;
-  font-family: 'Saira-Black', sans-serif;
+  font-family: "Saira-Black", sans-serif;
   font-size: 1.2rem;
   color: var(--primary-color);
   text-transform: uppercase;
@@ -752,7 +778,7 @@
   padding: 14px 20px;
   border-radius: 8px;
   color: #fff;
-  font-family: 'Saira', sans-serif;
+  font-family: "Saira", sans-serif;
   outline: none;
   transition: border-color 0.2s ease;
 }
@@ -769,7 +795,7 @@
   font-weight: 800;
   color: white;
   cursor: pointer;
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   text-transform: uppercase;
 }
 
@@ -808,7 +834,7 @@
 
 .resultInfo h4 {
   margin: 0 0 8px 0;
-  font-family: 'Saira-Black', sans-serif;
+  font-family: "Saira-Black", sans-serif;
   font-size: 1rem;
 }
 
@@ -816,10 +842,11 @@
   margin: 0;
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.4);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
 }
 
-.loadingContainer, .errorContainer {
+.loadingContainer,
+.errorContainer {
   height: 80vh;
   display: flex;
   justify-content: center;
@@ -830,6 +857,215 @@
 
 .errorContainer p {
   color: var(--primary-color);
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   font-weight: 700;
+}
+
+/* Acciones bajo el poster */
+.posterActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.primaryBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary-color);
+  border: none;
+  color: #fff;
+  font-family: "Tektur", sans-serif;
+  font-weight: 900;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+.primaryBtn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.libraryActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inListBadge {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #4caf50;
+  font-family: "Tektur", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-align: center;
+  border-radius: 4px;
+}
+
+/* Menú 3 puntos */
+.menuWrapper {
+  position: relative;
+}
+
+.menuBtn {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.menuBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.menuDropdown {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  min-width: 200px;
+  z-index: 100;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.menuItem {
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: "Tektur", sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.menuItemDanger {
+  color: rgba(255, 80, 80, 0.7);
+}
+
+.menuItemDanger:hover {
+  background: rgba(255, 30, 30, 0.1);
+  color: #ff5050;
+}
+
+.menuDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 0;
+}
+
+/* Carpeta vinculada en infoList */
+.folderTag {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  font-family: "Tektur", sans-serif;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Folder result en modal */
+.folderResultIcon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-family: "Tektur", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  z-index: 2000;
+  max-width: 360px;
+  animation: toastIn 0.3s ease;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast_success {
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  color: #4caf50;
+}
+
+.toast_warn {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  color: #ffc107;
+}
+
+.toast_info {
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  color: #64b5f6;
+}
+
+.noEpisodes {
+  color: rgba(255, 255, 255, 0.3);
+  font-family: "Tektur", sans-serif;
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 40px 0;
+  letter-spacing: 1px;
 }

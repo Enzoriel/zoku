@@ -1,0 +1,117 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  position: relative;
+  padding: 28px;
+  max-width: 400px;
+  width: 90%;
+}
+
+.cornerTL,
+.cornerTR,
+.cornerBL,
+.cornerBR {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+}
+
+.cornerTL {
+  top: 0;
+  left: 0;
+  border-top: 2px solid white;
+  border-left: 2px solid white;
+}
+.cornerTR {
+  top: 0;
+  right: 0;
+  border-top: 2px solid white;
+  border-right: 2px solid white;
+}
+.cornerBL {
+  bottom: 0;
+  left: 0;
+  border-bottom: 2px solid white;
+  border-left: 2px solid white;
+}
+.cornerBR {
+  bottom: 0;
+  right: 0;
+  border-bottom: 2px solid white;
+  border-right: 2px solid white;
+}
+
+.tag {
+  color: var(--primary-color);
+  font-family: "Tektur", sans-serif;
+  font-size: 0.6rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.title {
+  color: white;
+  font-family: "Tektur", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.message {
+  color: rgba(255, 255, 255, 0.4);
+  font-family: "Tektur", sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cancelBtn,
+.confirmBtn {
+  flex: 1;
+  padding: 10px;
+  font-family: "Tektur", sans-serif;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.cancelBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.cancelBtn:hover {
+  opacity: 0.7;
+}
+
+.confirmBtn {
+  background: transparent;
+  border: 1px solid white;
+  color: white;
+}
+
+.confirmBtn:hover {
+  background: white;
+  color: black;
+}

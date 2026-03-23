@@ -28,6 +28,13 @@ export const Sidebar = () => {
     }
   };
 
+  const handleNavLinkClick = (path) => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.userProfile} title="Perfil">
@@ -47,6 +54,7 @@ export const Sidebar = () => {
                 onMouseDown={() => handleMouseDown("/")}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
+                onClick={() => handleNavLinkClick("/")}
                 title="Inicio"
               >
                 <div className={styles.rippleContainer}>
@@ -79,6 +87,7 @@ export const Sidebar = () => {
                 onMouseDown={() => handleMouseDown("/my-animes")}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
+                onClick={() => handleNavLinkClick("/my-animes")}
                 title="Mis animes"
               >
                 <div className={styles.rippleContainer}>
@@ -111,6 +120,7 @@ export const Sidebar = () => {
                 onMouseDown={() => handleMouseDown("/library")}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
+                onClick={() => handleNavLinkClick("/library")}
                 title="Biblioteca"
               >
                 <div className={styles.rippleContainer}>
@@ -143,6 +153,7 @@ export const Sidebar = () => {
                 onMouseDown={() => handleMouseDown("/discover")}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
+                onClick={() => handleNavLinkClick("/discover")}
                 title="Descubrir"
               >
                 <div className={styles.rippleContainer}>
@@ -175,6 +186,7 @@ export const Sidebar = () => {
                 onMouseDown={() => handleMouseDown("/search")}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
+                onClick={() => handleNavLinkClick("/search")}
                 title="Buscar"
               >
                 <div className={styles.rippleContainer}>
@@ -207,6 +219,7 @@ export const Sidebar = () => {
                 onMouseDown={() => handleMouseDown("/stats")}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
+                onClick={() => handleNavLinkClick("/stats")}
                 title="Estadísticas"
               >
                 <div className={styles.rippleContainer}>
@@ -241,6 +254,7 @@ export const Sidebar = () => {
             onMouseDown={() => handleMouseDown("/configuration")}
             onMouseUp={handleMouseUpOrLeave}
             onMouseLeave={handleMouseUpOrLeave}
+            onClick={() => handleNavLinkClick("/configuration")}
             title="Configuración"
           >
             <div className={styles.rippleContainer}>

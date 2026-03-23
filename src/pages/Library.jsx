@@ -1,37 +1,22 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
-import { selectFolder, scanLibrary, deleteFolderFromDisk } from "../services/fileSystem";
+import { useLibrary } from "../context/LibraryContext";
+import { selectFolder, deleteFolderFromDisk } from "../services/fileSystem";
 import Button from "../components/ui/Button";
+import ConfirmModal from "../components/ui/ConfirmModal";
 import styles from "./Library.module.css";
 
 function Library() {
-  const { data, setFolderPath, setLocalFiles, setMyAnimes } = useStore();
-  const [syncing, setSyncing] = useState(false);
-  const [viewMode, setViewMode] = useState("grid"); // "grid" | "list"
-  const [filterType, setFilterType] = useState("ALL"); // ALL, TV, MOVIE, OVA, UNLINKED
+  const { data, setFolderPath, setMyAnimes } = useStore();
+  const { performSync, syncing } = useLibrary();
+  const [viewMode, setViewMode] = useState("grid");
+  const [confirmModal, setConfirmModal] = useState(null);
   const navigate = useNavigate();
 
   const handleSelectFolder = async () => {
     const path = await selectFolder();
-    if (path) {
-      await setFolderPath(path);
-    }
-  };
-
-  const performSync = async () => {
-    if (syncing) return;
-    if (data.folderPath) {
-      setSyncing(true);
-      try {
-        const localFiles = await scanLibrary(data.folderPath, data.myAnimes);
-        await setLocalFiles(localFiles);
-      } catch (error) {
-        console.error("Error sincronizando biblioteca:", error);
-      } finally {
-        setSyncing(false);
-      }
-    }
+    if (path) await setFolderPath(path);
   };
 
   useEffect(() => {
@@ -39,80 +24,132 @@ function Library() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.folderPath]);
 
-  // Procesar carpetas para la vista
   const processedFolders = useMemo(() => {
     return Object.entries(data.localFiles || {})
-      .map(([name, folderData]) => {
-        return {
-          ...folderData,
-          name,
-          type: folderData.animeData?.type || "UNKNOWN",
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .map(([name, folderData]) => ({
+        ...folderData,
+        name,
+        type: folderData.animeData?.type || "UNKNOWN",
+      }))
+      .sort((a, b) => {
+        // isTracking al final dentro de su grupo
+        if (a.isTracking && !b.isTracking) return 1;
+        if (!a.isTracking && b.isTracking) return -1;
+        return a.name.localeCompare(b.name);
+      });
   }, [data.localFiles]);
 
-  // Agrupar por categorías
   const groupedFolders = useMemo(() => {
     const groups = {
       TV: [],
       MOVIE: [],
       OVA_SPECIAL: [],
       UNLINKED: [],
-      OTHER: []
+      TRACKING: [], // en lista, sin carpeta física
+      OTHER: [],
     };
 
-    processedFolders.forEach(folder => {
+    processedFolders.forEach((folder) => {
+      if (folder.isTracking) {
+        groups.TRACKING.push(folder);
+        return;
+      }
       if (!folder.isLinked) {
         groups.UNLINKED.push(folder);
-      } else {
-        const type = folder.type?.toUpperCase();
-        if (type === "TV" || type === "TV_SHORT") groups.TV.push(folder);
-        else if (type === "MOVIE") groups.MOVIE.push(folder);
-        else if (type === "OVA" || type === "SPECIAL" || type === "ONA") groups.OVA_SPECIAL.push(folder);
-        else groups.OTHER.push(folder);
+        return;
       }
+      const type = folder.type?.toUpperCase();
+      if (type === "TV" || type === "TV_SHORT") groups.TV.push(folder);
+      else if (type === "MOVIE") groups.MOVIE.push(folder);
+      else if (type === "OVA" || type === "SPECIAL" || type === "ONA") groups.OVA_SPECIAL.push(folder);
+      else groups.OTHER.push(folder);
     });
 
     return groups;
   }, [processedFolders]);
 
-  const handleDeleteFolder = async (folder) => {
-    if (!folder.physicalPath) {
-      alert("No se puede borrar: es una entrada virtual o archivo raíz.");
-      return;
-    }
-    const success = await deleteFolderFromDisk(folder.physicalPath);
-    if (success) {
-      // Eliminar de MyAnimes si estaba vinculado
-      if (folder.malId) {
-        const confirmRemoveLibrary = await confirm("¿Quieres eliminar también este anime de tu biblioteca de seguimiento?");
-        if (confirmRemoveLibrary) {
+  const handleDeleteFolder = (folder) => {
+    if (folder.isTracking) {
+      // Es solo seguimiento, no hay carpeta física que borrar
+      setConfirmModal({
+        title: "¿Quitar de seguimiento?",
+        message: `"${folder.animeData?.title || folder.name}" se eliminará de tu lista. No hay archivos que borrar.`,
+        onConfirm: async () => {
+          setConfirmModal(null);
           const newMyAnimes = { ...data.myAnimes };
           delete newMyAnimes[folder.malId];
           await setMyAnimes(newMyAnimes);
-        }
-      }
-      performSync();
+          await performSync(newMyAnimes);
+        },
+      });
+      return;
     }
+
+    if (!folder.physicalPath) {
+      setConfirmModal({
+        title: "Acción no disponible",
+        message: "No se puede borrar: es una entrada virtual o archivo raíz.",
+        onConfirm: () => setConfirmModal(null),
+      });
+      return;
+    }
+
+    setConfirmModal({
+      title: "¿Borrar carpeta?",
+      message: `"${folder.name}" y todos sus archivos serán eliminados permanentemente del disco.`,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const success = await deleteFolderFromDisk(folder.physicalPath, data.folderPath);
+        if (success) {
+          if (folder.malId) {
+            setConfirmModal({
+              title: "¿Eliminar de biblioteca?",
+              message: "¿Quieres eliminar también este anime de tu lista de seguimiento?",
+              onConfirm: async () => {
+                const newMyAnimes = { ...data.myAnimes };
+                delete newMyAnimes[folder.malId];
+                await setMyAnimes(newMyAnimes);
+                setConfirmModal(null);
+                await performSync(newMyAnimes);
+              },
+            });
+          } else {
+            await performSync();
+          }
+        }
+      },
+    });
   };
 
-  const handleUnlink = async (e, folder) => {
+  const handleUnlink = (e, folder) => {
     e.stopPropagation();
     if (!folder.malId) return;
-    
-    if (window.confirm(`¿Quieres desvincular "${folder.name}" de la API?\nLos datos guardados se mantendrán pero la carpeta aparecerá como local.`)) {
-      const newMyAnimes = { ...data.myAnimes };
-      if (newMyAnimes[folder.malId]) {
-        // Quitamos la referencia de folderName para que el scanner no lo encuentre por id
-        newMyAnimes[folder.malId] = { ...newMyAnimes[folder.malId], folderName: null };
+
+    setConfirmModal({
+      title: "¿Desvincular carpeta?",
+      message: `"${folder.name}" dejará de estar vinculada. El anime permanece en tu lista sin archivos asociados.`,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const newMyAnimes = {
+          ...data.myAnimes,
+          [folder.malId]: {
+            ...data.myAnimes[folder.malId],
+            folderName: null, // sin flag unlinked, regla única
+            lastUpdated: new Date().toISOString(),
+          },
+        };
         await setMyAnimes(newMyAnimes);
-        performSync();
-      }
-    }
+        await performSync(newMyAnimes);
+      },
+    });
   };
 
   const handleNavigateToAnime = (folder) => {
+    if (folder.isTracking) {
+      // Anime sin carpeta: entrar por ID
+      navigate(`/anime/${folder.malId}`);
+      return;
+    }
     if (folder.malId) {
       navigate(`/anime/${folder.malId}?folder=${encodeURIComponent(folder.name)}`);
     } else {
@@ -121,13 +158,14 @@ function Library() {
   };
 
   const renderFolderCard = (folder) => {
-    const hasPoster = folder.isLinked && folder.animeData?.coverImage;
+    const hasPoster = (folder.isLinked || folder.isTracking) && folder.animeData?.coverImage;
     const isGrid = viewMode === "grid";
+    const isTracking = folder.isTracking;
 
     return (
       <div
         key={folder.name}
-        className={`${isGrid ? styles.animeCard : styles.listItem} ${!folder.isLinked ? styles.localFolder : ""}`}
+        className={`${isGrid ? styles.animeCard : styles.listItem} ${!folder.isLinked && !isTracking ? styles.localFolder : ""} ${isTracking ? styles.trackingFolder : ""}`}
         onClick={() => handleNavigateToAnime(folder)}
       >
         <div className={styles.posterWrapper}>
@@ -135,46 +173,87 @@ function Library() {
             <img src={folder.animeData.coverImage} alt="" className={styles.posterImage} />
           ) : (
             <div className={styles.folderIcon}>
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
-              </svg>
+              {isTracking ? (
+                // Icono de "en lista" para tracking
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
+                </svg>
+              )}
             </div>
           )}
           {isGrid && (
             <div className={styles.overlay}>
-               <div className={styles.cardActions}>
-                <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder); }} title="Borrar del disco">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6m4-16v6" /></svg>
+              <div className={styles.cardActions}>
+                <button
+                  className={styles.actionBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteFolder(folder);
+                  }}
+                  title={isTracking ? "Quitar de lista" : "Borrar del disco"}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6m4-16v6" />
+                  </svg>
                 </button>
-                {folder.isLinked && (
-                  <button className={styles.actionBtn} onClick={(e) => handleUnlink(e, folder)} title="Desvincular API">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" /></svg>
+                {folder.isLinked && !isTracking && (
+                  <button
+                    className={styles.actionBtn}
+                    onClick={(e) => handleUnlink(e, folder)}
+                    title="Desvincular carpeta"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+                    </svg>
                   </button>
                 )}
               </div>
-              <span className={styles.folderRealName}>{folder.name}</span>
+              <span className={styles.folderRealName}>{isTracking ? folder.animeData?.title : folder.name}</span>
             </div>
           )}
         </div>
-        
+
         <div className={styles.cardInfo}>
           <div className={styles.cardHeader}>
-            <h3 className={styles.cardTitle}>{folder.isLinked ? folder.animeData.title : folder.name}</h3>
-            {folder.files.length > 0 && <span className={styles.epCount}>{folder.files.length} EPS</span>}
+            <h3 className={styles.cardTitle}>
+              {folder.isLinked || isTracking ? folder.animeData?.title || folder.name : folder.name}
+            </h3>
+            {!isTracking && folder.files.length > 0 && (
+              <span className={styles.epCount}>{folder.files.length} EPS</span>
+            )}
           </div>
           <div className={styles.cardMeta}>
-            {!folder.isLinked ? (
+            {isTracking ? (
+              <span className={styles.trackingBadge}>SIN ARCHIVOS</span>
+            ) : !folder.isLinked ? (
               <span className={styles.localBadge}>SIN VINCULAR</span>
             ) : (
               <span className={styles.typeBadge}>{folder.type}</span>
             )}
           </div>
         </div>
-        
+
         {!isGrid && (
           <div className={styles.listActions}>
-            <button className={styles.listActionBtn} onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder); }}>BORRAR</button>
-            {folder.isLinked && <button className={styles.listActionBtn} onClick={(e) => handleUnlink(e, folder)}>DESVINCULAR</button>}
+            <button
+              className={styles.listActionBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteFolder(folder);
+              }}
+            >
+              {isTracking ? "QUITAR" : "BORRAR"}
+            </button>
+            {folder.isLinked && !isTracking && (
+              <button className={styles.listActionBtn} onClick={(e) => handleUnlink(e, folder)}>
+                DESVINCULAR
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -242,7 +321,8 @@ function Library() {
         {renderSection("SERIES TV", groupedFolders.TV)}
         {renderSection("PELÍCULAS", groupedFolders.MOVIE)}
         {renderSection("OVAS / ESPECIALES", groupedFolders.OVA_SPECIAL)}
-        {renderSection("SERIES POR VINCULAR", groupedFolders.UNLINKED)}
+        {renderSection("EN SEGUIMIENTO", groupedFolders.TRACKING)}
+        {renderSection("SIN VINCULAR", groupedFolders.UNLINKED)}
         {renderSection("OTROS", groupedFolders.OTHER)}
 
         {processedFolders.length === 0 && (
@@ -251,6 +331,15 @@ function Library() {
           </div>
         )}
       </main>
+
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   );
 }

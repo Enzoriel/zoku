@@ -14,6 +14,13 @@ function AnimeList({ animes = [] }) {
     setPage(1);
   }, [animes]);
 
+  useEffect(() => {
+    window.scrollTo({
+      top: 200,
+      behavior: "smooth",
+    });
+  }, [page]);
+
   if (animes.length === 0) {
     return <div className={styles.empty}>No se encontraron resultados</div>;
   }

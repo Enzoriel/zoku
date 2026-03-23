@@ -1,23 +1,27 @@
-import { open, confirm } from "@tauri-apps/plugin-dialog";
-import { readDir, remove } from "@tauri-apps/plugin-fs"; 
+import { open } from "@tauri-apps/plugin-dialog";
+import { readDir, remove } from "@tauri-apps/plugin-fs";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { Command } from "@tauri-apps/plugin-shell";
+import { extractEpisodeNumber, detectConstantNumbers } from "../utils/fileParsing";
 
 const PLAYER_PROCESS_NAMES = {
-  mpv: 'mpv',
-  vlc: 'vlc',
-  'mpc-hc': 'mpc-hc64',
-  'mpc-be': 'mpc-be64',
-  potplayer: 'PotPlayerMini64',
+  mpv: "mpv",
+  vlc: "vlc",
+  "mpc-hc": "mpc-hc64",
+  "mpc-be": "mpc-be64",
+  potplayer: "PotPlayerMini64",
 };
 
-// Verifica si el proceso del reproductor sigue activo en Windows
 export async function isPlayerStillOpen(playerName) {
-  const processName = PLAYER_PROCESS_NAMES[playerName] || playerName;
+  const processName = PLAYER_PROCESS_NAMES[playerName];
+  if (!processName) {
+    console.warn(`[FS] Reproductor no reconocido: ${playerName}`);
+    return false;
+  }
   try {
-    const output = await Command.create('powershell', [
-      '-Command',
-      `Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Select-Object -First 1`
+    const output = await Command.create("powershell", [
+      "-Command",
+      `Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Select-Object -First 1`,
     ]).execute();
     return output.stdout.trim().length > 0;
   } catch (err) {
@@ -25,84 +29,96 @@ export async function isPlayerStillOpen(playerName) {
     return false;
   }
 }
+
 export function normalizeForSearch(text) {
   if (!text) return "";
   return text
     .toLowerCase()
-    .replace(/[ \-_.]+/g, " ") 
-    .replace(/[^a-z0-9 ]/g, "") 
+    .replace(/[ \-_.]+/g, " ")
+    .replace(/[^a-z0-9 ]/g, "")
     .trim();
 }
 
-
 export function extractBaseTitle(fileName) {
   if (!fileName) return "";
-  let name = fileName.replace(/\.[^/.]+$/, ""); 
+  let name = fileName.replace(/\.[^/.]+$/, "");
 
-  // Limpieza agresiva de metadatos para quedarnos solo con el título nominal de la serie
   name = name.replace(/\[.*?\]/g, "");
   name = name.replace(/\(.*?\)/g, "");
   name = name.replace(/\{.*?\}/g, "");
-  
-  const junk = [/1080p/gi, /720p/gi, /480p/gi, /bdrip/gi, /h264/gi, /x264/gi, /h265/gi, /x265/gi, /hevc/gi, /10bit/gi, /multi-subs/gi, /aac/gi, /dual-audio/gi, /bluray/gi, /web-dl/gi, /hd/gi, /remux/gi];
-  junk.forEach(pattern => { name = name.replace(pattern, ""); });
+
+  const junk = [
+    /1080p/gi,
+    /720p/gi,
+    /480p/gi,
+    /bdrip/gi,
+    /h264/gi,
+    /x264/gi,
+    /h265/gi,
+    /x265/gi,
+    /hevc/gi,
+    /10bit/gi,
+    /multi-subs/gi,
+    /aac/gi,
+    /dual-audio/gi,
+    /bluray/gi,
+    /web-dl/gi,
+    /hd/gi,
+    /remux/gi,
+  ];
+  junk.forEach((pattern) => {
+    name = name.replace(pattern, "");
+  });
 
   name = name.replace(/S[0-9]{1,2}/gi, "");
   name = name.replace(/Season [0-9]{1,2}/gi, "");
   name = name.replace(/v[0-9]{1}/gi, "");
 
-  const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/i; 
-  const endingPattern = /\b(end|final|ova|special|movie|film)\b/i; 
+  const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/i;
+  const endingPattern = /\b(end|final|ova|special|movie|film)\b/i;
 
   let match = name.match(episodePattern);
   if (match) {
     name = name.substring(0, match.index);
   } else {
     match = name.match(endingPattern);
-    if (match) {
-      name = name.substring(0, match.index);
-    }
+    if (match) name = name.substring(0, match.index);
   }
-  
-  name = name.replace(/^[ \-_.]+|[ \-_.]+$/g, ""); 
+
+  name = name.replace(/^[ \-_.]+|[ \-_.]+$/g, "");
   name = name.replace(/\s+/g, " ");
-  
-  return name.trim() || fileName; 
+
+  return name.trim() || fileName;
 }
 
-
-// Borrar carpeta del disco
-export async function deleteFolderFromDisk(folderPath) {
+export async function deleteFolderFromDisk(folderPath, basePath) {
   if (!folderPath) return false;
-  
-  try {
-    const isConfirmed = await confirm(
-      `¿Estás seguro de que quieres borrar permanentemente esta carpeta y todos sus archivos?\n\n${folderPath}`,
-      { title: "Confirmar Borrado Físico", kind: "warning" }
-    );
 
-    if (isConfirmed) {
-      await remove(folderPath, { recursive: true });
-      return true;
-    }
+  const normalizedFolder = folderPath.replace(/\\/g, "/").toLowerCase();
+  const normalizedBase = basePath?.replace(/\\/g, "/").toLowerCase();
+
+  if (!normalizedBase || !normalizedFolder.startsWith(normalizedBase)) {
+    console.error(`[FS] Intento de borrado fuera del basePath: ${folderPath}`);
     return false;
+  }
+
+  try {
+    await remove(folderPath, { recursive: true });
+    return true;
   } catch (error) {
     console.error("[FS] Error al borrar carpeta:", error);
     return false;
   }
 }
 
-// Abrir dialog para seleccionar carpeta
 export async function selectFolder() {
   return await open({ directory: true, multiple: false, title: "Seleccionar carpeta de anime" });
 }
 
-// Abrir archivo con el reproductor nativo
 export async function openFile(filePath) {
   if (!filePath) return false;
   try {
     const winPath = filePath.replace(/\//g, "\\");
-    console.log(`[Opener] Intentando abrir: ${winPath}`);
     await openPath(winPath);
     return true;
   } catch (error) {
@@ -111,107 +127,129 @@ export async function openFile(filePath) {
   }
 }
 
-// Leer videos de una carpeta
 async function getVideosInFolder(folderPath) {
   try {
     const entries = await readDir(folderPath);
     const videoExtensions = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
-    return entries
-      .filter(e => !e.isDirectory && videoExtensions.some(ext => e.name.toLowerCase().endsWith(ext)))
-      .map(e => ({
-        name: e.name,
-        path: `${folderPath}/${e.name}`.replace(/\/+/g, "/")
-      }));
+
+    const videoFiles = entries.filter(
+      (e) => !e.isDirectory && videoExtensions.some((ext) => e.name.toLowerCase().endsWith(ext)),
+    );
+
+    const constantNumbers = detectConstantNumbers(videoFiles.map((e) => e.name));
+
+    return videoFiles.map((e) => ({
+      name: e.name,
+      path: `${folderPath}/${e.name}`.replace(/\/+/g, "/"),
+      episodeNumber: extractEpisodeNumber(e.name, constantNumbers.map(String)),
+    }));
   } catch (error) {
     console.error(`[FS] Error leyendo carpeta ${folderPath}:`, error);
     return [];
   }
 }
 
-// Escáner Maestro VIRTUAL mejorado
 export async function scanLibrary(basePath, myAnimes) {
   if (!basePath) return {};
 
   const virtualLibrary = {};
   const animeList = Object.values(myAnimes || {});
-  
+
   try {
     const rootEntries = await readDir(basePath);
+    const dirEntries = rootEntries.filter((e) => e.isDirectory);
+    const fileEntries = rootEntries.filter((e) => e.isFile);
 
-    // 1. Recolectar archivos por carpeta física y archivos en raíz
-    for (const entry of rootEntries) {
+    // Leer todas las subcarpetas en paralelo
+    const subFilesResults = await Promise.all(
+      dirEntries.map(async (entry) => {
+        const fullPath = `${basePath}/${entry.name}`.replace(/\/+/g, "/");
+        const files = await getVideosInFolder(fullPath);
+        return { entry, fullPath, files };
+      }),
+    );
+
+    subFilesResults.forEach(({ entry, fullPath, files }) => {
+      virtualLibrary[entry.name] = {
+        files,
+        folderName: entry.name,
+        physicalPath: fullPath,
+        isRootFile: false,
+        isLinked: false,
+        malId: null,
+        animeData: null,
+      };
+    });
+
+    // Archivos en raíz
+    const videoExts = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
+    fileEntries.forEach((entry) => {
       const fullPath = `${basePath}/${entry.name}`.replace(/\/+/g, "/");
-      
-      if (entry.isFile) {
-        const videoExts = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
-        if (videoExts.some(ext => entry.name.toLowerCase().endsWith(ext))) {
-          const baseTitle = extractBaseTitle(entry.name);
-          if (!virtualLibrary[baseTitle]) virtualLibrary[baseTitle] = { files: [], folderName: baseTitle, isRootFile: true };
-          virtualLibrary[baseTitle].files.push({ name: entry.name, path: fullPath });
-        }
-      } else if (entry.isDirectory) {
-        const subFiles = await getVideosInFolder(fullPath);
-        if (subFiles.length >= 0) { 
-          virtualLibrary[entry.name] = { 
-            files: subFiles, 
-            folderName: entry.name, 
-            physicalPath: fullPath,
-            isRootFile: false 
+      if (videoExts.some((ext) => entry.name.toLowerCase().endsWith(ext))) {
+        const baseTitle = extractBaseTitle(entry.name);
+        if (!virtualLibrary[baseTitle]) {
+          virtualLibrary[baseTitle] = {
+            files: [],
+            folderName: baseTitle,
+            isRootFile: true,
+            isLinked: false,
+            malId: null,
+            animeData: null,
           };
         }
+        virtualLibrary[baseTitle].files.push({
+          name: entry.name,
+          path: fullPath,
+          episodeNumber: extractEpisodeNumber(entry.name, []),
+        });
       }
-    }
+    });
 
-
-    // 2. Vincular con MyAnimes (Priorizando folderName explícito)
-    Object.keys(virtualLibrary).forEach(key => {
+    // Regla única: una carpeta está vinculada SOLO si hay un anime
+    // con folderName === nombreCarpeta (coincidencia exacta, sin auto-matching)
+    Object.keys(virtualLibrary).forEach((key) => {
       const folder = virtualLibrary[key];
-      const normalizedKey = normalizeForSearch(key);
-      
-      const matchedAnime = animeList.find(a => {
-        const storedFolder = a.folderName ? normalizeForSearch(a.folderName) : null;
-        const normalizedTitle = normalizeForSearch(a.title);
-
-        return (
-          (storedFolder && (storedFolder === normalizedKey || normalizedKey.includes(storedFolder))) || 
-          normalizedTitle === normalizedKey ||
-          normalizedKey.includes(normalizedTitle)
-        );
-      });
+      const matchedAnime = animeList.find((a) => a.folderName === key);
 
       if (matchedAnime) {
         folder.isLinked = true;
         folder.malId = matchedAnime.malId;
         folder.animeData = matchedAnime;
-        // Importante: Actualizar el folderName en el store si ha cambiado ligeramente 
-        // pero se ha detectado como el mismo para mantener consistencia
-        if (matchedAnime.folderName !== key) {
-           matchedAnime.tempDetectedFolder = key; 
-        }
-      } else {
-        folder.isLinked = false;
-        folder.malId = null;
-        folder.animeData = null;
       }
     });
 
+    // Animes en la biblioteca sin carpeta física
+    animeList.forEach((anime) => {
+      // Si tiene folderName, verificar si la carpeta existe físicamente
+      if (anime.folderName) {
+        const alreadyInList = Object.keys(virtualLibrary).includes(anime.folderName);
+        if (!alreadyInList) {
+          // La carpeta vinculada ya no existe en disco
+          virtualLibrary[anime.folderName] = {
+            files: [],
+            isLinked: true,
+            malId: anime.malId,
+            animeData: anime,
+            folderName: anime.folderName,
+            isMissing: true,
+          };
+        }
+        return;
+      }
 
-    // 3. Incluir animes de la biblioteca que no tienen archivos
-    animeList.forEach(anime => {
-      const alreadyInListByMalId = Object.values(virtualLibrary).some(f => f.malId === anime.malId);
-      if (!alreadyInListByMalId) {
-        const key = anime.title;
-        virtualLibrary[key] = {
+      // Sin folderName: anime en seguimiento puro, aparece en Library sin carpeta
+      const alreadyInList = Object.values(virtualLibrary).some((f) => f.malId === anime.malId);
+      if (!alreadyInList) {
+        virtualLibrary[`__tracking__${anime.malId}`] = {
           files: [],
-          isLinked: true,
+          isLinked: false,
+          isTracking: true, // sin carpeta, solo seguimiento
           malId: anime.malId,
           animeData: anime,
-          folderName: anime.title,
-          isMissing: true
+          folderName: null,
         };
       }
     });
-
   } catch (error) {
     console.error("[FS] Fallo en el escáner virtual:", error);
   }
@@ -220,5 +258,5 @@ export async function scanLibrary(basePath, myAnimes) {
 }
 
 export async function syncLibraryFolders() {
-  return; 
+  return;
 }

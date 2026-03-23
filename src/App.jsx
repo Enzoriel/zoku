@@ -2,8 +2,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy } from "react";
 import "./App.css";
 import { StoreProvider } from "./context/StoreContext";
-import Layout from "./components/layout/Layout";
 import { AnimeProvider } from "./context/AnimeContext";
+import { LibraryProvider } from "./context/LibraryContext";
+import Layout from "./components/layout/Layout";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Discover = lazy(() => import("./pages/Discover"));
@@ -18,20 +19,22 @@ function App() {
   return (
     <AnimeProvider>
       <StoreProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="discover" element={<Discover />} />
-              <Route path="search" element={<Search />} />
-              <Route path="my-animes" element={<MyAnimes />} />
-              <Route path="library" element={<Library />} />
-              <Route path="stats" element={<Stats />} />
-              <Route path="configuration" element={<Configuration />} />
-              <Route path="anime/:id" element={<AnimeDetails />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
+        <LibraryProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="discover" element={<Discover />} />
+                <Route path="search" element={<Search />} />
+                <Route path="my-animes" element={<MyAnimes />} />
+                <Route path="library" element={<Library />} />
+                <Route path="stats" element={<Stats />} />
+                <Route path="configuration" element={<Configuration />} />
+                <Route path="anime/:id" element={<AnimeDetails />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </LibraryProvider>
       </StoreProvider>
     </AnimeProvider>
   );

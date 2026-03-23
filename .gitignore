@@ -24,3 +24,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Auditoría
+AUDITORIA_SENTINEL.md
