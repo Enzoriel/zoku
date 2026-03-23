@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useStore } from "../../hooks/useStore";
 import styles from "./AnimeCardExt.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
-function AnimeCardExt({ anime, onAdd, onRemove }) {
+function AnimeCardExt({ anime, onAdd, onRemove, isInLibrary, setMyAnimes }) {
   const navigate = useNavigate();
-  const { data, setMyAnimes } = useStore();
   const [showMore, setShowMore] = useState(false);
   const cardRef = useRef(null);
 
@@ -45,9 +43,7 @@ function AnimeCardExt({ anime, onAdd, onRemove }) {
   const handleToggleLibrary = async (e) => {
     e.stopPropagation();
 
-    const isCurrentlyInLibrary = data?.myAnimes && data.myAnimes[animeId];
-
-    if (isCurrentlyInLibrary) {
+    if (isInLibrary) {
       await setMyAnimes((prev) => {
         const newState = { ...prev };
         delete newState[animeId];
@@ -100,8 +96,6 @@ function AnimeCardExt({ anime, onAdd, onRemove }) {
   } else if (rawMembers >= 1000) {
     formattedMembers = (rawMembers / 1000).toFixed(0) + "K";
   }
-
-  const isInLibrary = data?.myAnimes && data.myAnimes[animeId];
 
   return (
     <div className={styles.card} onClick={handleClick} ref={cardRef}>

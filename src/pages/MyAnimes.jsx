@@ -14,7 +14,7 @@ const STATUS_LABELS = {
 };
 
 function MyAnimes() {
-  const { data } = useStore();
+  const { data, setMyAnimes } = useStore();
   const [activeTab, setActiveTab] = useState("ALL");
 
   const allAnimes = useMemo(() => {
@@ -86,7 +86,13 @@ function MyAnimes() {
       ) : (
         <div className={styles.grid}>
           {filteredAnimes.map((anime) => (
-            <AnimeCard key={anime.malId} anime={anime} />
+            <AnimeCard 
+              key={anime.malId} 
+              anime={anime} 
+              inLibraryData={anime} 
+              playerSetting={data?.settings?.player}
+              setMyAnimes={setMyAnimes}
+            />
           ))}
         </div>
       )}

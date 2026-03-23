@@ -10,25 +10,28 @@ import Library from "./pages/Library";
 import Stats from "./pages/Stats";
 import Configuration from "./pages/Configuration";
 import AnimeDetails from "./pages/AnimeDetails";
+import { AnimeProvider } from "./context/AnimeContext";
 
 function App() {
   return (
-    <StoreProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="discover" element={<Discover />} />
-            <Route path="search" element={<Search />} />
-            <Route path="my-animes" element={<MyAnimes />} />
-            <Route path="library" element={<Library />} />
-            <Route path="stats" element={<Stats />} />
-            <Route path="configuration" element={<Configuration />} />
-            <Route path="anime/:id" element={<AnimeDetails />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </StoreProvider>
+    <AnimeProvider>
+      <StoreProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="discover" element={<Discover />} />
+              <Route path="search" element={<Search />} />
+              <Route path="my-animes" element={<MyAnimes />} />
+              <Route path="library" element={<Library />} />
+              <Route path="stats" element={<Stats />} />
+              <Route path="configuration" element={<Configuration />} />
+              <Route path="anime/:id" element={<AnimeDetails />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </StoreProvider>
+    </AnimeProvider>
   );
 }
 

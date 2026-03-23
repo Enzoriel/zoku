@@ -1,22 +1,25 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
-import { getAnimeDetails, searchAnime } from "../services/api";
+import { searchAnime } from "../services/api";
 import { openFile, isPlayerStillOpen } from "../services/fileSystem";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import { calculateUserStatus } from "../utils/animeStatus";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import styles from "./AnimeDetails.module.css";
+import { useAnime } from "../context/AnimeContext";
 
 // El episodio se marca como visto automáticamente tras 1 minuto de reproducción
-const WATCH_TIMER_MS = 60 * 1000; 
+const WATCH_TIMER_MS = 60 * 1000;
 
 function AnimeDetails() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const folderName = searchParams.get("folder");
 
   const { data, setMyAnimes } = useStore();
+  const { getAnimeById } = useAnime();
 
   const [anime, setAnime] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,17 +42,13 @@ function AnimeDetails() {
   const watchIntervalRef = useRef(null);
   const watchStartTimeRef = useRef(null);
 
-
-
   const markEpisode = useCallback(
     async (animeId, epNumber, watched) => {
       await setMyAnimes((prev) => {
         const current = prev[animeId];
         if (!current) return prev;
 
-        const watchedEps = Array.isArray(current.watchedEpisodes)
-          ? [...current.watchedEpisodes]
-          : [];
+        const watchedEps = Array.isArray(current.watchedEpisodes) ? [...current.watchedEpisodes] : [];
 
         let newWatched;
         let newHistory = Array.isArray(current.watchHistory) ? [...current.watchHistory] : [];
@@ -64,7 +63,7 @@ function AnimeDetails() {
 
         const finalWatched = watched ? watchedEps : newWatched;
         const lastEp = finalWatched.length > 0 ? Math.max(...finalWatched) : 0;
-        
+
         let completionDate = current.completedAt;
         if (watched && lastEp >= (current.totalEpisodes || 0) && current.totalEpisodes > 0) {
           completionDate = new Date().toISOString();
@@ -117,14 +116,12 @@ function AnimeDetails() {
           ...prev[animeId],
           [property]: value,
           lastUpdated: new Date().toISOString(),
-        }
+        },
       }));
-      setAnime(prev => ({ ...prev, [property]: value }));
+      setAnime((prev) => ({ ...prev, [property]: value }));
     },
     [animeId, setMyAnimes],
   );
-
-
 
   const handlePlayEpisode = useCallback(
     async (epNumber, filePath) => {
@@ -148,7 +145,7 @@ function AnimeDetails() {
 
       setPlayingEp(epNumber);
       watchStartTimeRef.current = Date.now();
-      
+
       watchIntervalRef.current = setInterval(async () => {
         const player = data?.settings?.player || "mpv";
         const stillOpen = await isPlayerStillOpen(player);
@@ -191,8 +188,6 @@ function AnimeDetails() {
     };
   }, []);
 
-
-
   const persistAnimeData = useCallback(
     async (animeData) => {
       const animeId = animeData.mal_id || animeData.malId;
@@ -222,51 +217,41 @@ function AnimeDetails() {
     [data.myAnimes, folderName, setMyAnimes],
   );
 
-
-
   useEffect(() => {
-    const loadInitialData = async () => {
+    const loadInitialData = () => {
       setLoading(true);
-      try {
-        let storedAnime = null;
-        if (id && id !== "null" && id !== "undefined") {
-          storedAnime = data.myAnimes[id];
-        } else if (folderName) {
-          storedAnime = Object.values(data.myAnimes).find(
-            (a) => a.folderName === folderName || a.title === folderName,
-          );
-        }
 
-        if (storedAnime && storedAnime.synopsis && storedAnime.episodeList) {
-          setAnime(storedAnime);
-        } else if (id && id !== "null" && id !== "undefined") {
-          const animeData = await getAnimeDetails(id);
-          setAnime(animeData);
-          if (data.myAnimes[id]) {
-            const updated = await persistAnimeData(animeData);
-            setAnime(updated);
-          }
-        } else {
-          setAnime({
-            title: folderName || "Serie Desconocida",
-            status: "Local Only",
-            isUnknown: true,
-            episodeList: [],
-          });
-        }
-      } catch (err) {
-        setError("Error al cargar la información.");
-        console.error(err);
-      } finally {
-        setLoading(false);
+      let currentAnime = null;
+      if (id && id !== "null" && id !== "undefined") {
+        currentAnime = data.myAnimes[id] || getAnimeById(id);
+      } else if (folderName) {
+        currentAnime = Object.values(data.myAnimes).find((a) => a.folderName === folderName || a.title === folderName);
       }
+
+      // Si lo encontramos en la bóveda o en el contexto (Descubrir/Búsqueda)
+      if (currentAnime) {
+        setAnime(currentAnime);
+        
+        // Si está en la bóveda pero le faltan datos que sí tenemos en el contexto, enriquecemos
+        if (data.myAnimes[id] && !data.myAnimes[id].synopsis) {
+          const apiData = getAnimeById(id);
+          if (apiData && apiData.synopsis) {
+            persistAnimeData(apiData);
+          }
+        }
+      } else {
+        setAnime({
+          title: folderName || "Serie Desconocida",
+          status: "Local Only",
+          isUnknown: true,
+          episodeList: [],
+        });
+      }
+      setLoading(false);
     };
 
     loadInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, folderName]);
-
-
+  }, [id, folderName, data.myAnimes, getAnimeById, persistAnimeData]);
 
   const handleAddToLibrary = async () => {
     if (!anime) return;
@@ -292,23 +277,23 @@ function AnimeDetails() {
   };
 
   const handleUpdateMetadata = async () => {
-    const animeId = anime?.malId || anime?.mal_id;
-    if (!animeId) return;
-    setIsUpdating(true);
-    try {
-      const animeData = await getAnimeDetails(animeId);
-      const updated = await persistAnimeData(animeData);
+    // Si el usuario quiere actualizar, buscamos si hay datos más frescos en el contexto
+    const apiData = getAnimeById(animeId);
+    if (apiData) {
+      const updated = await persistAnimeData(apiData);
       setAnime(updated);
-    } catch (err) {
-      console.error("Error al actualizar:", err);
-    } finally {
-      setIsUpdating(false);
+    } else {
+      alert("No hay datos actualizados disponibles en el contexto actual.");
     }
   };
 
   const handleRemoveLink = async () => {
     if (!animeId) return;
-    if (window.confirm("¿Estás seguro de que quieres desvincular este anime? Volverá a aparecer como serie local y se perderán los metadatos de la API.")) {
+    if (
+      window.confirm(
+        "¿Estás seguro de que quieres desvincular este anime? Volverá a aparecer como serie local y se perderán los metadatos de la API.",
+      )
+    ) {
       const newMyAnimes = { ...data.myAnimes };
       // Opcional: Podríamos borrarlo de myAnimes o simplemente quitar el folderName
       // Para un "desvincular" real, deberíamos borrar la entrada si fue creada solo para el vínculo
@@ -317,7 +302,6 @@ function AnimeDetails() {
       navigate("/library");
     }
   };
-
 
   const handleSearchLink = async () => {
     if (!linkSearchQuery.trim()) return;
@@ -333,52 +317,28 @@ function AnimeDetails() {
   };
 
   const handleSelectLink = async (selectedAnime) => {
-    setLoading(true);
-    try {
-      const fullDetails = await getAnimeDetails(selectedAnime.mal_id);
-      const animeData = {
-        malId: fullDetails.malId,
-        title: fullDetails.title,
-        coverImage: fullDetails.coverImage,
-        synopsis: fullDetails.synopsis,
-        score: fullDetails.score,
-        rank: fullDetails.rank,
-        popularity: fullDetails.popularity,
-        type: fullDetails.type,
-        status: fullDetails.status,
-        episodes: fullDetails.episodes,
-        totalEpisodes: fullDetails.episodes,
-        episodeList: fullDetails.episodeList,
-        genres: fullDetails.genres,
-        aired: fullDetails.aired,
-        // Campos de Bóveda
-        userStatus: "PLAN_TO_WATCH",
-        userScore: 0,
-        notes: "",
-        completedAt: null,
-        watchedEpisodes: [],
-        lastEpisodeWatched: 0,
-        watchHistory: [],
-        addedAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-        folderName: folderName,
-      };
-      await setMyAnimes((prev) => ({ ...prev, [animeData.malId]: animeData }));
-      setAnime(animeData);
-      setShowLinkModal(false);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    // Ya tenemos toda la información en selectedAnime gracias a SearchAnime
+    const animeData = {
+      ...selectedAnime,
+      userStatus: "PLAN_TO_WATCH",
+      userScore: 0,
+      notes: "",
+      completedAt: null,
+      watchedEpisodes: [],
+      lastEpisodeWatched: 0,
+      watchHistory: [],
+      addedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+      folderName: folderName,
+    };
+    await setMyAnimes((prev) => ({ ...prev, [animeData.malId || animeData.mal_id]: animeData }));
+    setAnime(animeData);
+    setShowLinkModal(false);
   };
 
-
-
-  const animeFilesData = data?.localFiles[anime?.title] || 
-                         data?.localFiles[anime?.folderName] || 
-                         data?.localFiles[folderName] || 
-                         { files: [] };
+  const animeFilesData = data?.localFiles[anime?.title] ||
+    data?.localFiles[anime?.folderName] ||
+    data?.localFiles[folderName] || { files: [] };
 
   const getEpisodeFileMatch = (epNum) => {
     // 1. Intento por número detectado
@@ -398,9 +358,6 @@ function AnimeDetails() {
     return null;
   };
 
-
-
-
   const getEpisodeStatus = (ep) => {
     const isWatched = watchedEpisodes.includes(ep.mal_id);
     const localFile = getEpisodeFileMatch(ep.mal_id);
@@ -413,7 +370,7 @@ function AnimeDetails() {
 
   const handleToggleWatched = async (epNumber, currentlyWatched) => {
     if (!animeId || !storedAnime) return;
-    
+
     // Si hay un rastreo activo para este episodio, cancelarlo
     if (playingEp === epNumber && watchIntervalRef.current) {
       clearInterval(watchIntervalRef.current);
@@ -422,9 +379,6 @@ function AnimeDetails() {
     }
     await markEpisode(animeId, epNumber, !currentlyWatched);
   };
-
-
-
 
   if (loading)
     return (
@@ -447,9 +401,8 @@ function AnimeDetails() {
 
   // Consolidar lista de episodios: API + Archivos locales
   const localEpNumbers = animeFilesData.files
-    .map(f => extractEpisodeNumber(f.name, [anime?.title, folderName]))
-    .filter(n => n !== null);
-
+    .map((f) => extractEpisodeNumber(f.name, [anime?.title, folderName]))
+    .filter((n) => n !== null);
 
   const maxLocalEp = localEpNumbers.length > 0 ? Math.max(...localEpNumbers) : 0;
   const apiEpList = anime.episodeList || [];
@@ -458,20 +411,17 @@ function AnimeDetails() {
 
   const episodes = Array.from({ length: finalEpCount }, (_, i) => {
     const epNum = i + 1;
-    const existing = apiEpList.find(e => e.mal_id === epNum);
+    const existing = apiEpList.find((e) => e.mal_id === epNum);
     return existing || { mal_id: epNum, title: `Episodio ${epNum}`, aired: null };
   });
 
-
-
-
-  const validWatchedEpisodes = watchedEpisodes.filter(ep => ep <= finalEpCount);
+  const validWatchedEpisodes = watchedEpisodes.filter((ep) => ep <= finalEpCount);
   const validWatchedCount = validWatchedEpisodes.length;
   const hasGhostEpisodes = watchedEpisodes.length > validWatchedCount;
 
   const handleCleanGhosts = async () => {
     if (!animeId) return;
-    await setMyAnimes(prev => {
+    await setMyAnimes((prev) => {
       const current = prev[animeId];
       if (!current) return prev;
       return {
@@ -480,22 +430,20 @@ function AnimeDetails() {
           ...current,
           watchedEpisodes: validWatchedEpisodes,
           lastEpisodeWatched: validWatchedCount > 0 ? Math.max(...validWatchedEpisodes) : 0,
-          watchHistory: (current.watchHistory || []).filter(h => h.episode <= finalEpCount),
-          lastUpdated: new Date().toISOString()
-        }
+          watchHistory: (current.watchHistory || []).filter((h) => h.episode <= finalEpCount),
+          lastUpdated: new Date().toISOString(),
+        },
       };
     });
     // Actualizar estado local
-    setAnime(prev => ({
+    setAnime((prev) => ({
       ...prev,
-      watchedEpisodes: validWatchedEpisodes
+      watchedEpisodes: validWatchedEpisodes,
     }));
   };
 
-
   return (
     <div className={styles.container}>
-
       <div className={styles.content}>
         {/* SIDEBAR */}
         <div className={styles.sidebar}>
@@ -530,8 +478,8 @@ function AnimeDetails() {
                 <button className={styles.updateButton} onClick={handleUpdateMetadata} disabled={isUpdating}>
                   {isUpdating ? "ACTUALIZANDO..." : "ACTUALIZAR DATOS"}
                 </button>
-                <button 
-                  className={styles.changeLinkButton} 
+                <button
+                  className={styles.changeLinkButton}
                   onClick={() => {
                     setShowLinkModal(true);
                     setLinkSearchQuery(anime.title);
@@ -543,12 +491,9 @@ function AnimeDetails() {
                   DESVINCULAR API
                 </button>
                 {anime.lastUpdated && (
-                  <span className={styles.lastUpdate}>
-                    Sinc: {new Date(anime.lastUpdated).toLocaleDateString()}
-                  </span>
+                  <span className={styles.lastUpdate}>Sinc: {new Date(anime.lastUpdated).toLocaleDateString()}</span>
                 )}
               </div>
-
             )}
           </div>
 
@@ -559,7 +504,11 @@ function AnimeDetails() {
                 <div className={styles.progressTextSide}>
                   <span className={styles.progressLabel}>PROGRESO</span>
                   {hasGhostEpisodes && (
-                    <button className={styles.cleanGhostsBtn} onClick={handleCleanGhosts} title="Limpiar episodios que ya no existen">
+                    <button
+                      className={styles.cleanGhostsBtn}
+                      onClick={handleCleanGhosts}
+                      title="Limpiar episodios que ya no existen"
+                    >
                       ⚠️ LIMPIAR FANTASMAS
                     </button>
                   )}
@@ -572,9 +521,7 @@ function AnimeDetails() {
                 <div
                   className={styles.progressFill}
                   style={{
-                    width: `${Math.round(
-                      (validWatchedCount / (anime.totalEpisodes || episodes.length)) * 100,
-                    )}%`,
+                    width: `${Math.round((validWatchedCount / (anime.totalEpisodes || episodes.length)) * 100)}%`,
                   }}
                 />
               </div>
@@ -587,11 +534,17 @@ function AnimeDetails() {
                 <div className={styles.vaultItem}>
                   <label>ESTADO ACTUAL</label>
                   <div className={`${styles.statusBadgeValue} ${styles[calculateUserStatus(anime).toLowerCase()]}`}>
-                    {calculateUserStatus(anime) === 'PLAN_TO_WATCH' ? 'PENDIENTE' : 
-                     calculateUserStatus(anime) === 'WATCHING' ? 'VIENDO' :
-                     calculateUserStatus(anime) === 'COMPLETED' ? 'COMPLETADO' :
-                     calculateUserStatus(anime) === 'PAUSED' ? 'EN PAUSA' :
-                     calculateUserStatus(anime) === 'DROPPED' ? 'ABANDONADO' : 'EN LISTA'}
+                    {calculateUserStatus(anime) === "PLAN_TO_WATCH"
+                      ? "PENDIENTE"
+                      : calculateUserStatus(anime) === "WATCHING"
+                        ? "VIENDO"
+                        : calculateUserStatus(anime) === "COMPLETED"
+                          ? "COMPLETADO"
+                          : calculateUserStatus(anime) === "PAUSED"
+                            ? "EN PAUSA"
+                            : calculateUserStatus(anime) === "DROPPED"
+                              ? "ABANDONADO"
+                              : "EN LISTA"}
                   </div>
                 </div>
                 <div className={styles.vaultItem}>
@@ -606,14 +559,18 @@ function AnimeDetails() {
                 <div className={styles.historySection}>
                   <label>HISTORIAL DE ACCESO</label>
                   <div className={styles.historyList}>
-                    {anime.watchHistory.slice(-5).reverse().map((h, i) => (
-                      <div key={i} className={styles.historyItem}>
-                        <span className={styles.histEp}>EP {h.episode}</span>
-                        <span className={styles.histDate}>
-                          {new Date(h.watchedAt).toLocaleDateString()} · {new Date(h.watchedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </span>
-                      </div>
-                    ))}
+                    {anime.watchHistory
+                      .slice(-5)
+                      .reverse()
+                      .map((h, i) => (
+                        <div key={i} className={styles.historyItem}>
+                          <span className={styles.histEp}>EP {h.episode}</span>
+                          <span className={styles.histDate}>
+                            {new Date(h.watchedAt).toLocaleDateString()} ·{" "}
+                            {new Date(h.watchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
@@ -712,8 +669,8 @@ function AnimeDetails() {
                         <div className={styles.epTitleContainer}>
                           <span className={styles.epTitle}>{ep.title}</span>
                           {isPlaying && (
-                            <button 
-                              className={styles.timerBadgeBtn} 
+                            <button
+                              className={styles.timerBadgeBtn}
                               onClick={handleCancelPlay}
                               title="Cancelar marcado automático"
                             >
@@ -734,16 +691,21 @@ function AnimeDetails() {
                               <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                             </svg>
                           ) : (
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              width="14"
+                              height="14"
+                            >
                               <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                             </svg>
                           )}
                         </button>
 
                         {/* Badge de estado */}
-                        <span className={`${styles.epStatus} ${styles[status.type]}`}>
-                          {status.label}
-                        </span>
+                        <span className={`${styles.epStatus} ${styles[status.type]}`}>{status.label}</span>
 
                         {/* Play si tiene archivo */}
                         {status.file && (

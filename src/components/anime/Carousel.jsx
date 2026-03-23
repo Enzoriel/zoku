@@ -1,9 +1,11 @@
 import { useRef } from "react";
 import AnimeCard from "./AnimeCard";
 import styles from "./Carousel.module.css";
+import { useStore } from "../../hooks/useStore";
 
 function Carousel({ title, animes = [], loading = false }) {
   const scrollRef = useRef(null);
+  const { data, setMyAnimes } = useStore();
 
   const scroll = (direction) => {
     if (scrollRef.current) {
@@ -33,7 +35,19 @@ function Carousel({ title, animes = [], loading = false }) {
         <div className={styles.scroll} ref={scrollRef}>
           {loading
             ? [1, 2, 3, 4, 5, 6].map((i) => <AnimeCard key={`skeleton-${i}`} anime={null} />)
-            : animes.map((anime) => <AnimeCard key={anime.mal_id} anime={anime} />)}
+            : animes.map((anime) => {
+                const malId = anime.mal_id || anime.malId;
+                const inLibraryData = data?.myAnimes?.[malId];
+                return (
+                  <AnimeCard 
+                    key={malId} 
+                    anime={anime} 
+                    inLibraryData={inLibraryData}
+                    playerSetting={data?.settings?.player}
+                    setMyAnimes={setMyAnimes}
+                  />
+                )
+              })}
         </div>
         <button className={`${styles.arrow} ${styles.right}`} onClick={() => scroll("right")}>
           ›

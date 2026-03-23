@@ -1,22 +1,13 @@
 const url = "https://graphql.anilist.co";
-const sessionCache = {};
 let lastRequest = 0;
 
-// AniList permite ~90 req/min, limitamos a ~170ms entre llamadas de seguridad
-const MIN_INTERVAL = 170; 
+const MIN_INTERVAL = 170;
 
-
-/**
- * Función principal para realizar peticiones GraphQL a AniList
- */
 async function queryAniList(query, variables = {}) {
-  const cacheKey = JSON.stringify({ query, variables });
-  if (sessionCache[cacheKey]) return sessionCache[cacheKey];
-
   const now = Date.now();
-  const timeLastRequest = now - lastRequest;
-  if (timeLastRequest < MIN_INTERVAL) {
-    await new Promise((resolve) => setTimeout(resolve, MIN_INTERVAL - timeLastRequest));
+  const timeSinceLastRequest = now - lastRequest;
+  if (timeSinceLastRequest < MIN_INTERVAL) {
+    await new Promise((resolve) => setTimeout(resolve, MIN_INTERVAL - timeSinceLastRequest));
   }
   lastRequest = Date.now();
 
@@ -25,14 +16,12 @@ async function queryAniList(query, variables = {}) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({ query, variables }),
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
     const json = await response.json();
     if (json.errors) {
@@ -40,7 +29,6 @@ async function queryAniList(query, variables = {}) {
       return null;
     }
 
-    sessionCache[cacheKey] = json.data;
     return json.data;
   } catch (error) {
     console.error("[AniList] Fetch Error:", error);
@@ -48,9 +36,6 @@ async function queryAniList(query, variables = {}) {
   }
 }
 
-/**
- * Mapea el objeto Media de AniList a una estructura compatible con Jikan/MAL
- */
 function mapMedia(media) {
   if (!media) return null;
 
@@ -72,29 +57,16 @@ function mapMedia(media) {
     HIATUS: "Hiatus",
   };
 
-  // Extraer demografía de los tags
   const demoTags = ["Shounen", "Seinen", "Shoujo", "Josei"];
-  const demographic = media.tags?.find(t => demoTags.includes(t.name))?.name || "Unknown";
+  const demographic = media.tags?.find((t) => demoTags.includes(t.name))?.name || "Unknown";
 
-  // Normalización de tipos para filtros
   let normalizedType = media.format || "TV";
   if (normalizedType === "TV_SHORT") normalizedType = "TV";
 
-  // Calcular episodios sin generar lista simulada (generación lazy)
   let episodesCount = media.episodes || 0;
   if (!episodesCount && media.nextAiringEpisode) {
     episodesCount = media.nextAiringEpisode.episode - 1;
   }
-
-  // Helper para generar la lista de episodios solo cuando se necesita
-  // Evita bloquear el main thread con miles de objetos innecesarios
-  const getEpisodeList = () => {
-    return Array.from({ length: episodesCount || 0 }, (_, i) => ({
-      mal_id: i + 1,
-      title: `Episodio ${i + 1}`,
-      aired: null,
-    }));
-  };
 
   return {
     mal_id: media.idMal || media.id,
@@ -115,11 +87,17 @@ function mapMedia(media) {
     rank: media.rankings?.find((r) => r.type === "RANKED" && r.allTime)?.rank || null,
     popularity: media.popularity,
     type: normalizedType,
-    format: normalizedType, 
+    format: normalizedType,
     status: statusMap[media.status] || media.status || "UNKNOWN",
     episodes: episodesCount,
-    totalEpisodes: episodesCount, // Alias para compatibilidad global
-    get episodeList() { return getEpisodeList(); }, // Lazy: solo se genera al acceder
+    totalEpisodes: episodesCount,
+    get episodeList() {
+      return Array.from({ length: episodesCount || 0 }, (_, i) => ({
+        mal_id: i + 1,
+        title: `Episodio ${i + 1}`,
+        aired: null,
+      }));
+    },
     duration: media.duration ? `${media.duration} min` : "24 min",
     genres: media.genres ? media.genres.map((g, idx) => ({ mal_id: idx, name: g })) : [],
     demographics: [{ name: demographic }],
@@ -187,50 +165,13 @@ const MEDIA_FIELDS = `
   }
 `;
 
-// Top animes
-export async function getTopAnime(page = 1, filter = "") {
-  let sort = ["POPULARITY_DESC"];
-  if (filter === "bypopularity") sort = ["POPULARITY_DESC"];
-  if (filter === "favorite") sort = ["FAVOURITES_DESC"];
-  if (filter === "upcoming") sort = ["START_DATE_DESC"];
-  if (filter === "airing") sort = ["TRENDING_DESC"];
-
-  const query = `
-    query ($page: Int, $sort: [MediaSort]) {
-      Page (page: $page, perPage: 24) {
-        pageInfo {
-          lastPage
-          hasNextPage
-          currentPage
-        }
-        media (type: ANIME, sort: $sort, isAdult: false) {
-          ${MEDIA_FIELDS}
-        }
-      }
-    }
-  `;
-
-  const result = await queryAniList(query, { page, sort });
-  if (!result) return { data: [], pagination: {} };
-
-  return {
-    data: result.Page.media.map(mapMedia),
-    pagination: {
-      last_visible_page: result.Page.pageInfo.lastPage,
-      has_next_page: result.Page.pageInfo.hasNextPage,
-      current_page: result.Page.pageInfo.currentPage,
-    },
-  };
-}
-
-// Animes en emisión (Toda la temporada)
 export async function getFullSeasonAnime() {
   const month = new Date().getMonth();
   let season = "FALL";
   if (month < 3) season = "WINTER";
   else if (month < 6) season = "SPRING";
   else if (month < 9) season = "SUMMER";
-  
+
   const year = new Date().getFullYear();
 
   const query = `
@@ -240,10 +181,10 @@ export async function getFullSeasonAnime() {
           hasNextPage
         }
         media (
-          type: ANIME, 
-          season: $season, 
-          seasonYear: $seasonYear, 
-          isAdult: false, 
+          type: ANIME,
+          season: $season,
+          seasonYear: $seasonYear,
+          isAdult: false,
           sort: [POPULARITY_DESC]
         ) {
           ${MEDIA_FIELDS}
@@ -256,8 +197,6 @@ export async function getFullSeasonAnime() {
   let hasNextPage = true;
   let page = 1;
 
-  // Cargar solo 2 páginas en la carga inicial (100 animes) para respuesta rápida
-  // Las páginas restantes se pueden cargar en segundo plano si es necesario
   while (hasNextPage && page <= 2) {
     const result = await queryAniList(query, { page, season, seasonYear: year });
     if (!result) break;
@@ -270,50 +209,6 @@ export async function getFullSeasonAnime() {
   return allAnimes;
 }
 
-// Animes en emisión (Por página)
-export async function getSeasonNow(page = 1, filter = "TV") {
-  const query = `
-    query ($page: Int, $format: MediaFormat) {
-      Page (page: $page, perPage: 20) {
-        pageInfo {
-          lastPage
-          hasNextPage
-          currentPage
-        }
-        media (type: ANIME, status: RELEASING, format: $format, isAdult: false, sort: [POPULARITY_DESC]) {
-          ${MEDIA_FIELDS}
-        }
-      }
-    }
-  `;
-
-  const formatMap = {
-    tv: "TV",
-    movie: "MOVIE",
-    ova: "OVA",
-    ona: "ONA",
-    special: "SPECIAL",
-    tv_special: "TV_SHORT",
-  };
-
-  const variables = { 
-    page, 
-    format: formatMap[filter.toLowerCase()] || "TV" 
-  };
-
-  const result = await queryAniList(query, variables);
-  if (!result) return { data: [], pagination: {} };
-
-  return {
-    data: result.Page.media.map(mapMedia),
-    pagination: {
-      last_visible_page: result.Page.pageInfo.lastPage,
-      has_next_page: result.Page.pageInfo.hasNextPage,
-    },
-  };
-}
-
-// Buscar anime por nombre
 export async function searchAnime(queryText, page = 1) {
   const query = `
     query ($search: String, $page: Int) {
@@ -340,63 +235,4 @@ export async function searchAnime(queryText, page = 1) {
       has_next_page: result.Page.pageInfo.hasNextPage,
     },
   };
-}
-
-// Obtener recomendaciones
-export async function getRecentAnimeRecommendations() {
-  const query = `
-    query {
-      Page (page: 1, perPage: 10) {
-        media (type: ANIME, sort: [TRENDING_DESC], isAdult: false) {
-          recommendations (limit: 5) {
-            nodes {
-              mediaRecommendation {
-                ${MEDIA_FIELDS}
-              }
-            }
-          }
-        }
-      }
-    }
-  `;
-
-  const result = await queryAniList(query);
-  if (!result) return [];
-
-  const recommendations = [];
-  const seenIds = new Set();
-
-  result.Page.media.forEach(m => {
-    if (m.recommendations && m.recommendations.nodes) {
-      m.recommendations.nodes.forEach(node => {
-        const rec = node.mediaRecommendation;
-        if (rec && !seenIds.has(rec.id)) {
-          seenIds.add(rec.id);
-          recommendations.push(mapMedia(rec));
-        }
-      });
-    }
-  });
-
-  return recommendations.slice(0, 50);
-}
-
-// Obtener detalles por ID
-export async function getAnimeDetails(id) {
-  const idInt = parseInt(id);
-  if (isNaN(idInt)) return null;
-
-  const isAniListId = idInt > 100000;
-  const query = `
-    query ($id: Int, $idMal: Int) {
-      Media (id: $id, idMal: $idMal, type: ANIME) {
-        ${MEDIA_FIELDS}
-      }
-    }
-  `;
-
-  const variables = isAniListId ? { id: idInt } : { idMal: idInt };
-  const result = await queryAniList(query, variables);
-  
-  return result ? mapMedia(result.Media) : null;
 }

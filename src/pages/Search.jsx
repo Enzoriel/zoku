@@ -4,8 +4,10 @@ import SearchBar from "../components/anime/SearchBar";
 import AnimeList from "../components/anime/AnimeList";
 import Pagination from "../components/ui/Pagination";
 import styles from "./Search.module.css";
+import { useAnime } from "../context/AnimeContext";
 
 function Search() {
+  const { setSearchAnimes } = useAnime();
   const [animes, setAnimes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -19,6 +21,7 @@ function Search() {
     try {
       const result = await searchAnime(currentQuery, currentPage);
       setAnimes(result.data);
+      setSearchAnimes(result.data); // Guardamos en el contexto
       setPagination(result.pagination);
       setHasSearched(true);
     } catch (error) {
