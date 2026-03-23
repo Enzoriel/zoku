@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { Suspense } from "react";
 import { Sidebar } from "./Sidebar";
 import styles from "./Layout.module.css";
 
@@ -8,7 +9,9 @@ const Layout = () => {
       <Sidebar />
       <div className={styles.main}>
         <main className={styles.content}>
-          <Outlet />
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

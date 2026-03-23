@@ -1,16 +1,54 @@
 .list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 30px;
   padding: 0;
+  width: 100%;
 }
 
 .empty {
   text-align: center;
   color: rgba(255, 255, 255, 0.4);
   padding: 80px;
-  font-family: 'Tektur', sans-serif;
+  font-family: "Tektur", sans-serif;
   text-transform: uppercase;
   letter-spacing: 2px;
 }
 
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 40px;
+}
+
+.pageBtn {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-family: "Tektur", sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  transition: border-color 0.2s ease;
+}
+
+.pageBtn:hover:not(:disabled) {
+  border-color: white;
+}
+
+.pageBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.activePage {
+  border-color: white;
+  background: white;
+  color: black;
+}

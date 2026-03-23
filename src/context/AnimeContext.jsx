@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { getFullSeasonAnime } from "../services/api";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -9,25 +9,30 @@ const AnimeContext = createContext(null);
 export function AnimeProvider({ children }) {
   const [seasonalAnime, setSeasonalAnime] = useState([]);
   const [searchAnimes, setSearchAnimes] = useState([]); // Guardamos aquí los últimos resultados de búsqueda
-  const [lastFetch, setLastFetch] = useState(null);
+  const lastFetchRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isFetching = useRef(false);
 
   const fetchSeasonal = async () => {
+    if (isFetching.current) return;
+    
+    isFetching.current = true;
     setError(null);
     try {
       const data = await getFullSeasonAnime();
       setSeasonalAnime(data || []);
-      setLastFetch(Date.now());
+      lastFetchRef.current = Date.now();
     } catch (e) {
       console.error("Failed to fetch seasonal anime:", e);
       setError("No se pudo sincronizar con AniList. Revisa tu conexión.");
     } finally {
+      isFetching.current = false;
       setLoading(false);
     }
   };
 
-  const shouldRefresh = () => !lastFetch || Date.now() - lastFetch > CACHE_DURATION;
+  const shouldRefresh = () => !lastFetchRef.current || Date.now() - lastFetchRef.current > CACHE_DURATION;
 
   useEffect(() => {
     fetchSeasonal();

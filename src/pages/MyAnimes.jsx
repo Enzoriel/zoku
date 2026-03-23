@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useStore } from "../hooks/useStore";
 import AnimeCard from "../components/anime/AnimeCard";
 import { calculateUserStatus } from "../utils/animeStatus";
@@ -16,6 +16,18 @@ const STATUS_LABELS = {
 function MyAnimes() {
   const { data, setMyAnimes } = useStore();
   const [activeTab, setActiveTab] = useState("ALL");
+  const [pendingTab, setPendingTab] = useState(null);
+  const [isPending, startTransition] = useTransition();
+
+  const handleTabChange = (id) => {
+    setPendingTab(id);
+    startTransition(() => {
+      setActiveTab(id);
+      setPendingTab(null);
+    });
+  };
+
+  const visualTab = pendingTab ?? activeTab;
 
   const allAnimes = useMemo(() => {
     return Object.values(data.myAnimes || {}).map(anime => ({
@@ -70,8 +82,9 @@ function MyAnimes() {
         {Object.entries(STATUS_LABELS).map(([id, label]) => (
           <button
             key={id}
-            className={`${styles.tab} ${activeTab === id ? styles.activeTab : ""}`}
-            onClick={() => setActiveTab(id)}
+            className={`${styles.tab} ${visualTab === id ? styles.activeTab : ""} ${isPending && activeTab !== id ? styles.loading : ""}`}
+            onClick={() => handleTabChange(id)}
+            disabled={isPending}
           >
             {label}
           </button>
@@ -84,7 +97,7 @@ function MyAnimes() {
           <p>Sincroniza nuevos datos para expandir tu archivo.</p>
         </div>
       ) : (
-        <div className={styles.grid}>
+        <div className={styles.grid} style={{ opacity: isPending ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
           {filteredAnimes.map((anime) => (
             <AnimeCard 
               key={anime.malId} 

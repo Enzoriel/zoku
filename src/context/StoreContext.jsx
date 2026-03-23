@@ -14,8 +14,25 @@ export function StoreProvider({ children }) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Cola de escritura secuencial para evitar race conditions al persistir en disco
-  const storeWritePromise = useRef(Promise.resolve());
+  // Cola de escritura secuencial para evitar race conditions y memory leaks (sin abusar de encadenamientos de promesas eternos)
+  const writeQueue = useRef([]);
+  const isWriting = useRef(false);
+
+  const processQueue = useCallback(async () => {
+    if (isWriting.current || writeQueue.current.length === 0) return;
+    
+    isWriting.current = true;
+    while (writeQueue.current.length > 0) {
+      // Tomar y eliminar la tarea más antigua de la cola
+      const task = writeQueue.current.shift();
+      try {
+        await task();
+      } catch (error) {
+        console.error("[Store] Error procesando tarea en cola:", error);
+      }
+    }
+    isWriting.current = false;
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -35,20 +52,24 @@ export function StoreProvider({ children }) {
     loadData();
   }, []);
 
-  const updateStore = useCallback(async (key, valueOrAction) => {
-    storeWritePromise.current = storeWritePromise.current.then(async () => {
-      try {
-        const currentValue = (await getStore(key)) || (key === "folderPath" ? "" : {});
-        const newValue = typeof valueOrAction === "function" ? valueOrAction(currentValue) : valueOrAction;
+  const updateStore = useCallback((key, valueOrAction) => {
+    return new Promise((resolve, reject) => {
+      writeQueue.current.push(async () => {
+        try {
+          const currentValue = (await getStore(key)) || (key === "folderPath" ? "" : {});
+          const newValue = typeof valueOrAction === "function" ? valueOrAction(currentValue) : valueOrAction;
 
-        await setStore(key, newValue);
-        setData((prev) => ({ ...prev, [key]: newValue }));
-      } catch (error) {
-        console.error(`[Store] Error actualizando ${key}:`, error);
-      }
+          await setStore(key, newValue);
+          setData((prev) => ({ ...prev, [key]: newValue }));
+          resolve(newValue);
+        } catch (error) {
+          console.error(`[Store] Error actualizando ${key}:`, error);
+          reject(error);
+        }
+      });
+      processQueue();
     });
-    return storeWritePromise.current;
-  }, []);
+  }, [processQueue]);
 
   const setFolderPath = useCallback((path) => updateStore("folderPath", path), [updateStore]);
   const setMyAnimes = useCallback((action) => updateStore("myAnimes", action), [updateStore]);

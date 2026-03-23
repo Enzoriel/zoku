@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { openFile, isPlayerStillOpen } from "../../services/fileSystem";
 import { calculateUserStatus } from "../../utils/animeStatus";
 import styles from "./AnimeCard.module.css";
@@ -16,16 +16,7 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false, inLibrar
   if (!anime) {
     return (
       <div className={`${styles.card} pulse`}>
-        <div
-          className={styles.imageWrapper}
-          style={{
-            background: "rgba(255,255,255,0.05)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "250px",
-          }}
-        >
+        <div className={styles.imageWrapper}>
           <LoadingSpinner size={40} />
         </div>
         <div className={styles.info}>
@@ -192,7 +183,7 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false, inLibrar
           </span>
         )}
 
-        <img src={image} alt={title} className={styles.image} />
+        <img src={image} alt={title} className={styles.image} loading="lazy" />
 
         {displayAnime.nextEpisodeFile && !isPlaying && (
           <button className={styles.quickPlayButton} onClick={handleQuickPlay}>
@@ -243,4 +234,4 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false, inLibrar
   );
 }
 
-export default AnimeCard;
+export default memo(AnimeCard);

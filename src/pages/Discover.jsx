@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import AnimeList from "../components/anime/AnimeList";
 import styles from "./Discover.module.css";
 import { useAnime } from "../context/AnimeContext";
@@ -6,14 +6,22 @@ import { useAnime } from "../context/AnimeContext";
 function Discover() {
   const { seasonalAnime: allAnimes, loading, error } = useAnime();
   const [type, setType] = useState("TV");
+  const [pendingType, setPendingType] = useState(null);
+  const [isPending, startTransition] = useTransition();
 
   const filteredAnimes = useMemo(() => {
     return allAnimes.filter((anime) => anime.format === type || anime.type === type);
   }, [allAnimes, type]);
 
   const handleTypeChange = (newType) => {
-    setType(newType);
+    setPendingType(newType);
+    startTransition(() => {
+      setType(newType);
+      setPendingType(null);
+    });
   };
+
+  const visualType = pendingType ?? type;
 
   const types = [
     { id: "TV", label: "TV" },
@@ -37,8 +45,9 @@ function Discover() {
             {types.map((t) => (
               <button
                 key={t.id}
-                className={`${styles.toggleButton} ${type === t.id ? styles.active : ""}`}
+                className={`${styles.toggleButton} ${visualType === t.id ? styles.active : ""} ${isPending && type !== t.id ? styles.loading : ""}`}
                 onClick={() => handleTypeChange(t.id)}
+                disabled={isPending}
               >
                 {t.label}
               </button>
@@ -58,16 +67,16 @@ function Discover() {
             <p>{error}</p>
           </div>
         ) : (
-          <div className={styles.resultsArea}>
-            <div className={styles.resultsHeader}>
-              <div className={styles.resultsCount}>
-                <span className={styles.countNumber}>{filteredAnimes.length}</span> resultados encontrados
+            <div className={styles.resultsArea} style={{ opacity: isPending ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
+              <div className={styles.resultsHeader}>
+                <div className={styles.resultsCount}>
+                  <span className={styles.countNumber}>{filteredAnimes.length}</span> resultados encontrados
+                </div>
+                <div className={styles.accentLine}></div>
               </div>
-              <div className={styles.accentLine}></div>
-            </div>
 
-            <AnimeList animes={filteredAnimes} type={true} />
-          </div>
+              <AnimeList animes={filteredAnimes} type={true} />
+            </div>
         )}
       </div>
     </div>

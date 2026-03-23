@@ -1,6 +1,7 @@
 import { useStore } from "../hooks/useStore";
 import { getContinueWatching, getNewEpisodes, getRecentlyAdded } from "../utils/dashboard";
 import { Link } from "react-router-dom";
+import { useMemo } from "react";
 import Carousel from "../components/anime/Carousel";
 import Button from "../components/ui/Button";
 import styles from "./Dashboard.module.css";
@@ -11,6 +12,16 @@ function Dashboard() {
   const { seasonalAnime, loading } = useAnime();
 
   const isEmpty = Object.keys(data.myAnimes).length === 0;
+
+  const continueWatching = useMemo(
+    () => getContinueWatching(data.myAnimes, data.localFiles),
+    [data.myAnimes, data.localFiles]
+  );
+  const newEpisodes = useMemo(
+    () => getNewEpisodes(data.myAnimes, data.localFiles),
+    [data.myAnimes, data.localFiles]
+  );
+  const recentlyAdded = useMemo(() => getRecentlyAdded(data.myAnimes), [data.myAnimes]);
 
   return (
     <div className={styles.dashboard}>
@@ -45,10 +56,10 @@ function Dashboard() {
         </section>
       ) : (
         <>
-          <Carousel title="Continuar viendo" animes={getContinueWatching(data.myAnimes, data.localFiles)} />
-          <Carousel title="Nuevos episodios disponibles" animes={getNewEpisodes(data.myAnimes, data.localFiles)} />
+          <Carousel title="Continuar viendo" animes={continueWatching} />
+          <Carousel title="Nuevos episodios disponibles" animes={newEpisodes} />
           <Carousel title="En emisión esta temporada" animes={seasonalAnime} loading={loading} />
-          <Carousel title="Añadidos recientemente" animes={getRecentlyAdded(data.myAnimes)} />
+          <Carousel title="Añadidos recientemente" animes={recentlyAdded} />
         </>
       )}
     </div>

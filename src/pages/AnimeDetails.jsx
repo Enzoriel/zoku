@@ -217,15 +217,36 @@ function AnimeDetails() {
     [data.myAnimes, folderName, setMyAnimes],
   );
 
+  const lastLoadedId = useRef(id);
+  
+  const myAnimesRef = useRef(data.myAnimes);
+  useEffect(() => {
+    myAnimesRef.current = data.myAnimes;
+  }, [data.myAnimes]);
+
+  const getAnimeByIdRef = useRef(getAnimeById);
+  useEffect(() => {
+    getAnimeByIdRef.current = getAnimeById;
+  }, [getAnimeById]);
+
+  const persistAnimeDataRef = useRef(persistAnimeData);
+  useEffect(() => {
+    persistAnimeDataRef.current = persistAnimeData;
+  }, [persistAnimeData]);
+
   useEffect(() => {
     const loadInitialData = () => {
-      setLoading(true);
+      // Solo mostrar loading si es un anime diferente al que ya estábamos viendo
+      if (lastLoadedId.current !== id) {
+        setLoading(true);
+        lastLoadedId.current = id;
+      }
 
       let currentAnime = null;
       if (id && id !== "null" && id !== "undefined") {
-        currentAnime = data.myAnimes[id] || getAnimeById(id);
+        currentAnime = myAnimesRef.current[id] || getAnimeByIdRef.current(id);
       } else if (folderName) {
-        currentAnime = Object.values(data.myAnimes).find((a) => a.folderName === folderName || a.title === folderName);
+        currentAnime = Object.values(myAnimesRef.current).find((a) => a.folderName === folderName || a.title === folderName);
       }
 
       // Si lo encontramos en la bóveda o en el contexto (Descubrir/Búsqueda)
@@ -233,10 +254,10 @@ function AnimeDetails() {
         setAnime(currentAnime);
         
         // Si está en la bóveda pero le faltan datos que sí tenemos en el contexto, enriquecemos
-        if (data.myAnimes[id] && !data.myAnimes[id].synopsis) {
-          const apiData = getAnimeById(id);
-          if (apiData && apiData.synopsis) {
-            persistAnimeData(apiData);
+        if (myAnimesRef.current[id] && !myAnimesRef.current[id].synopsis) {
+          const apiData = getAnimeByIdRef.current(id);
+          if (apiData?.synopsis) {
+            persistAnimeDataRef.current(apiData);
           }
         }
       } else {
@@ -251,7 +272,7 @@ function AnimeDetails() {
     };
 
     loadInitialData();
-  }, [id, folderName, data.myAnimes, getAnimeById, persistAnimeData]);
+  }, [id, folderName]);
 
   const handleAddToLibrary = async () => {
     if (!anime) return;
@@ -294,6 +315,13 @@ function AnimeDetails() {
         "¿Estás seguro de que quieres desvincular este anime? Volverá a aparecer como serie local y se perderán los metadatos de la API.",
       )
     ) {
+      // Prevenir Memory Leaks de timers si se está reproduciendo
+      if (watchIntervalRef.current) {
+        clearInterval(watchIntervalRef.current);
+        watchIntervalRef.current = null;
+        setPlayingEp(null);
+      }
+
       const newMyAnimes = { ...data.myAnimes };
       // Opcional: Podríamos borrarlo de myAnimes o simplemente quitar el folderName
       // Para un "desvincular" real, deberíamos borrar la entrada si fue creada solo para el vínculo

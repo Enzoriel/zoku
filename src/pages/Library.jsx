@@ -36,7 +36,8 @@ function Library() {
 
   useEffect(() => {
     performSync();
-  }, [data.folderPath, data.myAnimes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.folderPath]);
 
   // Procesar carpetas para la vista
   const processedFolders = useMemo(() => {
