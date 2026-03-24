@@ -1,8 +1,13 @@
 import styles from "./ConfirmModal.module.css";
 
 function ConfirmModal({ title, message, onConfirm, onCancel }) {
+  const handleOutsideClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onCancel();
+    }
+  };
   return (
-    <div className={styles.overlay}>
+    <div className={styles.overlay} onClick={handleOutsideClick}>
       <div className={styles.modal}>
         <div className={styles.cornerTL} />
         <div className={styles.cornerTR} />

@@ -58,11 +58,13 @@ function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes 
         episodeDuration: 24,
         watchedEpisodes: [],
         lastEpisodeWatched: 0,
-        userStatus: "PLAN_TO_WATCH", // Estado inicial
+        userStatus: "PLAN_TO_WATCH",
         userScore: 0,
         notes: "",
         completedAt: null,
         watchHistory: [],
+        folderName: null, // ← nuevo modelo
+        lastMetadataFetch: new Date().toISOString(), // ← auto-refresh
         addedAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
         genres: anime.genres || [],
@@ -72,10 +74,7 @@ function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes 
         synopsis: anime.synopsis,
       };
 
-      await setMyAnimes((prev) => ({
-        ...prev,
-        [animeId]: animeData,
-      }));
+      await setMyAnimes((prev) => ({ ...prev, [animeId]: animeData }));
       if (onAdd) onAdd(animeData);
     }
   };

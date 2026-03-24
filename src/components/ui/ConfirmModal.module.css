@@ -1,7 +1,6 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,9 +9,23 @@
 
 .modal {
   position: relative;
+  background-color: #111111ea;
+  backdrop-filter: blur(4px);
   padding: 28px;
   max-width: 400px;
   width: 90%;
+  animation: modalIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .cornerTL,
