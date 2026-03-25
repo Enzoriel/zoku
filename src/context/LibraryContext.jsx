@@ -26,7 +26,11 @@ export function LibraryProvider({ children }) {
         const myAnimesToUse = (myAnimesOverride && !isEvent) ? myAnimesOverride : currentData.myAnimes;
         
         const localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse);
-        await setLocalFiles(localFiles);
+        
+        // Verificar si la ruta sigue siendo la misma antes de actualizar
+        if (dataRef.current.folderPath === currentData.folderPath) {
+          await setLocalFiles(localFiles);
+        }
       } catch (error) {
         console.error("Error sincronizando biblioteca:", error);
       } finally {

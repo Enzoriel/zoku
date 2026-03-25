@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { getStore, setStore } from "../services/store";
+import { getStore, setStore, clearStore } from "../services/store";
 
 export const StoreContext = createContext();
 
@@ -74,6 +74,27 @@ export function StoreProvider({ children }) {
   const setLocalFiles = useCallback((files) => updateStore("localFiles", files), [updateStore]);
   const setSettings = useCallback((settings) => updateStore("settings", settings), [updateStore]);
 
+  const clearAllData = useCallback(() => {
+    return new Promise((resolve, reject) => {
+      writeQueue.current.push(async () => {
+        try {
+          await clearStore();
+          setData({
+            folderPath: "",
+            myAnimes: {},
+            localFiles: {},
+            settings: { player: "mpv" },
+          });
+          resolve(true);
+        } catch (error) {
+          console.error("[Store] Error al limpiar datos:", error);
+          reject(error);
+        }
+      });
+      processQueue();
+    });
+  }, [processQueue]);
+
   const value = useMemo(
     () => ({
       data,
@@ -82,8 +103,9 @@ export function StoreProvider({ children }) {
       setMyAnimes,
       setLocalFiles,
       setSettings,
+      clearAllData,
     }),
-    [data, loading, setFolderPath, setMyAnimes, setLocalFiles, setSettings],
+    [data, loading, setFolderPath, setMyAnimes, setLocalFiles, setSettings, clearAllData],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
