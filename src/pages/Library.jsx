@@ -308,7 +308,7 @@ function Library() {
         </div>
 
         <div className={styles.headerActions}>
-          <Button onClick={performSync} disabled={syncing} variant="primary">
+          <Button onClick={() => performSync()} disabled={syncing} variant="primary">
             {syncing ? "ACTUALIZANDO..." : "REFRESCAR"}
           </Button>
           <Button onClick={handleSelectFolder} variant="secondary">

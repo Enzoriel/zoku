@@ -21,7 +21,10 @@ export function LibraryProvider({ children }) {
 
       setSyncing(true);
       try {
-        const myAnimesToUse = myAnimesOverride ?? currentData.myAnimes;
+        // Ignorar si el argumento es un evento de React (sucede si se pasa directo al onClick)
+        const isEvent = myAnimesOverride && (myAnimesOverride.nativeEvent || myAnimesOverride.target);
+        const myAnimesToUse = (myAnimesOverride && !isEvent) ? myAnimesOverride : currentData.myAnimes;
+        
         const localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse);
         await setLocalFiles(localFiles);
       } catch (error) {
