@@ -14,6 +14,8 @@ const Library = lazy(() => import("./pages/Library"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Configuration = lazy(() => import("./pages/Configuration"));
 const AnimeDetails = lazy(() => import("./pages/AnimeDetails"));
+const Recent = lazy(() => import("./pages/Recent"));
+const History = lazy(() => import("./pages/History"));
 
 function App() {
   return (
@@ -28,6 +30,8 @@ function App() {
                 <Route path="search" element={<Search />} />
                 <Route path="my-animes" element={<MyAnimes />} />
                 <Route path="library" element={<Library />} />
+                <Route path="recent" element={<Recent />} />
+                <Route path="history" element={<History />} />
                 <Route path="stats" element={<Stats />} />
                 <Route path="configuration" element={<Configuration />} />
                 <Route path="anime/:id" element={<AnimeDetails />} />
