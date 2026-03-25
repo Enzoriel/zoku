@@ -60,19 +60,11 @@ function Recent() {
     myAiringAnime.forEach((anime) => {
       if (!anime.nextAiring) return;
 
-      // Calcular cuándo salió el último episodio
-      const lastEpAiredAt =
-        anime.nextAiring.airingAt -
-        anime.nextAiring.timeUntilAiring +
-        (anime.lastAiredEp - (anime.nextAiring.episode - 1)) * 7 * 24 * 60 * 60;
+      const SECONDS_IN_WEEK = 7 * 24 * 60 * 60;
 
       // Generar entradas para los últimos N episodios emitidos (máx 3)
       for (let ep = anime.lastAiredEp; ep >= Math.max(1, anime.lastAiredEp - 2); ep--) {
-        const epAiredAt =
-          (anime.nextAiring.airingAt -
-            anime.nextAiring.timeUntilAiring +
-            (ep - (anime.nextAiring.episode - 1)) * 7 * 24 * 60 * 60) *
-          1000;
+        const epAiredAt = (anime.nextAiring.airingAt - (anime.nextAiring.episode - ep) * SECONDS_IN_WEEK) * 1000;
 
         if (epAiredAt > now || epAiredAt < now - TWO_WEEKS) continue;
 
