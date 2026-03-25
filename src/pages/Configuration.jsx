@@ -1,12 +1,17 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
+import ConfirmModal from "../components/ui/ConfirmModal";
 import styles from "./Configuration.module.css";
 
 const Configuration = () => {
-  const { data, setSettings } = useStore();
+  const { data, setSettings, clearAllData } = useStore();
+  const navigate = useNavigate();
   const [player, setPlayer] = useState("mpv");
   const [customPlayer, setCustomPlayer] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const KNOWN_PLAYERS = ["mpv", "vlc", "mpc-hc", "mpc-be", "potplayer"];
 
@@ -26,13 +31,27 @@ const Configuration = () => {
     try {
       await setSettings({
         ...data.settings,
-        player: finalPlayer
+        player: finalPlayer,
       });
       setTimeout(() => setIsSaving(false), 500);
     } catch (err) {
       console.error("Error saving settings:", err);
       setIsSaving(false);
     }
+  };
+
+  const handleClearAll = async () => {
+    setIsClearing(true);
+    try {
+      await clearAllData();
+      setShowClearModal(false);
+      // Redirigir al dashboard para confirmar visualmente el reinicio
+      navigate("/");
+    } catch (error) {
+      console.error("Error al eliminar datos:", error);
+      alert("Error al eliminar los datos. Por favor, intenta de nuevo.");
+    }
+    setIsClearing(false);
   };
 
   return (
@@ -43,7 +62,7 @@ const Configuration = () => {
         <h2>Reproductor de Video</h2>
         <div className={styles.settingItem}>
           <label htmlFor="player-select">Selecciona tu reproductor preferido:</label>
-          <select 
+          <select
             id="player-select"
             className={styles.select}
             value={player}
@@ -56,31 +75,52 @@ const Configuration = () => {
             <option value="potplayer">PotPlayer</option>
             <option value="custom">Otro (nombre de proceso manual)</option>
           </select>
-          
+
           {player === "custom" && (
-            <input 
+            <input
               type="text"
               className={styles.select}
               placeholder="Nombre del ejecutable (sin .exe, ej: vlc)"
               value={customPlayer}
               onChange={(e) => setCustomPlayer(e.target.value)}
-              style={{ marginTop: '10px' }}
+              style={{ marginTop: "10px" }}
             />
           )}
 
           <p className={styles.hint}>
-            Zoku usará esto para detectar si el reproductor sigue abierto después de 1 minuto y marcar el episodio como visto automáticamente.
+            Zoku usará esto para detectar si el reproductor sigue abierto después de 1 minuto y marcar el episodio como
+            visto automáticamente.
           </p>
         </div>
       </section>
 
-      <button 
-        className={styles.saveButton}
-        onClick={handleSave}
-        disabled={isSaving}
-      >
+      <section className={styles.section}>
+        <h2>Eliminar Datos</h2>
+        <p className={styles.warningText}>
+          Esta acción eliminará todos tus datos de la aplicación: biblioteca, historial y configuración.
+          <strong> Tus archivos de video locales no serán eliminados del disco. </strong>
+          Esta acción no se puede deshacer.
+        </p>
+        <button className={styles.dangerButton} onClick={() => setShowClearModal(true)}>
+          Eliminar Todos los Datos
+        </button>
+      </section>
+
+      <button className={styles.saveButton} onClick={handleSave} disabled={isSaving}>
         {isSaving ? "Guardando..." : "Guardar Cambios"}
       </button>
+
+      {showClearModal && (
+        <ConfirmModal
+          title="Eliminar Todos los Datos"
+          message="¿Estás seguro de que quieres eliminar todos tus datos? Esta acción no se puede deshacer."
+          onConfirm={handleClearAll}
+          onCancel={() => setShowClearModal(false)}
+          isLoading={isClearing}
+          variant="danger"
+          confirmLabel="ELIMINAR TODO"
+        />
+      )}
     </div>
   );
 };

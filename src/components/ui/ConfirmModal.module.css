@@ -128,3 +128,13 @@
   background: white;
   color: black;
 }
+
+.confirmBtn.danger {
+  border-color: #ff4444;
+  color: #ff4444;
+}
+
+.confirmBtn.danger:hover {
+  background: #ff4444;
+  color: white;
+}

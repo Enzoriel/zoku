@@ -89,3 +89,30 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.warningText {
+  font-size: 0.85rem;
+  color: rgba(255, 200, 0, 0.8);
+  font-family: 'Saira', sans-serif;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.dangerButton {
+  background: transparent;
+  color: #ff4444;
+  border: 1px solid #ff4444;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-family: 'Tektur', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.dangerButton:hover {
+  background: #ff4444;
+  color: white;
+  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+}
