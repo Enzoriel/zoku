@@ -38,6 +38,8 @@ async function queryAniList(query, variables = {}) {
       return null;
     }
 
+    console.log("ESTE ES EL RAW API:", json.data);
+
     return json.data;
   } catch (error) {
     if (error.name === "AbortError") {
@@ -67,15 +69,15 @@ function mapMedia(media) {
     : "No description available.";
 
   const statusMap = {
-    RELEASING: "Airing",
-    FINISHED: "Finished Airing",
-    NOT_YET_RELEASED: "Not yet aired",
-    CANCELLED: "Cancelled",
-    HIATUS: "Hiatus",
+    RELEASING: "En emisión",
+    FINISHED: "Finalizado",
+    NOT_YET_RELEASED: "Próximamente",
+    CANCELLED: "Cancelado",
+    HIATUS: "En pausa",
   };
 
   const demoTags = ["Shounen", "Seinen", "Shoujo", "Josei"];
-  const demographic = media.tags?.find((t) => demoTags.includes(t.name))?.name || "Unknown";
+  const demographic = media.tags?.find((t) => demoTags.includes(t.name))?.name || "Desconocido";
 
   let normalizedType = media.format || "TV";
   if (normalizedType === "TV_SHORT") normalizedType = "TV";
@@ -84,6 +86,11 @@ function mapMedia(media) {
   if (!episodesCount && media.nextAiringEpisode) {
     episodesCount = media.nextAiringEpisode.episode - 1;
   }
+
+  // Formatear fecha de estreno
+  const airedDate = media.startDate?.year
+    ? `${media.startDate.day || "?"}/${media.startDate.month || "?"}/${media.startDate.year}`
+    : "N/A";
 
   return {
     mal_id: media.idMal || media.id,
@@ -101,13 +108,16 @@ function mapMedia(media) {
     bannerImage: media.bannerImage,
     synopsis: cleanDescription,
     score: media.averageScore ? media.averageScore / 10 : 0,
-    rank: media.rankings?.find((r) => r.type === "RANKED" && r.allTime)?.rank || null,
+    rank: media.rankings?.find((r) => r.allTime && r.type === "RATED")?.rank || media.rankings?.[0]?.rank || null,
     popularity: media.popularity,
+    rating: media.isAdult ? "R18+" : "TV-14",
     type: normalizedType,
     format: normalizedType,
     status: statusMap[media.status] || media.status || "UNKNOWN",
     episodes: episodesCount,
     totalEpisodes: episodesCount,
+    year: media.seasonYear || media.startDate?.year || "N/A",
+    season: media.season || "N/A",
     get episodeList() {
       return Array.from({ length: episodesCount || 0 }, (_, i) => ({
         mal_id: i + 1,
@@ -120,8 +130,10 @@ function mapMedia(media) {
     demographics: [{ name: demographic }],
     studios: media.studios?.nodes?.map((s) => ({ name: s.name })) || [],
     source: media.source || "UNKNOWN",
+    airedDate: airedDate,
     aired: {
       from: media.startDate?.year ? `${media.startDate.year}-${media.startDate.month}-${media.startDate.day}` : null,
+      string: airedDate,
     },
     members: media.popularity,
     favorites: media.favourites,
@@ -174,6 +186,8 @@ const MEDIA_FIELDS = `
     allTime
   }
   isAdult
+  seasonYear
+  season
   source
   nextAiringEpisode {
     airingAt
@@ -222,6 +236,8 @@ export async function getFullSeasonAnime() {
     hasNextPage = result.Page.pageInfo.hasNextPage;
     page++;
   }
+
+  console.log("ESTA ES LA TEMPORADA", allAnimes);
 
   return allAnimes;
 }
