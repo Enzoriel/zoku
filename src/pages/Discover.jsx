@@ -14,6 +14,7 @@ function Discover() {
   }, [allAnimes, type]);
 
   const handleTypeChange = (newType) => {
+    if (newType === type || isPending) return;
     setPendingType(newType);
     startTransition(() => {
       setType(newType);
@@ -59,24 +60,23 @@ function Discover() {
       <div className={styles.content}>
         {loading ? (
           <div className={styles.loadingContainer}>
-            <div className={styles.loaderSpinner}></div>
-            <p>Sincronizando con AniList...</p>
+            <p>CONECTANDO CON ANILIST...</p>
           </div>
         ) : error ? (
           <div className={styles.errorContainer}>
             <p>{error}</p>
           </div>
         ) : (
-            <div className={styles.resultsArea} style={{ opacity: isPending ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
-              <div className={styles.resultsHeader}>
-                <div className={styles.resultsCount}>
-                  <span className={styles.countNumber}>{filteredAnimes.length}</span> resultados encontrados
-                </div>
-                <div className={styles.accentLine}></div>
+          <div className={styles.resultsArea} style={{ opacity: isPending ? 0.7 : 1 }}>
+            <div className={styles.resultsHeader}>
+              <div className={styles.resultsCount}>
+                [ <span className={styles.countNumber}>{filteredAnimes.length}</span> ] RESULTADOS ENCONTRADOS
               </div>
-
-              <AnimeList animes={filteredAnimes} type={true} />
+              <div className={styles.accentLine}></div>
             </div>
+
+            <AnimeList animes={filteredAnimes} type={true} />
+          </div>
         )}
       </div>
     </div>

@@ -17,18 +17,42 @@
   position: relative;
 }
 
-.title::before {
-  content: "◈ ";
-  color: var(--px-yellow-dim);
-}
-
-.title::after {
-  content: " ◈";
-  color: var(--px-yellow-dim);
-}
-
 .titleIcon {
-  display: none;
+  width: 32px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.titleIcon path {
+  fill: transparent;
+  stroke: var(--px-yellow-dim);
+  stroke-width: 1px;
+  animation: arrowSequencer 1.2s infinite steps(1, end);
+}
+
+.titleIcon path:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+.titleIcon path:nth-child(3) {
+  animation-delay: 0.8s;
+}
+
+@keyframes arrowSequencer {
+  0% {
+    fill: var(--px-yellow);
+    stroke: var(--px-yellow);
+  }
+  33% {
+    fill: transparent;
+    stroke: var(--px-yellow-dim);
+  }
+  100% {
+    fill: transparent;
+    stroke: var(--px-yellow-dim);
+  }
 }
 
 .wrapper {
@@ -77,8 +101,12 @@
   opacity: 1;
 }
 
-.left { left: -16px; }
-.right { right: -16px; }
+.left {
+  left: -16px;
+}
+.right {
+  right: -16px;
+}
 
 .arrow:hover {
   background: var(--px-yellow);

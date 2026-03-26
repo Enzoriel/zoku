@@ -2,6 +2,8 @@
   padding: 40px;
   min-height: 100vh;
   background-color: transparent;
+  color: var(--px-text);
+  font-family: var(--font-term);
   display: flex;
   flex-direction: column;
   gap: 40px;
@@ -11,7 +13,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--px-border);
   padding-bottom: 30px;
   flex-wrap: wrap;
   gap: 30px;
@@ -24,21 +26,22 @@
 }
 
 .pageTitle {
-  font-family: 'Saira-BlackItalic', sans-serif;
-  font-size: 4rem;
+  font-family: var(--font-pixel);
+  font-size: 14px;
   margin: 0;
-  color: #fff;
-  line-height: 0.9;
-  letter-spacing: -2px;
+  color: var(--px-text);
+  line-height: 1.4;
+  letter-spacing: 1px;
   text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--px-dark);
 }
 
 .pageSubtitle {
-  font-family: 'Tektur', sans-serif;
-  font-size: 0.8rem;
-  color: var(--primary-color);
+  font-family: var(--font-term);
+  font-size: 1.2rem;
+  color: var(--px-text-dim);
   text-transform: uppercase;
-  letter-spacing: 4px;
+  letter-spacing: 1px;
   margin-top: 10px;
 }
 
@@ -51,45 +54,43 @@
 }
 
 .filterLabel {
-  font-family: 'Tektur', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 800;
-  color: var(--primary-color);
-  letter-spacing: 1.5px;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: var(--px-yellow);
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .toggleGroup {
   display: flex;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--px-card);
   padding: 4px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(5px);
+  clip-path: var(--clip-md);
+  border: 2px solid var(--px-border);
 }
 
 .toggleButton {
-  padding: 8px 20px;
+  padding: 8px 16px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
-  font-family: 'Tektur', sans-serif;
-  font-weight: 700;
-  font-size: 0.75rem;
+  color: var(--px-text-dim);
+  font-family: var(--font-pixel);
+  font-size: 8px;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  clip-path: var(--clip-sm);
+  transition: var(--tx-pixel);
   letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .toggleButton:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--px-yellow);
+  background: rgba(232, 240, 0, 0.1);
 }
 
 .toggleButton.active {
-  background: var(--primary-color);
-  color: #fff;
-  box-shadow: 0 4px 15px rgba(255, 30, 30, 0.3);
+  background: var(--px-yellow);
+  color: var(--px-dark);
 }
 
 /* Contenido */
@@ -104,52 +105,42 @@
   justify-content: center;
   align-items: center;
   gap: 20px;
-  color: rgba(255, 255, 255, 0.4);
-  font-family: 'Tektur', sans-serif;
+  color: var(--px-gray);
+  font-family: var(--font-pixel);
   text-transform: uppercase;
   letter-spacing: 1px;
-}
-
-.loaderSpinner {
-  width: 50px;
-  height: 50px;
-  border: 3px solid rgba(255, 30, 30, 0.1);
-  border-radius: 50%;
-  border-top-color: var(--primary-color);
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  font-size: 10px;
 }
 
 .resultsArea {
   display: flex;
   flex-direction: column;
   gap: 30px;
+  transition: opacity var(--tx-smooth);
 }
 
 .resultsHeader {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
 }
 
 .resultsCount {
-  font-family: 'Tektur', sans-serif;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-term);
+  font-size: 1.1rem;
+  color: var(--px-text-dim);
+  letter-spacing: 0.5px;
 }
 
 .countNumber {
-  color: #fff;
-  font-weight: 800;
+  color: var(--px-yellow);
+  font-weight: 700;
 }
 
 .accentLine {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent);
+  background: linear-gradient(90deg, var(--px-border) 20%, var(--px-cyan-dim) 50%, transparent 100%);
 }
 
 /* Response */
@@ -158,18 +149,18 @@
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .filterSection {
     align-items: flex-start;
     width: 100%;
   }
-  
+
   .toggleGroup {
     width: 100%;
     overflow-x: auto;
   }
-  
+
   .pageTitle {
-    font-size: 2.5rem;
+    font-size: 12px;
   }
 }

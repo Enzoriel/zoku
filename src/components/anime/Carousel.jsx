@@ -21,17 +21,19 @@ function Carousel({ title, animes = [], loading = false }) {
   return (
     <section className={styles.carousel}>
       <h2 className={styles.title}>
-        <svg className={styles.titleIcon} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 18.5V5.5L22 12L16 18.5Z" fill="white" />
-          <path d="M9 18.5V5.5L15 12L9 18.5Z" fill="white" fillOpacity="0.7" />
-          <path d="M2 18.5V5.5L8 12L2 18.5Z" fill="white" fillOpacity="0.4" />
+        <svg className={styles.titleIcon} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 18.5V5.5L8 12L2 18.5Z" />
+          <path d="M9 18.5V5.5L15 12L9 18.5Z" />
+          <path d="M16 18.5V5.5L22 12L16 18.5Z" />
         </svg>
         {loading ? <div className="loader"></div> : title}
       </h2>
       <div className={styles.wrapper}>
-        <button className={`${styles.arrow} ${styles.left}`} onClick={() => scroll("left")}>
-          ‹
-        </button>
+        {(loading || animes.length > 4) && (
+          <button className={`${styles.arrow} ${styles.left}`} onClick={() => scroll("left")}>
+            ‹
+          </button>
+        )}
         <div className={styles.scroll} ref={scrollRef}>
           {loading
             ? [1, 2, 3, 4, 5, 6].map((i) => <AnimeCard key={`skeleton-${i}`} anime={null} />)
@@ -39,19 +41,21 @@ function Carousel({ title, animes = [], loading = false }) {
                 const malId = anime.mal_id || anime.malId;
                 const inLibraryData = data?.myAnimes?.[malId];
                 return (
-                  <AnimeCard 
-                    key={malId} 
-                    anime={anime} 
+                  <AnimeCard
+                    key={malId}
+                    anime={anime}
                     inLibraryData={inLibraryData}
                     playerSetting={data?.settings?.player}
                     setMyAnimes={setMyAnimes}
                   />
-                )
+                );
               })}
         </div>
-        <button className={`${styles.arrow} ${styles.right}`} onClick={() => scroll("right")}>
-          ›
-        </button>
+        {(loading || animes.length > 4) && (
+          <button className={`${styles.arrow} ${styles.right}`} onClick={() => scroll("right")}>
+            ›
+          </button>
+        )}
       </div>
     </section>
   );
