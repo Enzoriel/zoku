@@ -15,12 +15,9 @@ function Dashboard() {
 
   const continueWatching = useMemo(
     () => getContinueWatching(data.myAnimes, data.localFiles),
-    [data.myAnimes, data.localFiles]
+    [data.myAnimes, data.localFiles],
   );
-  const newEpisodes = useMemo(
-    () => getNewEpisodes(data.myAnimes, data.localFiles),
-    [data.myAnimes, data.localFiles]
-  );
+  const newEpisodes = useMemo(() => getNewEpisodes(data.myAnimes, data.localFiles), [data.myAnimes, data.localFiles]);
   const recentlyAdded = useMemo(() => getRecentlyAdded(data.myAnimes), [data.myAnimes]);
 
   return (
@@ -58,7 +55,6 @@ function Dashboard() {
         <>
           <Carousel title="Continuar viendo" animes={continueWatching} />
           <Carousel title="Nuevos episodios disponibles" animes={newEpisodes} />
-          <Carousel title="En emisión esta temporada" animes={seasonalAnime} loading={loading} />
           <Carousel title="Añadidos recientemente" animes={recentlyAdded} />
         </>
       )}

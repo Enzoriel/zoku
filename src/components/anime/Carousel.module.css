@@ -1,20 +1,104 @@
 .carousel {
   margin-bottom: 40px;
-  position: relative;
-  width: 100%;
 }
 
 .title {
   font-family: var(--font-pixel);
-  font-size: 14px;
+  font-size: 13px;
   text-transform: uppercase;
   margin-bottom: 25px;
   color: var(--px-yellow);
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px 0;
+  justify-content: center;
+  gap: 30px;
+  padding: 12px 30px;
+  background-color: var(--px-card);
   position: relative;
+  border: 1px solid var(--px-border);
+  box-shadow: 6px 6px 0 var(--px-dark);
+  min-height: 52px;
+}
+
+.titleText {
+  margin: 0;
+  text-shadow: 2px 2px 0 var(--px-dark);
+  letter-spacing: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.titleArrows {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 140px;
+  height: 20px;
+  flex-shrink: 1;
+  flex-shrink: 0;
+}
+
+.titleArrows::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background-color: var(--px-yellow);
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+  flex-shrink: 0;
+}
+
+.titleArrows::after {
+  content: "";
+  width: 4px;
+  height: 12px;
+  background-color: var(--px-yellow-dim);
+  flex-shrink: 0;
+}
+
+.titleArrowsPattern {
+  width: 100px;
+  height: 8px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--px-yellow),
+    var(--px-yellow) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  opacity: 0.8;
+}
+
+.rightArrows {
+  transform: scaleX(-1);
+}
+
+.marqueeWrapper {
+  overflow: hidden;
+  width: 100%;
+  display: flex;
+}
+
+.marqueeContent {
+  display: flex;
+  gap: 60px;
+  padding-left: 60px;
+  animation: scrollMarquee 25s linear infinite;
+  white-space: nowrap;
+}
+
+.marqueeContent span {
+  flex-shrink: 0;
+  text-shadow: 2px 2px 0 var(--px-dark);
+  letter-spacing: 2px;
+}
+
+@keyframes scrollMarquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-20%);
+  } /* Ajustado para 10 copias */
 }
 
 .titleIcon {

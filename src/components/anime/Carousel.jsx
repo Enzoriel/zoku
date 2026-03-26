@@ -2,6 +2,7 @@ import { useRef } from "react";
 import AnimeCard from "./AnimeCard";
 import styles from "./Carousel.module.css";
 import { useStore } from "../../hooks/useStore";
+import PixelReveal from "../common/PixelReveal";
 
 function Carousel({ title, animes = [], loading = false }) {
   const scrollRef = useRef(null);
@@ -18,15 +19,23 @@ function Carousel({ title, animes = [], loading = false }) {
   };
 
   if (animes.length === 0 && !loading) return null;
+
   return (
     <section className={styles.carousel}>
       <h2 className={styles.title}>
-        <svg className={styles.titleIcon} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M2 18.5V5.5L8 12L2 18.5Z" />
-          <path d="M9 18.5V5.5L15 12L9 18.5Z" />
-          <path d="M16 18.5V5.5L22 12L16 18.5Z" />
-        </svg>
-        {loading ? <div className="loader"></div> : title}
+        {!loading && (
+          <>
+            <div className={styles.titleArrows}>
+              <div className={styles.titleArrowsPattern}></div>
+            </div>
+            <p className={styles.titleText}>{title}</p>
+            <div className={`${styles.titleArrows} ${styles.rightArrows}`}>
+              <div className={styles.titleArrowsPattern}></div>
+            </div>
+            <PixelReveal speed={0.12} tileSize={12} delayFactor={1.5} noiseStack={20} active={!loading} />
+          </>
+        )}
+        {loading && <div className="loader"></div>}
       </h2>
       <div className={styles.wrapper}>
         {(loading || animes.length > 4) && (
