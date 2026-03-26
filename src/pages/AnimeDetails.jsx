@@ -8,7 +8,7 @@ import { extractEpisodeNumber } from "../utils/fileParsing";
 import { calculateUserStatus } from "../utils/animeStatus";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import ConfirmModal from "../components/ui/ConfirmModal";
-import styles from "./AnimeDetailsRedesign.module.css";
+import styles from "./AnimeDetails.module.css";
 
 const WATCH_TIMER_MS = 60 * 1000;
 const METADATA_REFRESH_DAYS = 7;
