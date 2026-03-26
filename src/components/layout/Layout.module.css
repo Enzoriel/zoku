@@ -1,16 +1,83 @@
 .layout {
   min-height: 100vh;
-  background-color: transparent;
-  color: #ffffff;
+  background-color: var(--px-dark);
+  color: var(--px-text);
+  position: relative;
+  overflow-x: hidden;
 }
 
 .main {
-  margin-left: 64px; /* Ancho real de la Sidebar (padding + content) */
+  margin-left: 64px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  position: relative;
+  z-index: 1;
 }
 
 .content {
   flex: 1;
+}
+
+/* Scrollbar Customization */
+:global(::-webkit-scrollbar) {
+  width: 6px;
+}
+
+:global(::-webkit-scrollbar-track) {
+  background: var(--px-dark);
+}
+
+:global(::-webkit-scrollbar-thumb) {
+  background: var(--px-yellow-dim);
+  clip-path: var(--clip-sm);
+}
+
+/* Ambient Particles */
+.ambient {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  animation: float var(--duration) linear infinite;
+  animation-delay: var(--delay);
+  opacity: 0;
+}
+
+@keyframes float {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.8;
+  }
+  85% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--fx), var(--fy)) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+/* Dividers */
+:global(hr) {
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--px-border) 15%,
+    var(--px-cyan-dim) 50%,
+    var(--px-border) 85%,
+    transparent 100%
+  );
+  margin: 1.5rem 0;
 }

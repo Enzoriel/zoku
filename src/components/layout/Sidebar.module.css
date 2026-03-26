@@ -1,10 +1,10 @@
 .sidebar {
   --sb-width: 64px;
-  --sb-bg: #0a0a0a;
-  --sb-border: #1a1a1a;
-  --sb-accent: var(--primary-color, #ff1e1e);
-  --sb-text: #888;
-  --sb-text-hover: #fff;
+  --sb-bg: var(--px-card);
+  --sb-border: var(--px-border);
+  --sb-accent: var(--px-yellow);
+  --sb-text: var(--px-gray);
+  --sb-text-hover: var(--px-yellow);
 
   position: fixed;
   top: 0;
@@ -12,39 +12,12 @@
   height: 100vh;
   width: var(--sb-width);
   background: var(--sb-bg);
-  border-right: 1px solid var(--sb-border);
+  border-right: 2px solid var(--sb-border);
   display: flex;
   flex-direction: column;
   align-items: stretch;
   overflow: hidden;
   z-index: 100;
-  box-shadow: 4px 0 40px rgba(0, 0, 0, 0.6);
-}
-
-.sidebar::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.012) 2px,
-    rgba(255, 255, 255, 0.012) 4px
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-.sidebar::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: var(--sb-accent);
-  z-index: 2;
 }
 
 .userProfile {
@@ -56,7 +29,7 @@
   align-items: center;
   padding: 0 20px;
   gap: 14px;
-  border-bottom: 1px solid var(--sb-border);
+  border-bottom: 2px solid var(--sb-border);
   cursor: pointer;
   overflow: hidden;
   text-decoration: none;
@@ -66,24 +39,23 @@
   flex-shrink: 0;
   width: 28px;
   height: 28px;
-  background: var(--sb-accent);
+  background: var(--px-yellow);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Bebas Neue", "Impact", sans-serif;
-  font-size: 0.95rem;
+  font-family: var(--font-pixel);
+  font-size: 10px;
   font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.05em;
-  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
-  transition:
-    clip-path 0.2s ease,
-    background 0.2s ease;
+  color: var(--px-dark);
+  clip-path: var(--clip-sm);
+  transition: var(--tx-normal);
+  box-shadow: inset 0 -2px 0 var(--px-yellow-dim);
 }
 
 .userProfile:hover .avatarBox {
-  clip-path: polygon(0 0, 100% 0, 100% 0, 100% 100%, 0 100%, 0 100%);
-  background: #cc0000;
+  transform: scale(1.1);
+  background: var(--px-cyan);
+  box-shadow: inset 0 -2px 0 var(--px-cyan-dim);
 }
 
 .avatarLabel {
@@ -119,7 +91,9 @@
   text-decoration: none;
   color: var(--sb-text);
   overflow: hidden;
-  transition: color 0.2s ease;
+  transition: color var(--tx-normal);
+  font-family: var(--font-pixel);
+  font-size: 8px;
 }
 
 .navLabel {
@@ -133,13 +107,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s ease;
 }
 
 .iconWrap svg {
   width: 20px;
   height: 20px;
-  transition: transform 0.2s ease;
+  transition: transform var(--tx-normal);
 }
 
 .navList a.active,
@@ -156,9 +129,9 @@
   left: 0;
   top: 20%;
   height: 60%;
-  width: 2px;
+  width: 4px;
   background: var(--sb-accent);
-  border-radius: 0 2px 2px 0;
+  clip-path: var(--clip-sm);
 }
 
 .navList a.active::after,
@@ -166,7 +139,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(255, 30, 30, 0.1) 0%, transparent 70%);
+  background: linear-gradient(90deg, rgba(232, 240, 0, 0.05) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -177,16 +150,8 @@
 
 .navList a:not(.active):hover .iconWrap svg,
 .configuration a:not(.active):hover .iconWrap svg {
-  transform: scale(1.12);
-}
-
-.navList a:not(.active):hover::after,
-.configuration a:not(.active):hover::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.03);
-  pointer-events: none;
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 2px var(--px-yellow));
 }
 
 .rippleContainer {
@@ -194,38 +159,40 @@
   inset: 0;
   pointer-events: none;
   overflow: hidden;
+  z-index: 0;
 }
 
 .rippleAnim {
   position: absolute;
   top: 50%;
-  left: 20px;
-  width: 200px;
-  height: 200px;
+  left: 32px; /* Centrado aproximado sobre el icono */
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 30, 30, 0.25) 0%, transparent 70%);
+  border: 2px solid var(--px-yellow);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
   transform: translate(-50%, -50%) scale(0);
-  animation: ripplePop 0.55s ease-out forwards;
+  animation: px-ripple-out 350ms steps(5, end) forwards;
 }
 
-@keyframes ripplePop {
+@keyframes px-ripple-out {
   0% {
     transform: translate(-50%, -50%) scale(0);
     opacity: 1;
   }
-  70% {
-    transform: translate(-50%, -50%) scale(1.6);
-    opacity: 0.6;
+  50% {
+    transform: translate(-50%, -50%) scale(6);
+    opacity: 0.5;
   }
   100% {
-    transform: translate(-50%, -50%) scale(2);
+    transform: translate(-50%, -50%) scale(14);
     opacity: 0;
   }
 }
 
 .configuration {
   position: relative;
-  border-top: 1px solid var(--sb-border);
+  border-top: 2px solid var(--sb-border);
   padding-top: 4px;
 }
 

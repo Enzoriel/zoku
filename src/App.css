@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
 @font-face {
   font-family: "Saira-Black";
   src: url("./assets/fonts/Saira-Black.ttf") format("woff2");
@@ -48,6 +50,36 @@
   --secondary-color: #ffd700;
   --secondary-color-rgb: 255, 215, 0;
   --background-color: #000000;
+
+  /* Palette */
+  --px-dark:        #0d0d14;
+  --px-card:        #12121e;
+  --px-border:      #1e1e30;
+  --px-yellow:      #e8f000;
+  --px-yellow-dim:  #a8ad00;
+  --px-pink:        #ff2d78;
+  --px-pink-dim:    #99193f;
+  --px-cyan:        #00f5ff;
+  --px-cyan-dim:    #007a80;
+  --px-green:       #39ff14;
+  --px-purple:      #b44fff;
+  --px-gray:        #55556a;
+  --px-text:        #e8e8f0;
+  --px-text-dim:    #88889a;
+
+  /* Typography */
+  --font-pixel:     'Press Start 2P', monospace;
+  --font-vt:        'VT323', monospace;
+
+  /* Pixel-cut corner clip (chamfered, not rounded) */
+  --clip-sm:  polygon(0 3px,3px 0,calc(100% - 3px) 0,100% 3px,100% calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,0 calc(100% - 3px));
+  --clip-md:  polygon(0 5px,5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px));
+  --clip-lg:  polygon(0 8px,8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px));
+
+  /* Transitions */
+  --tx-fast:   120ms ease;
+  --tx-normal: 200ms ease;
+  --tx-smooth: 250ms ease;
 }
 
 /* Animación de pulsación mejorada */

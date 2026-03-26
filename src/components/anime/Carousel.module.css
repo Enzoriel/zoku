@@ -1,33 +1,34 @@
 .carousel {
-  margin-bottom: 20px;
+  margin-bottom: 40px;
   position: relative;
   width: 100%;
-  overflow-x: hidden;
 }
 
 .title {
-  font-family: "Saira-Bold";
-  font-size: 1.5rem;
+  font-family: var(--font-pixel);
+  font-size: 14px;
   text-transform: uppercase;
-  margin-bottom: 20px;
-  color: #ffffff;
+  margin-bottom: 25px;
+  color: var(--px-yellow);
   display: flex;
   align-items: center;
-  gap: 12px;
-  background-color: var(--primary-color);
-  box-shadow: 3px 3px 0px var(--secondary-color);
-  padding: 10px 50px;
+  gap: 15px;
+  padding: 10px 0;
+  position: relative;
 }
 
 .title::before {
-  display: none;
+  content: "◈ ";
+  color: var(--px-yellow-dim);
+}
+
+.title::after {
+  content: " ◈";
+  color: var(--px-yellow-dim);
 }
 
 .titleIcon {
-  width: 34px;
-  height: 34px;
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
-  flex-shrink: 0;
+  display: none;
 }
 
 .wrapper {
@@ -35,16 +36,16 @@
   align-items: center;
   gap: 10px;
   position: relative;
-  padding: 0;
 }
 
 .scroll {
   flex: 1;
   display: flex;
-  gap: 30px;
+  gap: 25px;
+  overflow-x: auto;
   scroll-behavior: smooth;
+  padding: 15px 5px;
   scrollbar-width: none;
-  padding: 10px 25px;
 }
 
 .scroll::-webkit-scrollbar {
@@ -55,30 +56,32 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 60px;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
+  width: 32px;
+  height: 48px;
+  background: var(--px-card);
+  border: 2px solid var(--px-border);
+  color: var(--px-yellow);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: var(--tx-normal);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  opacity: 0;
-  padding: 1px 10px;
-  border: 0;
   z-index: 10;
+  clip-path: var(--clip-sm);
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  opacity: 0;
 }
 
-.left {
-  left: 0;
+.carousel:hover .arrow {
+  opacity: 1;
 }
 
-.right {
-  right: 0;
-}
+.left { left: -16px; }
+.right { right: -16px; }
 
 .arrow:hover {
-  opacity: 0.5;
+  background: var(--px-yellow);
+  color: var(--px-dark);
+  border-color: var(--px-yellow);
 }
