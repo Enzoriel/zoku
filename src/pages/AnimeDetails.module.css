@@ -73,8 +73,13 @@
   inset: -3px;
   background: var(--px-yellow);
   clip-path: polygon(
-    0 0, calc(100% - 10px) 0, 100% 10px,
-    100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px)
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px)
   );
   z-index: -1;
 }
@@ -113,24 +118,33 @@
 .dataGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 16px 8px; /* Aumentamos el row-gap para acomodar el pseudo-elemento top */
 }
 
 .dataItem {
   background: var(--px-card);
-  padding: 8px 10px;
+  padding: 10px 8px 8px 8px; /* Extra padding para el texto superior */
   border: 1px solid var(--px-border);
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
+  align-items: center;
+  min-height: 38px;
 }
 
-.dataLabel {
-  font-size: 0.5rem;
-  color: var(--px-text-dim);
-  text-transform: uppercase;
+.dataItem::before {
+  content: "[ " attr(data-label) " ]";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--px-card);
+  padding: 0 6px;
   font-family: var(--font-pixel);
-  text-align: center;
+  font-size: 6px;
+  color: var(--px-yellow);
+  white-space: nowrap;
 }
 
 .dataValue {
@@ -141,6 +155,35 @@
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
+}
+
+.studioBox {
+  background: var(--px-card);
+  padding: 14px;
+  border: 1px solid var(--px-border);
+  position: relative;
+}
+
+.studioBox::before {
+  content: "[ SINOPSIS ]";
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--px-card);
+  padding: 0 10px;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--px-yellow);
+}
+
+.studioText {
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--px-text-dim);
+  max-height: 150px;
+  overflow-y: auto;
+  text-align: justify;
 }
 
 /* Synopsis */
@@ -212,26 +255,33 @@
   text-shadow: 2px 2px 0 var(--px-yellow-dim);
   margin: 0;
   text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
   animation: titleGlow 3s ease-in-out infinite;
 }
 
 @keyframes titleGlow {
-  0%, 100% { 
+  0%,
+  100% {
     text-shadow: 2px 2px 0 var(--px-yellow-dim);
   }
-  50% { 
-    text-shadow: 2px 2px 0 var(--px-yellow-dim), 0 0 20px var(--px-yellow), 0 0 40px var(--px-yellow);
+  50% {
+    text-shadow:
+      2px 2px 0 var(--px-yellow-dim),
+      0 0 20px var(--px-yellow),
+      0 0 40px var(--px-yellow);
   }
 }
 
-.mainTitle::before {
-  content: "◈ ";
+.titleIcon {
   color: var(--px-cyan);
+  flex-shrink: 0;
 }
 
-.mainTitle::after {
-  content: " ◈";
-  color: var(--px-cyan);
+.titleIconInner {
+  fill: var(--px-dark); /* Color más oscuro que el cian simulando hueco del pixel */
 }
 
 .titleMeta {
@@ -353,6 +403,7 @@
 
 /* Episode Card */
 .episodeCard {
+  position: relative;
   display: flex;
   align-items: center;
   background: var(--px-dark);
@@ -360,7 +411,12 @@
   padding: 8px 12px;
   gap: 12px;
   min-height: 40px;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    padding-right 0.3s ease,
+    padding-left 0.3s ease;
 }
 
 .episodeCard:hover {
@@ -370,10 +426,6 @@
 
 .episodeCardPlayable {
   cursor: pointer;
-}
-
-.episodeCardPlayable:hover {
-  padding-left: 16px;
 }
 
 .episodeCardWatched {
@@ -391,21 +443,26 @@
 
 /* Play Icon - Pixel art with text */
 .epPlayIcon {
+  position: absolute;
+  right: 110px;
+  top: 50%;
+  transform: translateY(-50%) translateX(10px);
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
 }
 
 .episodeCardPlayable:hover .epPlayIcon {
   opacity: 1;
+  transform: translateY(-50%) translateX(0);
 }
 
 .playPixel {
-  width: 40px;
-  height: 48px;
+  width: 24px;
+  height: 28px;
 }
 
 .pixelFill {
@@ -414,8 +471,13 @@
 }
 
 @keyframes playPixelPulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .playText {
@@ -479,14 +541,22 @@
 }
 
 .tagPlaying {
-  color: var(--px-yellow);
-  border: 1px solid var(--px-yellow);
-  animation: pulse 1s infinite;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  padding: 4px 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  color: var(--px-dark);
+  background: var(--px-yellow);
+  border: 1px solid var(--px-yellow-dim);
+  box-shadow: 2px 2px 0 var(--px-yellow-dim);
+  animation: pulsePlaying 1.5s infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+@keyframes pulsePlaying {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
 }
 
 /* Buttons */
@@ -564,7 +634,11 @@
   color: var(--px-text-dim);
   font-family: var(--font-pixel);
   font-size: 7px;
-  text-align: center;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
   cursor: pointer;
   transition: background 0.2s ease;
 }
@@ -685,29 +759,41 @@
 
 .folderItem {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 10px 12px;
   background: var(--px-dark);
   border: 1px solid var(--px-border);
   cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .folderItem:hover {
+  background: rgba(232, 240, 0, 0.05);
   border-color: var(--px-yellow);
 }
 
 .folderName {
-  font-family: var(--font-pixel);
-  font-size: 7px;
+  font-family: var(--font-vt), monospace;
+  font-size: 1.1rem;
   color: var(--px-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.5px;
+}
+
+.folderItem:hover .folderName {
+  color: var(--px-yellow);
 }
 
 .folderEpCount {
-  font-family: var(--font-vt);
-  font-size: 0.8rem;
+  font-family: var(--font-pixel);
+  font-size: 6px;
   color: var(--px-text-dim);
   margin-left: 10px;
+  flex-shrink: 0;
+  text-transform: uppercase;
 }
 
 .emptyFolderText {
@@ -758,8 +844,14 @@
 }
 
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Responsive */

@@ -57,20 +57,16 @@ function AnimeDetails() {
   const mainAnime = useMemo(() => {
     if (!animeId) return null;
     const stored = data.myAnimes[animeId];
-    if (stored)
-      return { ...stored, malId: animeId, isInLibrary: true, watchedEpisodes: stored.watchedEpisodes || [] };
+    if (stored) return { ...stored, malId: animeId, isInLibrary: true, watchedEpisodes: stored.watchedEpisodes || [] };
     const context = getAnimeById(animeId);
-    if (context)
-      return { ...context, malId: animeId, isInLibrary: false, watchedEpisodes: [] };
+    if (context) return { ...context, malId: animeId, isInLibrary: false, watchedEpisodes: [] };
     return anime ? { ...anime, malId: animeId, isInLibrary: false, watchedEpisodes: [] } : null;
   }, [animeId, data.myAnimes, getAnimeById, anime]);
 
   const animeFilesData = useMemo(() => {
     if (!mainAnime) return { files: [] };
-    if (mainAnime.folderName && data?.localFiles?.[mainAnime.folderName])
-      return data.localFiles[mainAnime.folderName];
-    if (folderName && data?.localFiles?.[folderName])
-      return data.localFiles[folderName];
+    if (mainAnime.folderName && data?.localFiles?.[mainAnime.folderName]) return data.localFiles[mainAnime.folderName];
+    if (folderName && data?.localFiles?.[folderName]) return data.localFiles[folderName];
     return { files: [] };
   }, [mainAnime, data?.localFiles, folderName]);
 
@@ -116,9 +112,15 @@ function AnimeDetails() {
   const dataMyAnimesRef = useRef(data.myAnimes);
   const getAnimeByIdRef = useRef(getAnimeById);
   const setMyAnimesRef = useRef(setMyAnimes);
-  useEffect(() => { dataMyAnimesRef.current = data.myAnimes; }, [data.myAnimes]);
-  useEffect(() => { getAnimeByIdRef.current = getAnimeById; }, [getAnimeById]);
-  useEffect(() => { setMyAnimesRef.current = setMyAnimes; }, [setMyAnimes]);
+  useEffect(() => {
+    dataMyAnimesRef.current = data.myAnimes;
+  }, [data.myAnimes]);
+  useEffect(() => {
+    getAnimeByIdRef.current = getAnimeById;
+  }, [getAnimeById]);
+  useEffect(() => {
+    setMyAnimesRef.current = setMyAnimes;
+  }, [setMyAnimes]);
 
   const autoRefreshMetadata = useCallback(async (currentAnimeId) => {
     const stored = dataMyAnimesRef.current[currentAnimeId];
@@ -131,13 +133,21 @@ function AnimeDetails() {
     if (!apiData) return;
     await setMyAnimesRef.current((prev) => ({
       ...prev,
-      [currentAnimeId]: { ...prev[currentAnimeId], ...apiData, lastMetadataFetch: new Date().toISOString(), lastUpdated: new Date().toISOString() },
+      [currentAnimeId]: {
+        ...prev[currentAnimeId],
+        ...apiData,
+        lastMetadataFetch: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+      },
     }));
   }, []);
 
   const lastLoadedId = useRef(null);
   useEffect(() => {
-    if (lastLoadedId.current !== id) { setLoading(true); lastLoadedId.current = id; }
+    if (lastLoadedId.current !== id) {
+      setLoading(true);
+      lastLoadedId.current = id;
+    }
     if (!mainAnime && folderName) setAnime({ title: folderName, isUnknown: true, episodeList: [] });
     if (animeId && data.myAnimes[animeId]) autoRefreshMetadata(animeId);
     setLoading(false);
@@ -145,13 +155,18 @@ function AnimeDetails() {
 
   // ─── Actions ────────────────────────────────────────────────────────────────
 
-  const showToast = useCallback((message, type = "info") => { setToast({ message, type }); }, []);
+  const showToast = useCallback((message, type = "info") => {
+    setToast({ message, type });
+  }, []);
 
   const handleAddToLibrary = useCallback(async () => {
     if (!mainAnime || !animeId) return;
     const entry = {
-      ...mainAnime, ...(data.myAnimes[animeId] || {}), malId: animeId,
-      addedAt: new Date().toISOString(), lastUpdated: new Date().toISOString(),
+      ...mainAnime,
+      ...(data.myAnimes[animeId] || {}),
+      malId: animeId,
+      addedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
       watchedEpisodes: (data.myAnimes[animeId] || {}).watchedEpisodes || [],
       lastEpisodeWatched: (data.myAnimes[animeId] || {}).lastEpisodeWatched || 0,
       watchHistory: (data.myAnimes[animeId] || {}).watchHistory || [],
@@ -205,7 +220,12 @@ function AnimeDetails() {
         const newHistory = currentlyWatched
           ? (current.watchHistory || []).filter((h) => h.episode !== epNumber)
           : [...(current.watchHistory || []), { episode: epNumber, watchedAt: new Date().toISOString() }];
-        const updated = { ...current, watchedEpisodes: watchedEps, watchHistory: newHistory, lastUpdated: new Date().toISOString() };
+        const updated = {
+          ...current,
+          watchedEpisodes: watchedEps,
+          watchHistory: newHistory,
+          lastUpdated: new Date().toISOString(),
+        };
         updated.userStatus = calculateUserStatus(updated);
         return { ...prev, [animeId]: updated };
       });
@@ -217,13 +237,20 @@ function AnimeDetails() {
     async (epNumber, filePath) => {
       if (!filePath) return;
       const ok = await openFile(filePath);
-      if (!ok) { showToast("Error al abrir el reproductor.", "warn"); return; }
+      if (!ok) {
+        showToast("Error al abrir el reproductor.", "warn");
+        return;
+      }
       if (!animeId || !mainAnime?.isInLibrary) return;
       setPlayingEp(epNumber);
       watchStartTimeRef.current = Date.now();
       watchIntervalRef.current = setInterval(async () => {
         const stillOpen = await isPlayerStillOpen(data?.settings?.player || "mpv");
-        if (!stillOpen) { clearInterval(watchIntervalRef.current); setPlayingEp(null); return; }
+        if (!stillOpen) {
+          clearInterval(watchIntervalRef.current);
+          setPlayingEp(null);
+          return;
+        }
         if (Date.now() - watchStartTimeRef.current >= WATCH_TIMER_MS) {
           clearInterval(watchIntervalRef.current);
           setPlayingEp(null);
@@ -235,25 +262,36 @@ function AnimeDetails() {
     [animeId, mainAnime?.isInLibrary, data?.settings?.player, showToast, handleToggleWatched],
   );
 
-  useEffect(() => { return () => { if (watchIntervalRef.current) clearInterval(watchIntervalRef.current); }; }, []);
+  useEffect(() => {
+    return () => {
+      if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
+    };
+  }, []);
 
-  const handleContextMenu = useCallback((e, epNum, isWatched) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!mainAnime?.isInLibrary) return;
-    setContextMenu({ x: e.clientX, y: e.clientY, epNum, isWatched });
-  }, [mainAnime?.isInLibrary]);
+  const handleContextMenu = useCallback(
+    (e, epNum, isWatched) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!mainAnime?.isInLibrary) return;
+      setContextMenu({ x: e.clientX, y: e.clientY, epNum, isWatched });
+    },
+    [mainAnime?.isInLibrary],
+  );
 
-  const handleLinkFolder = useCallback(async (folderKey) => {
-    if (!animeId) return;
-    await setMyAnimes((prev) => ({
-      ...prev, [animeId]: { ...prev[animeId], folderName: folderKey, lastUpdated: new Date().toISOString() },
-    }));
-    setShowLinkFolderModal(false);
-    setFolderSearch("");
-    await performSync();
-    showToast(`Carpeta "${folderKey}" vinculada.`, "success");
-  }, [animeId, setMyAnimes, performSync, showToast]);
+  const handleLinkFolder = useCallback(
+    async (folderKey) => {
+      if (!animeId) return;
+      await setMyAnimes((prev) => ({
+        ...prev,
+        [animeId]: { ...prev[animeId], folderName: folderKey, lastUpdated: new Date().toISOString() },
+      }));
+      setShowLinkFolderModal(false);
+      setFolderSearch("");
+      await performSync();
+      showToast(`Carpeta "${folderKey}" vinculada.`, "success");
+    },
+    [animeId, setMyAnimes, performSync, showToast],
+  );
 
   // ─── Episode status (4 states) ──────────────────────────────────────────────
 
@@ -265,19 +303,19 @@ function AnimeDetails() {
       );
       if (isWatched) return { label: "VISTO", type: "tagWatched", file: localFile };
       if (localFile) return { label: "DESCARGADO", type: "tagDownloaded", file: localFile };
-      
+
       const st = mainAnime?.status;
-      
+
       // Si el anime ya terminó, todos están emitidos
       if (st === "Finalizado" || st === "Finished Airing" || st === "FINISHED") {
         return { label: "EMITIDO", type: "tagAired", file: null };
       }
-      
+
       // Si aún no sale
       if (st === "Próximamente" || st === "NOT_YET_RELEASED" || st === "Not yet aired") {
         return { label: "PRÓXIMO", type: "tagNotAired", file: null };
       }
-      
+
       // Si está en emisión (o cancelado/en pausa)
       if (mainAnime?.nextAiringEpisode) {
         const nextEp = mainAnime.nextAiringEpisode.episode;
@@ -289,17 +327,31 @@ function AnimeDetails() {
       // comparamos si la cantidad total/emitidos conocida de los datos alcanza para este episodio
       const airedEstimate = mainAnime?.episodes || mainAnime?.episodeList?.length || 0;
       if (airedEstimate > 0 && epNum <= airedEstimate) {
-         return { label: "EMITIDO", type: "tagAired", file: null };
+        return { label: "EMITIDO", type: "tagAired", file: null };
       }
 
       return { label: "PRÓXIMO", type: "tagNotAired", file: null };
     },
-    [mainAnime?.watchedEpisodes, mainAnime?.title, mainAnime?.status, mainAnime?.nextAiringEpisode, mainAnime?.episodes, mainAnime?.episodeList, animeFilesData.files, folderName],
+    [
+      mainAnime?.watchedEpisodes,
+      mainAnime?.title,
+      mainAnime?.status,
+      mainAnime?.nextAiringEpisode,
+      mainAnime?.episodes,
+      mainAnime?.episodeList,
+      animeFilesData.files,
+      folderName,
+    ],
   );
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  if (loading) return <div className={styles.loadingContainer}><LoadingSpinner size={60} /></div>;
+  if (loading)
+    return (
+      <div className={styles.loadingContainer}>
+        <LoadingSpinner size={60} />
+      </div>
+    );
   if (!mainAnime) return <div className={styles.container}>No encontrado</div>;
 
   const totalEps = Math.max(
@@ -325,23 +377,107 @@ function AnimeDetails() {
           <div className={styles.posterWrapper}>
             <img src={mainAnime.coverImage} className={styles.poster} alt={mainAnime.title} />
           </div>
+          <div className={styles.mainActions} style={{ width: "100%", marginBottom: "16px" }}>
+            {!mainAnime.isInLibrary ? (
+              <button className={`${styles.actionBtn} ${styles.primaryBtn}`} style={{ width: "100%" }} onClick={handleAddToLibrary}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                AÑADIR A LISTA
+              </button>
+            ) : (
+              <div style={{ display: "flex", gap: 10, width: "100%" }}>
+                <button className={`${styles.actionBtn} ${styles.secondaryBtn}`} style={{ flex: 1 }} disabled>
+                  ✓ EN BIBLIOTECA
+                </button>
+                <div className={styles.menuWrapper} ref={menuRef}>
+                  <button className={styles.menuBtn} onClick={() => setMenuOpen(!menuOpen)}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                    </svg>
+                  </button>
+                  {menuOpen && (
+                    <div className={styles.menuDropdown}>
+                      <button
+                        className={styles.menuItem}
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setShowLinkFolderModal(true);
+                        }}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                        {isLinked ? "CAMBIAR CARPETA" : "VINCULAR CARPETA"}
+                      </button>
+                      <button
+                        className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                        onClick={handleRemoveFromLibrary}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        ELIMINAR DE LISTA
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <div className={styles.tagsList}>
             {mainAnime.genres?.map((g) => (
-              <span key={g.mal_id} className={styles.tag}>{g.name}</span>
+              <span key={g.mal_id} className={styles.tag}>
+                {g.name}
+              </span>
             ))}
           </div>
           <div className={styles.dataGrid}>
-            <div className={styles.dataItem}><span className={styles.dataLabel}>ESTUDIO</span><span className={styles.dataValue}>{mainAnime.studios?.map((s) => s.name).join(", ") || "N/A"}</span></div>
-            <div className={styles.dataItem}><span className={styles.dataLabel}>DURACIÓN</span><span className={styles.dataValue}>{mainAnime.duration || "N/A"}</span></div>
-            <div className={styles.dataItem}><span className={styles.dataLabel}>ESTRENO</span><span className={styles.dataValue}>{mainAnime.airedDate || "N/A"}</span></div>
-            <div className={styles.dataItem}><span className={styles.dataLabel}>TEMPORADA</span><span className={styles.dataValue}>{mainAnime.season || "N/A"}</span></div>
-            <div className={styles.dataItem}><span className={styles.dataLabel}>PUNTUACIÓN</span><span className={styles.dataValue} style={{ color: "var(--secondary-color)" }}>★ {mainAnime.score || "0.0"}</span></div>
-            <div className={styles.dataItem}><span className={styles.dataLabel}>MIEMBROS</span><span className={styles.dataValue}>{mainAnime.members ? mainAnime.members.toLocaleString() : "N/A"}</span></div>
-            <div className={styles.dataItem}><span className={styles.dataLabel}>FAVORITOS</span><span className={styles.dataValue}>❤ {mainAnime.favorites ? mainAnime.favorites.toLocaleString() : "0"}</span></div>
-            <div className={styles.dataItem}><span className={styles.dataLabel}>ORIGEN</span><span className={styles.dataValue}>{mainAnime.source || "N/A"}</span></div>
+            <div className={styles.dataItem} data-label="ESTUDIO">
+              <span className={styles.dataValue}>{mainAnime.studios?.map((s) => s.name).join(", ") || "N/A"}</span>
+            </div>
+            <div className={styles.dataItem} data-label="DURACIÓN">
+              <span className={styles.dataValue}>{mainAnime.duration || "N/A"}</span>
+            </div>
+            <div className={styles.dataItem} data-label="ESTRENO">
+              <span className={styles.dataValue}>{mainAnime.airedDate || "N/A"}</span>
+            </div>
+            <div className={styles.dataItem} data-label="TEMPORADA">
+              <span className={styles.dataValue}>{mainAnime.season || "N/A"}</span>
+            </div>
+            <div className={styles.dataItem} data-label="PUNTUACIÓN">
+              <span className={styles.dataValue} style={{ color: "var(--px-yellow)" }}>
+                ★ {mainAnime.score || "0.0"}
+              </span>
+            </div>
+            <div className={styles.dataItem} data-label="MIEMBROS">
+              <span className={styles.dataValue}>{mainAnime.members ? mainAnime.members.toLocaleString() : "N/A"}</span>
+            </div>
+            <div className={styles.dataItem} data-label="FAVORITOS">
+              <span className={styles.dataValue}>
+                ❤ {mainAnime.favorites ? mainAnime.favorites.toLocaleString() : "0"}
+              </span>
+            </div>
+            <div className={styles.dataItem} data-label="ORIGEN">
+              <span className={styles.dataValue}>{mainAnime.source || "N/A"}</span>
+            </div>
           </div>
           <div className={styles.synopsisBox}>
-            <span className={styles.sectionTitle}>SINOPSIS</span>
             <p className={styles.synopsisText}>{mainAnime.synopsis || "Sinopsis no disponible."}</p>
           </div>
         </aside>
@@ -350,7 +486,17 @@ function AnimeDetails() {
         <main className={styles.mainContent}>
           <header className={styles.headerArea}>
             <div className={styles.titleContainer}>
-              <h1 className={styles.mainTitle}>{mainAnime.title}</h1>
+              <h1 className={styles.mainTitle}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="18" height="18" className={styles.titleIcon}>
+                  <polygon points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8" fill="currentColor"/>
+                  <polygon points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8" transform="translate(20, 20) scale(0.4) translate(-20, -20)" className={styles.titleIconInner}/>
+                </svg>
+                {mainAnime.title}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="18" height="18" className={styles.titleIcon}>
+                  <polygon points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8" fill="currentColor"/>
+                  <polygon points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8" transform="translate(20, 20) scale(0.4) translate(-20, -20)" className={styles.titleIconInner}/>
+                </svg>
+              </h1>
               <div className={styles.titleMeta}>
                 <span>{mainAnime.type}</span>
                 <span className={styles.separator}>•</span>
@@ -359,41 +505,14 @@ function AnimeDetails() {
                 <span className={styles.statusText}>{mainAnime.status}</span>
               </div>
             </div>
-            <div className={styles.mainActions}>
-              {!mainAnime.isInLibrary ? (
-                <button className={`${styles.actionBtn} ${styles.primaryBtn}`} onClick={handleAddToLibrary}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-                  AÑADIR A LISTA
-                </button>
-              ) : (
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button className={`${styles.actionBtn} ${styles.secondaryBtn}`} disabled>✓ EN BIBLIOTECA</button>
-                  <div className={styles.menuWrapper} ref={menuRef}>
-                    <button className={styles.menuBtn} onClick={() => setMenuOpen(!menuOpen)}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" /></svg>
-                    </button>
-                    {menuOpen && (
-                      <div className={styles.menuDropdown}>
-                        <button className={styles.menuItem} onClick={() => { setMenuOpen(false); setShowLinkFolderModal(true); }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                          {isLinked ? "CAMBIAR CARPETA" : "VINCULAR CARPETA"}
-                        </button>
-                        <button className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={handleRemoveFromLibrary}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                          ELIMINAR DE LISTA
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
           </header>
 
           <section className={styles.episodesSection}>
             <div className={styles.episodesHeader}>
               <h2 className={styles.episodesTitle}>Lista de Episodios</h2>
-              <span className={styles.episodesStats}>{watchedCount} / {episodes.length} VISTOS</span>
+              <span className={styles.episodesStats}>
+                {watchedCount} / {episodes.length} VISTOS
+              </span>
             </div>
             <div className={styles.progressBar}>
               <div className={styles.progressFill} style={{ width: `${progressPct}%` }} />
@@ -413,7 +532,8 @@ function AnimeDetails() {
                     {isPlayable && (
                       <span className={styles.epPlayIcon}>
                         <svg width="40" height="50" viewBox="0 0 70 90" className={styles.playPixel}>
-                          <polygon points="
+                          <polygon
+                            points="
                             0,0
                             12,0 12,6
                             18,6 18,12
@@ -429,7 +549,9 @@ function AnimeDetails() {
                             18,66 18,72
                             12,72 12,78
                             0,78
-                          " className={styles.pixelFill}/>
+                          "
+                            className={styles.pixelFill}
+                          />
                         </svg>
                         <span className={styles.playText}>REPRODUCIR</span>
                       </span>
@@ -451,9 +573,21 @@ function AnimeDetails() {
 
       {/* Context menu (right-click) */}
       {contextMenu && (
-        <div className={styles.contextMenu} style={{ top: contextMenu.y, left: contextMenu.x }} onMouseDown={(e) => e.stopPropagation()}>
-          <button className={styles.contextMenuItem} onClick={() => { handleToggleWatched(contextMenu.epNum, contextMenu.isWatched); setContextMenu(null); }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+        <div
+          className={styles.contextMenu}
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            className={styles.contextMenuItem}
+            onClick={() => {
+              handleToggleWatched(contextMenu.epNum, contextMenu.isWatched);
+              setContextMenu(null);
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
             {contextMenu.isWatched ? "MARCAR COMO NO VISTO" : "MARCAR COMO VISTO"}
           </button>
         </div>
@@ -461,10 +595,23 @@ function AnimeDetails() {
 
       {/* Link folder modal */}
       {showLinkFolderModal && (
-        <div className={styles.modalOverlay} onClick={() => { setShowLinkFolderModal(false); setFolderSearch(""); }}>
+        <div
+          className={styles.modalOverlay}
+          onClick={() => {
+            setShowLinkFolderModal(false);
+            setFolderSearch("");
+          }}
+        >
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.sectionTitle}>{isLinked ? "CAMBIAR CARPETA" : "VINCULAR CARPETA"}</h3>
-            <input type="text" className={styles.folderSearchInput} placeholder="Buscar carpeta..." value={folderSearch} onChange={(e) => setFolderSearch(e.target.value)} autoFocus />
+            <input
+              type="text"
+              className={styles.folderSearchInput}
+              placeholder="Buscar carpeta..."
+              value={folderSearch}
+              onChange={(e) => setFolderSearch(e.target.value)}
+              autoFocus
+            />
             <div className={styles.folderList}>
               {filteredFolders.length === 0 && (
                 <p className={styles.emptyFolderText}>No hay carpetas sin vincular disponibles.</p>
@@ -481,11 +628,18 @@ function AnimeDetails() {
       )}
 
       {confirmModal && (
-        <ConfirmModal title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(null)} />
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
 
       {toast && (
-        <div className={styles.toast} data-type={toast.type}>{toast.message}</div>
+        <div className={styles.toast} data-type={toast.type}>
+          {toast.message}
+        </div>
       )}
     </div>
   );
