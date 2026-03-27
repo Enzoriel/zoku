@@ -139,6 +139,7 @@ function mapMedia(media) {
     favorites: media.favourites,
     isAdult: media.isAdult,
     nextAiringEpisode: media.nextAiringEpisode,
+    endDate: media.endDate,
   };
 }
 
@@ -171,6 +172,11 @@ const MEDIA_FIELDS = `
   popularity
   favourites
   startDate {
+    year
+    month
+    day
+  }
+  endDate {
     year
     month
     day
@@ -268,4 +274,18 @@ export async function searchAnime(queryText, page = 1) {
       has_next_page: result.Page.pageInfo.hasNextPage,
     },
   };
+}
+
+// Trae múltiples animes por ID en una sola request GraphQL usando aliases
+export async function getAnimeDetailsBatch(ids) {
+  if (!ids || ids.length === 0) return [];
+
+  const aliases = ids.map((id, i) => `a${i}: Media(id: ${id}, type: ANIME) { ${MEDIA_FIELDS} }`).join("\n");
+
+  const query = `query { ${aliases} }`;
+
+  const result = await queryAniList(query, {});
+  if (!result) return [];
+
+  return Object.values(result).map(mapMedia).filter(Boolean);
 }

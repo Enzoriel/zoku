@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
+import { useRecentAnime } from "../hooks/useRecentAnime";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import styles from "./Recent.module.css";
 
@@ -15,25 +16,27 @@ function Recent() {
   const [activeTab, setActiveTab] = useState("recientes");
   const [activeDay, setActiveDay] = useState(new Date().getDay());
 
+  const { allAiringAnime, loadingExtra } = useRecentAnime(seasonalAnime, data.myAnimes, data.localFiles);
+
   const myAnimeMap = useMemo(() => {
     const map = {};
     Object.entries(data.myAnimes || {}).forEach(([id, anime]) => {
+      map[id] = anime;
       map[Number(id)] = anime;
-      map[String(id)] = anime;
     });
     return map;
   }, [data.myAnimes]);
 
-  // Para cada anime en mi lista que está en emisión, obtener info de episodios recientes
   const myAiringAnime = useMemo(() => {
-    return seasonalAnime
+    return allAiringAnime
       .filter((anime) => {
         const id = anime.malId || anime.mal_id;
-        return myAnimeMap[id] && (anime.status === "Airing" || anime.status === "RELEASING");
+        return myAnimeMap[id] || myAnimeMap[Number(id)] || myAnimeMap[String(id)];
       })
       .map((anime) => {
         const id = anime.malId || anime.mal_id;
-        const stored = myAnimeMap[id];
+        const stored = myAnimeMap[id] || myAnimeMap[Number(id)] || myAnimeMap[String(id)];
+
         const watchedEps = stored?.watchedEpisodes || [];
         const folderName = stored?.folderName;
         const localFiles = folderName ? data.localFiles?.[folderName]?.files || [] : [];
@@ -49,24 +52,37 @@ function Recent() {
           nextAiring,
         };
       });
-  }, [seasonalAnime, myAnimeMap, data.localFiles]);
+  }, [allAiringAnime, myAnimeMap, data.localFiles]);
 
-  // Agrupar episodios recientes por día (últimos 14 días)
   const groupedByDay = useMemo(() => {
     const groups = {};
     const now = Date.now();
     const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
 
     myAiringAnime.forEach((anime) => {
-      if (!anime.nextAiring) return;
-
       const SECONDS_IN_WEEK = 7 * 24 * 60 * 60;
+      
+      // Intentar obtener una fecha de referencia: o el próximo episodio o la fecha de finalización
+      let refAiringAt = null;
+      let refEpisode = null;
 
-      // Generar entradas para los últimos N episodios emitidos (máx 3)
+      if (anime.nextAiring) {
+        refAiringAt = anime.nextAiring.airingAt;
+        refEpisode = anime.nextAiring.episode;
+      } else if (anime.status === "Finalizado" && anime.endDate?.year) {
+        // Si terminó, el último episodio se emitió en la endDate (aproximadamente)
+        const d = new Date(anime.endDate.year, (anime.endDate.month || 1) - 1, anime.endDate.day || 1);
+        refAiringAt = Math.floor(d.getTime() / 1000);
+        refEpisode = anime.episodes; // El último episodio (total) coincide directamente con la endDate
+      } else {
+        return; // No hay datos para fechar
+      }
+
       for (let ep = anime.lastAiredEp; ep >= Math.max(1, anime.lastAiredEp - 2); ep--) {
-        const epAiredAt = (anime.nextAiring.airingAt - (anime.nextAiring.episode - ep) * SECONDS_IN_WEEK) * 1000;
+        // Estimar fecha: refAiringAt - (distancia de episodios * una semana)
+        const epAiredAt = (refAiringAt - (refEpisode - ep) * SECONDS_IN_WEEK) * 1000;
 
-        if (epAiredAt > now || epAiredAt < now - TWO_WEEKS) continue;
+        if (epAiredAt > now + 3600000 || epAiredAt < now - TWO_WEEKS) continue;
 
         const date = new Date(epAiredAt);
         const dayKey = date.toISOString().split("T")[0];
@@ -88,7 +104,6 @@ function Recent() {
       }
     });
 
-    // Ordenar por fecha desc
     return Object.entries(groups)
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([key, val]) => ({
@@ -98,7 +113,6 @@ function Recent() {
       }));
   }, [myAiringAnime]);
 
-  // Agrupar por día de la semana para el horario
   const scheduleByDay = useMemo(() => {
     const groups = Array.from({ length: 7 }, () => []);
 
@@ -136,12 +150,12 @@ function Recent() {
     return `${m}m`;
   };
 
-  if (loading) {
+  if (loading || loadingExtra) {
     return (
       <div className={styles.page}>
         <div className={styles.loadingState}>
           <div className={styles.loadingSpinner} />
-          <p>Sincronizando con AniList...</p>
+          <p>{loading ? "Sincronizando con AniList..." : "Cargando series adicionales..."}</p>
         </div>
       </div>
     );
@@ -187,7 +201,13 @@ function Recent() {
                 <div className={styles.dayHeader}>
                   <span className={styles.dayLabel}>{formatRelativeDate(date)}</span>
                   <span className={styles.dayDate}>
-                    {date.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" }).toUpperCase()}
+                    {date
+                      .toLocaleDateString("es", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      })
+                      .toUpperCase()}
                   </span>
                 </div>
                 <div className={styles.episodeList}>
@@ -240,7 +260,6 @@ function Recent() {
         </div>
       ) : (
         <div className={styles.scheduleContent}>
-          {/* Selector de día */}
           <div className={styles.daySelector}>
             {DAY_NAMES_SHORT.map((day, i) => (
               <button
@@ -254,7 +273,6 @@ function Recent() {
             ))}
           </div>
 
-          {/* Grid de animes del día seleccionado */}
           <div className={styles.scheduleGrid}>
             {scheduleByDay[activeDay].length === 0 ? (
               <div className={styles.emptyState}>
@@ -288,7 +306,10 @@ function Recent() {
                           <span className={styles.countdownBadge}>EN {formatTimeUntil(timeUntil)}</span>
                         )}
                         <span className={styles.scheduleTime}>
-                          {new Date(airingAt).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(airingAt).toLocaleTimeString("es", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
                       </div>
                     </div>
