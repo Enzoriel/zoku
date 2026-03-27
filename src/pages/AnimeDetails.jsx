@@ -4,6 +4,7 @@ import { useStore } from "../hooks/useStore";
 import { useLibrary } from "../context/LibraryContext";
 import { useAnime } from "../context/AnimeContext";
 import { openFile, isPlayerStillOpen, normalizeForSearch } from "../services/fileSystem";
+import { searchAnime } from "../services/api";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import { calculateUserStatus } from "../utils/animeStatus";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -44,6 +45,11 @@ function AnimeDetails() {
   const [contextMenu, setContextMenu] = useState(null);
   const [toast, setToast] = useState(null);
 
+  const [showSearchApiModal, setShowSearchApiModal] = useState(false);
+  const [apiSearchQuery, setApiSearchQuery] = useState("");
+  const [apiSearchResults, setApiSearchResults] = useState([]);
+  const [isSearchingApi, setIsSearchingApi] = useState(false);
+
   const menuRef = useRef(null);
   const watchIntervalRef = useRef(null);
   const watchStartTimeRef = useRef(null);
@@ -51,17 +57,21 @@ function AnimeDetails() {
   // ─── Reactive data ──────────────────────────────────────────────────────────
 
   const animeId = useMemo(() => {
-    return id && id !== "null" && id !== "undefined" ? id : anime?.malId || anime?.mal_id;
+    return id && id !== "null" && id !== "undefined" ? id : anime?.malId || anime?.mal_id || null;
   }, [id, anime]);
 
   const mainAnime = useMemo(() => {
-    if (!animeId) return null;
+    if (!animeId) {
+      if (anime) return { ...anime, malId: null, isInLibrary: false, watchedEpisodes: [] };
+      if (folderName) return { title: folderName, isUnknown: true, episodeList: [], isInLibrary: false, watchedEpisodes: [] };
+      return null;
+    }
     const stored = data.myAnimes[animeId];
     if (stored) return { ...stored, malId: animeId, isInLibrary: true, watchedEpisodes: stored.watchedEpisodes || [] };
     const context = getAnimeById(animeId);
     if (context) return { ...context, malId: animeId, isInLibrary: false, watchedEpisodes: [] };
     return anime ? { ...anime, malId: animeId, isInLibrary: false, watchedEpisodes: [] } : null;
-  }, [animeId, data.myAnimes, getAnimeById, anime]);
+  }, [animeId, data.myAnimes, getAnimeById, anime, folderName]);
 
   const animeFilesData = useMemo(() => {
     if (!mainAnime) return { files: [] };
@@ -158,6 +168,84 @@ function AnimeDetails() {
   const showToast = useCallback((message, type = "info") => {
     setToast({ message, type });
   }, []);
+
+  const handleApiSearch = async (queryToSearch) => {
+    const q = typeof queryToSearch === "string" ? queryToSearch : apiSearchQuery;
+    if (!q.trim()) return;
+    setIsSearchingApi(true);
+    try {
+      const res = await searchAnime(q, 1);
+      setApiSearchResults(res.data);
+    } catch (err) {
+      console.error(err);
+      showToast("Error buscando animes en API.", "warn");
+    } finally {
+      setIsSearchingApi(false);
+    }
+  };
+
+  const handleAddToLibraryBtnClick = () => {
+    if (mainAnime?.isUnknown) {
+      const rawName = mainAnime.title || folderName || "";
+      const cleanName = rawName
+        .replace(/\[.*?\]|\(.*?\)/g, "")
+        .replace(/^[-\s]+|[-\s]+$/g, "")
+        .replace(/(-\s*\d+(v\d+)?.*)$/i, "")
+        .trim();
+
+      setApiSearchQuery(cleanName);
+      setShowSearchApiModal(true);
+      if (cleanName) {
+        handleApiSearch(cleanName);
+      }
+    } else {
+      handleAddToLibrary();
+    }
+  };
+
+  const handleLinkAndAdd = async (apiAnime) => {
+    const newMalId = apiAnime.mal_id || apiAnime.malId;
+    
+    // Normalización de datos para que la librería y detalles funcionen
+    const animeData = {
+      malId: newMalId,
+      mal_id: newMalId, // Compatibilidad doble
+      title: apiAnime.title || apiAnime.title_english || apiAnime.title_japanese || "Unknown Title",
+      coverImage: apiAnime.images?.jpg?.large_image_url || apiAnime.images?.jpg?.image_url || apiAnime.coverImage,
+      totalEpisodes: apiAnime.episodes || apiAnime.totalEpisodes || 0,
+      type: apiAnime.type || "TV",
+      status: apiAnime.status || "Unknown",
+      year: apiAnime.year || (apiAnime.aired?.from ? new Date(apiAnime.aired.from).getFullYear() : "N/A"),
+      score: apiAnime.score || 0,
+      studios: apiAnime.studios || [],
+      genres: apiAnime.genres || [],
+      duration: apiAnime.duration || "N/A",
+      airedDate: apiAnime.aired?.string || "N/A",
+      season: apiAnime.season ? apiAnime.season.charAt(0).toUpperCase() + apiAnime.season.slice(1) : "N/A",
+      members: apiAnime.members || 0,
+      favorites: apiAnime.favorites || 0,
+      source: apiAnime.source || "N/A",
+      synopsis: apiAnime.synopsis || "Sinopsis no disponible.",
+      episodeList: apiAnime.episodeList || [],
+      watchedEpisodes: [],
+      lastEpisodeWatched: 0,
+      userStatus: "PLAN_TO_WATCH",
+      notes: "",
+      watchHistory: [],
+      addedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+      lastMetadataFetch: new Date().toISOString(),
+      folderName: folderName,
+      isInLibrary: true
+    };
+    
+    const newMyAnimes = { ...data.myAnimes, [newMalId]: animeData };
+    await setMyAnimes(newMyAnimes);
+    setShowSearchApiModal(false);
+    await performSync(newMyAnimes);
+    showToast(`Serie vinculada con éxito.`, "success");
+    navigate(`/anime/${newMalId}`);
+  };
 
   const handleAddToLibrary = useCallback(async () => {
     if (!mainAnime || !animeId) return;
@@ -366,20 +454,19 @@ function AnimeDetails() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.pageBackground}>
-        <img src={mainAnime.coverImage} className={styles.bgImage} alt="" />
-        <div className={styles.bgOverlay} />
-      </div>
-
       <div className={styles.contentLayout}>
         {/* SIDEBAR */}
         <aside className={styles.sidebar}>
           <div className={styles.posterWrapper}>
-            <img src={mainAnime.coverImage} className={styles.poster} alt={mainAnime.title} />
+            {mainAnime.coverImage ? (
+              <img src={mainAnime.coverImage} className={styles.poster} alt={mainAnime.title} />
+            ) : (
+              <div className={styles.posterFallback}>DESVINCULADO</div>
+            )}
           </div>
           <div className={styles.mainActions} style={{ width: "100%", marginBottom: "16px" }}>
             {!mainAnime.isInLibrary ? (
-              <button className={`${styles.actionBtn} ${styles.primaryBtn}`} style={{ width: "100%" }} onClick={handleAddToLibrary}>
+              <button className={`${styles.actionBtn} ${styles.primaryBtn}`} style={{ width: "100%" }} onClick={handleAddToLibraryBtnClick}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
@@ -620,6 +707,56 @@ function AnimeDetails() {
                 <div key={f.key} className={styles.folderItem} onClick={() => handleLinkFolder(f.key)}>
                   <span className={styles.folderName}>{f.key}</span>
                   <span className={styles.folderEpCount}>{f.files?.length || 0} archivos</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search API Modal para vincular la carpeta */}
+      {showSearchApiModal && (
+        <div className={styles.modalOverlay} onClick={() => { setShowSearchApiModal(false); setApiSearchResults([]); }}>
+          <div className={`${styles.modal} ${styles.apiSearchModal}`} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.sectionTitle}>BUSCAR EN LA RED</h3>
+            <div className={styles.apiSearchForm}>
+              <input
+                type="text"
+                className={styles.apiSearchInput}
+                placeholder="Nombre del anime..."
+                value={apiSearchQuery}
+                onChange={(e) => setApiSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleApiSearch()}
+                autoFocus
+              />
+              <button 
+                className={`${styles.actionBtn} ${styles.primaryBtn} ${styles.apiSearchBtn}`} 
+                onClick={handleApiSearch} 
+                disabled={isSearchingApi}
+              >
+                {isSearchingApi ? "..." : "BUSCAR"}
+              </button>
+            </div>
+            
+            <div className={styles.apiResultList}>
+              {apiSearchResults.length === 0 && !isSearchingApi && (
+                <p className={styles.emptyFolderText}>No hay resultados para mostrar.</p>
+              )}
+              {apiSearchResults.map((animeResult) => (
+                <div key={animeResult.mal_id} className={styles.apiResultItem} onClick={() => handleLinkAndAdd(animeResult)}>
+                  <img 
+                    src={animeResult.images?.jpg?.small_image_url} 
+                    className={styles.apiResultThumb} 
+                    alt="" 
+                  />
+                  <div className={styles.apiResultInfo}>
+                    <span className={styles.apiResultTitle}>
+                      {animeResult.title}
+                    </span>
+                    <span className={styles.apiResultMeta}>
+                      {animeResult.type} • {animeResult.episodes || "?"} EPS • {animeResult.status}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

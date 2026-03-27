@@ -10,15 +10,17 @@ function Search() {
   const [animes, setAnimes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({});
   const [hasSearched, setHasSearched] = useState(false);
 
-  const loadResults = useCallback(async (currentQuery) => {
+  const loadResults = useCallback(async (currentQuery, currentPage) => {
     if (!currentQuery.trim()) return;
     setLoading(true);
     try {
       const result = await searchAnime(currentQuery, currentPage);
       setAnimes(result.data);
-      setSearchAnimes(result.data); // Guardamos en el contexto
+      setSearchAnimes(result.data);
       setPagination(result.pagination);
       setHasSearched(true);
     } catch (error) {
@@ -26,7 +28,7 @@ function Search() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setSearchAnimes]);
 
   const handleSearch = (newQuery) => {
     if (newQuery !== query) {
