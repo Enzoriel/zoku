@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useLibrary } from "../context/LibraryContext";
-import { selectFolder, deleteFolderFromDisk } from "../services/fileSystem";
+import { selectFolder, deleteFolderFromDisk, deleteVirtualFolderFiles } from "../services/fileSystem";
 import Button from "../components/ui/Button";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import styles from "./Library.module.css";
@@ -70,7 +70,6 @@ function Library() {
 
   const handleDeleteFolder = (folder) => {
     if (folder.isTracking) {
-      // Es solo seguimiento, no hay carpeta física que borrar
       setConfirmModal({
         title: "¿Quitar de seguimiento?",
         message: `"${folder.animeData?.title || folder.name}" se eliminará de tu lista. No hay archivos que borrar.`,
@@ -85,14 +84,42 @@ function Library() {
       return;
     }
 
-    if (!folder.physicalPath) {
+    // Carpetas virtuales: archivos sueltos en raíz agrupados por título
+    if (folder.isRootFile) {
+      const fileCount = folder.files?.length || 0;
+      if (fileCount === 0) return;
+
+      const fileNames = folder.files.map((f) => f.name).join("\n• ");
       setConfirmModal({
-        title: "Acción no disponible",
-        message: "No se puede borrar: es una entrada virtual o archivo raíz.",
-        onConfirm: () => setConfirmModal(null),
+        title: "¿Borrar archivos?",
+        message: `Se eliminarán ${fileCount} archivo(s) del disco:\n\n• ${fileNames}`,
+        onConfirm: async () => {
+          setConfirmModal(null);
+          const result = await deleteVirtualFolderFiles(folder.files, data.folderPath);
+          if (result.deleted > 0) {
+            if (folder.malId) {
+              setConfirmModal({
+                title: "¿Eliminar de biblioteca?",
+                message: "¿Quieres eliminar también este anime de tu lista de seguimiento?",
+                onConfirm: async () => {
+                  const newMyAnimes = { ...data.myAnimes };
+                  delete newMyAnimes[folder.malId];
+                  await setMyAnimes(newMyAnimes);
+                  setConfirmModal(null);
+                  await performSync(newMyAnimes);
+                },
+              });
+            } else {
+              await performSync();
+            }
+          }
+        },
       });
       return;
     }
+
+    // Carpetas físicas reales
+    if (!folder.physicalPath) return;
 
     setConfirmModal({
       title: "¿Borrar carpeta?",

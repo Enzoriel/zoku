@@ -111,6 +111,39 @@ export async function deleteFolderFromDisk(folderPath, basePath) {
   }
 }
 
+export async function deleteVirtualFolderFiles(files, basePath) {
+  if (!files?.length || !basePath) return { deleted: 0, failed: 0 };
+
+  const normalizedBase = basePath.replace(/\\/g, "/").toLowerCase();
+  let deleted = 0;
+  let failed = 0;
+
+  for (const file of files) {
+    const filePath = file.path;
+    if (!filePath) {
+      failed++;
+      continue;
+    }
+
+    const normalizedFile = filePath.replace(/\\/g, "/").toLowerCase();
+    if (!normalizedFile.startsWith(normalizedBase)) {
+      console.error(`[FS] Intento de borrado fuera del basePath: ${filePath}`);
+      failed++;
+      continue;
+    }
+
+    try {
+      await remove(filePath);
+      deleted++;
+    } catch (error) {
+      console.error(`[FS] Error al borrar archivo: ${filePath}`, error);
+      failed++;
+    }
+  }
+
+  return { deleted, failed };
+}
+
 export async function selectFolder() {
   return await open({ directory: true, multiple: false, title: "Seleccionar carpeta de anime" });
 }
@@ -257,6 +290,3 @@ export async function scanLibrary(basePath, myAnimes) {
   return virtualLibrary;
 }
 
-export async function syncLibraryFolders() {
-  return;
-}

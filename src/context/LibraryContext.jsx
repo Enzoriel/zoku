@@ -6,12 +6,10 @@ import { useStore } from "../hooks/useStore";
 const LibraryContext = createContext(null);
 
 const DEBOUNCE_MS = 800;
-const POLL_FALLBACK_MS = 5000;
 
 export function LibraryProvider({ children }) {
   const { data, setLocalFiles } = useStore();
   const [syncing, setSyncing] = useState(false);
-  const [watchMode, setWatchMode] = useState("none");
 
   const dataRef = useRef(data);
   useEffect(() => {
@@ -20,7 +18,6 @@ export function LibraryProvider({ children }) {
 
   const unwatchRef = useRef(null);
   const debounceRef = useRef(null);
-  const pollIntervalRef = useRef(null);
 
   const performSync = useCallback(
     async (myAnimesOverride = null) => {
@@ -29,8 +26,7 @@ export function LibraryProvider({ children }) {
 
       setSyncing(true);
       try {
-        const isEvent = myAnimesOverride && (myAnimesOverride.nativeEvent || myAnimesOverride.target);
-        const myAnimesToUse = myAnimesOverride && !isEvent ? myAnimesOverride : currentData.myAnimes;
+        const myAnimesToUse = myAnimesOverride || currentData.myAnimes;
         const localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse);
         if (dataRef.current.folderPath === currentData.folderPath) {
           await setLocalFiles(localFiles);
@@ -61,15 +57,10 @@ export function LibraryProvider({ children }) {
       unwatchRef.current();
       unwatchRef.current = null;
     }
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    setWatchMode("none");
   }, []);
 
   const startWatcher = useCallback(
@@ -97,13 +88,8 @@ export function LibraryProvider({ children }) {
         );
 
         unwatchRef.current = unwatch;
-        setWatchMode("native");
       } catch (err) {
-        console.warn("[Library] Watcher nativo falló, usando polling:", err);
-        pollIntervalRef.current = setInterval(() => {
-          performSyncRef.current();
-        }, POLL_FALLBACK_MS);
-        setWatchMode("polling");
+        console.error("[Library] Watcher nativo falló:", err);
       }
     },
     [stopWatcher, debouncedSync],
@@ -123,7 +109,7 @@ export function LibraryProvider({ children }) {
     return () => stopWatcher();
   }, [stopWatcher]);
 
-  const value = useMemo(() => ({ performSync, syncing, watchMode }), [performSync, syncing, watchMode]);
+  const value = useMemo(() => ({ performSync, syncing }), [performSync, syncing]);
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
 }
