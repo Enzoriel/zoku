@@ -183,7 +183,7 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false, inLibrar
           </span>
         )}
 
-        <img src={image} alt={title} className={styles.image} loading="lazy" />
+        <img src={image || undefined} alt={title} className={styles.image} loading="lazy" />
 
         {displayAnime.nextEpisodeFile && !isPlaying && (
           <button className={styles.quickPlayButton} onClick={handleQuickPlay}>

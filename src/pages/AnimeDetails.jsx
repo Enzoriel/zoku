@@ -410,14 +410,30 @@ function AnimeDetails() {
                     onClick={() => isPlayable && handlePlayEpisode(epNum, status.file.path)}
                     onContextMenu={(e) => handleContextMenu(e, epNum, status.type === "tagWatched")}
                   >
-                    <span className={styles.episodeNumber}>
-                      <span className={styles.epNumText}>{epNum < 10 ? `0${epNum}` : epNum}</span>
-                      {isPlayable && (
-                        <span className={styles.epPlayIcon}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                        </span>
-                      )}
-                    </span>
+                    {isPlayable && (
+                      <span className={styles.epPlayIcon}>
+                        <svg width="40" height="50" viewBox="0 0 70 90" className={styles.playPixel}>
+                          <polygon points="
+                            0,0
+                            12,0 12,6
+                            18,6 18,12
+                            24,12 24,18
+                            30,18 30,24
+                            36,24 36,30
+                            42,30 42,36
+                            48,36 48,42
+                            42,42 42,48
+                            36,48 36,54
+                            30,54 30,60
+                            24,60 24,66
+                            18,66 18,72
+                            12,72 12,78
+                            0,78
+                          " className={styles.pixelFill}/>
+                        </svg>
+                        <span className={styles.playText}>REPRODUCIR</span>
+                      </span>
+                    )}
                     <div className={styles.episodeInfo}>
                       <span className={styles.episodeTitle}>
                         {mainAnime.episodeList?.find((e) => e.mal_id === epNum)?.title || `Episodio ${epNum}`}

@@ -46,12 +46,13 @@ function Carousel({ title, animes = [], loading = false }) {
         <div className={styles.scroll} ref={scrollRef}>
           {loading
             ? [1, 2, 3, 4, 5, 6].map((i) => <AnimeCard key={`skeleton-${i}`} anime={null} />)
-            : animes.map((anime) => {
+            : animes.map((anime, idx) => {
                 const malId = anime.mal_id || anime.malId;
-                const inLibraryData = data?.myAnimes?.[malId];
+                const uniqueKey = malId || anime.id || anime.anilistId || `anime-${idx}`;
+                const inLibraryData = malId ? data?.myAnimes?.[malId] : null;
                 return (
                   <AnimeCard
-                    key={malId}
+                    key={uniqueKey}
                     anime={anime}
                     inLibraryData={inLibraryData}
                     playerSetting={data?.settings?.player}
