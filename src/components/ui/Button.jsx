@@ -1,15 +1,12 @@
 import styles from "./Button.module.css";
 
-function Button({ children, onClick, color = "", hoverColor = "", className = "", disabled = false }) {
-  const customStyles = {
-    "--bg-color": color,
-    "--hover-color": hoverColor,
-  };
-
+function Button({ children, onClick, className = "", disabled = false }) {
   return (
-    <button className={`${styles.btn} ${className}`} onClick={onClick} style={customStyles} disabled={disabled}>
-      {children}
-    </button>
+    <div className={`${styles.wrap} ${className}`}>
+      <button className={styles.btn} onClick={onClick} disabled={disabled}>
+        {children}
+      </button>
+    </div>
   );
 }
 

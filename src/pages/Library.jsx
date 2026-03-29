@@ -336,10 +336,10 @@ function Library() {
 
         <div className={styles.headerActions}>
           <Button onClick={() => performSync()} disabled={syncing} variant="primary">
-            {syncing ? "ACTUALIZANDO..." : "REFRESCAR"}
+            {syncing ? "Actualizando..." : "Refrescar"}
           </Button>
           <Button onClick={handleSelectFolder} variant="secondary">
-            CAMBIAR RUTA
+            Cambiar ruta
           </Button>
         </div>
       </header>
