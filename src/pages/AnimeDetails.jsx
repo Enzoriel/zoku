@@ -304,11 +304,20 @@ function AnimeDetails() {
     const hasProgress = (mainAnime.watchedEpisodes || []).length > 0;
     const hasDownloads = !!mainAnime.folderName;
 
+    const linkedFolder = mainAnime.folderName;
+
     const performRemoval = async () => {
       const newMyAnimes = { ...data.myAnimes };
       delete newMyAnimes[animeId];
       await setMyAnimes(newMyAnimes);
       await performSync(newMyAnimes);
+
+      // Si tenía carpeta local, volver a la vista de carpeta sin vincular
+      if (linkedFolder) {
+        navigate(`/anime/null?folder=${encodeURIComponent(linkedFolder)}`, { replace: true });
+      } else {
+        navigate(-1);
+      }
     };
 
     if (hasProgress || hasDownloads) {
