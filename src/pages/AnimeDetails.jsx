@@ -17,12 +17,29 @@ const METADATA_REFRESH_DAYS = 7;
 function titlesMatch(normalizedTitle, normalizedKey) {
   if (!normalizedTitle || !normalizedKey) return false;
   if (normalizedTitle === normalizedKey) return true;
-  if (normalizedKey.includes(normalizedTitle)) return true;
-  if (normalizedTitle.includes(normalizedKey)) return true;
-  const titleWords = normalizedTitle.split(" ").filter((w) => w.length > 2);
-  if (titleWords.length === 0) return false;
-  const matchCount = titleWords.filter((w) => normalizedKey.includes(w)).length;
-  return matchCount / titleWords.length >= 0.6;
+
+  const blacklist = ["season", "part", "anime", "2nd", "3rd", "4th", "5th", "s2", "s3", "s4"];
+
+  // Extraemos solo las palabras clave que identifican la serie (excluyendo temporadas/partes/secuelas)
+  const getBaseNameWords = (str) =>
+    str
+      .split(" ")
+      .filter((w) => w.length > 2)
+      .filter((w) => !blacklist.includes(w));
+
+  const wordsTitle = getBaseNameWords(normalizedTitle);
+  const wordsKey = getBaseNameWords(normalizedKey);
+
+  // Si después de limpiar no queda nada (ej: "3rd Season") no podemos confiar en el match automatizado
+  if (wordsTitle.length === 0 || wordsKey.length === 0) return false;
+
+  // Comprobamos la coincidencia del "Nombre Base" exclusivamente
+  const matches = wordsTitle.filter((w) => wordsKey.includes(w)).length;
+  const totalUniqueWords = Math.max(wordsTitle.length, wordsKey.length);
+  const baseScore = matches / totalUniqueWords;
+
+  // Exigimos un 80% de coincidencia en el nombre base antes de considerar que es la misma serie
+  return baseScore >= 0.8;
 }
 
 function AnimeDetails() {
@@ -63,7 +80,8 @@ function AnimeDetails() {
   const mainAnime = useMemo(() => {
     if (!animeId) {
       if (anime) return { ...anime, malId: null, isInLibrary: false, watchedEpisodes: [] };
-      if (folderName) return { title: folderName, isUnknown: true, episodeList: [], isInLibrary: false, watchedEpisodes: [] };
+      if (folderName)
+        return { title: folderName, isUnknown: true, episodeList: [], isInLibrary: false, watchedEpisodes: [] };
       return null;
     }
     const stored = data.myAnimes[animeId];
@@ -205,7 +223,7 @@ function AnimeDetails() {
 
   const handleLinkAndAdd = async (apiAnime) => {
     const newMalId = apiAnime.mal_id || apiAnime.malId;
-    
+
     // Normalización de datos para que la librería y detalles funcionen
     const animeData = {
       malId: newMalId,
@@ -236,9 +254,9 @@ function AnimeDetails() {
       lastUpdated: new Date().toISOString(),
       lastMetadataFetch: new Date().toISOString(),
       folderName: folderName,
-      isInLibrary: true
+      isInLibrary: true,
     };
-    
+
     const newMyAnimes = { ...data.myAnimes, [newMalId]: animeData };
     await setMyAnimes(newMyAnimes);
     setShowSearchApiModal(false);
@@ -282,19 +300,30 @@ function AnimeDetails() {
   const handleRemoveFromLibrary = useCallback(() => {
     if (!animeId) return;
     setMenuOpen(false);
-    setConfirmModal({
-      title: "¿Quitar de la lista?",
-      message: "Se eliminará el progreso pero no tus archivos locales.",
-      onConfirm: async () => {
-        setConfirmModal(null);
-        const newMyAnimes = { ...data.myAnimes };
-        delete newMyAnimes[animeId];
-        await setMyAnimes(newMyAnimes);
-        await performSync(newMyAnimes);
-        navigate(-1);
-      },
-    });
-  }, [animeId, data.myAnimes, setMyAnimes, performSync, navigate]);
+
+    const hasProgress = (mainAnime.watchedEpisodes || []).length > 0;
+    const hasDownloads = !!mainAnime.folderName;
+
+    const performRemoval = async () => {
+      const newMyAnimes = { ...data.myAnimes };
+      delete newMyAnimes[animeId];
+      await setMyAnimes(newMyAnimes);
+      await performSync(newMyAnimes);
+    };
+
+    if (hasProgress || hasDownloads) {
+      setConfirmModal({
+        title: "¿Quitar de la lista?",
+        message: "Se eliminará el progreso pero no tus archivos locales.",
+        onConfirm: async () => {
+          setConfirmModal(null);
+          await performRemoval();
+        },
+      });
+    } else {
+      performRemoval();
+    }
+  }, [animeId, mainAnime.watchedEpisodes, mainAnime.folderName, data.myAnimes, setMyAnimes, performSync, navigate]);
 
   const handleToggleWatched = useCallback(
     async (epNumber, currentlyWatched) => {
@@ -466,7 +495,11 @@ function AnimeDetails() {
           </div>
           <div className={styles.mainActions} style={{ width: "100%", marginBottom: "16px" }}>
             {!mainAnime.isInLibrary ? (
-              <button className={`${styles.actionBtn} ${styles.primaryBtn}`} style={{ width: "100%" }} onClick={handleAddToLibraryBtnClick}>
+              <button
+                className={`${styles.actionBtn} ${styles.primaryBtn}`}
+                style={{ width: "100%" }}
+                onClick={handleAddToLibraryBtnClick}
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
@@ -574,14 +607,40 @@ function AnimeDetails() {
           <header className={styles.headerArea}>
             <div className={styles.titleContainer}>
               <h1 className={styles.mainTitle}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="18" height="18" className={styles.titleIcon}>
-                  <polygon points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8" fill="currentColor"/>
-                  <polygon points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8" transform="translate(20, 20) scale(0.4) translate(-20, -20)" className={styles.titleIconInner}/>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 40 40"
+                  width="18"
+                  height="18"
+                  className={styles.titleIcon}
+                >
+                  <polygon
+                    points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8"
+                    fill="currentColor"
+                  />
+                  <polygon
+                    points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8"
+                    transform="translate(20, 20) scale(0.4) translate(-20, -20)"
+                    className={styles.titleIconInner}
+                  />
                 </svg>
                 {mainAnime.title}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="18" height="18" className={styles.titleIcon}>
-                  <polygon points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8" fill="currentColor"/>
-                  <polygon points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8" transform="translate(20, 20) scale(0.4) translate(-20, -20)" className={styles.titleIconInner}/>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 40 40"
+                  width="18"
+                  height="18"
+                  className={styles.titleIcon}
+                >
+                  <polygon
+                    points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8"
+                    fill="currentColor"
+                  />
+                  <polygon
+                    points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8"
+                    transform="translate(20, 20) scale(0.4) translate(-20, -20)"
+                    className={styles.titleIconInner}
+                  />
                 </svg>
               </h1>
               <div className={styles.titleMeta}>
@@ -716,7 +775,13 @@ function AnimeDetails() {
 
       {/* Search API Modal para vincular la carpeta */}
       {showSearchApiModal && (
-        <div className={styles.modalOverlay} onClick={() => { setShowSearchApiModal(false); setApiSearchResults([]); }}>
+        <div
+          className={styles.modalOverlay}
+          onClick={() => {
+            setShowSearchApiModal(false);
+            setApiSearchResults([]);
+          }}
+        >
           <div className={`${styles.modal} ${styles.apiSearchModal}`} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.sectionTitle}>BUSCAR EN LA RED</h3>
             <div className={styles.apiSearchForm}>
@@ -729,30 +794,28 @@ function AnimeDetails() {
                 onKeyDown={(e) => e.key === "Enter" && handleApiSearch()}
                 autoFocus
               />
-              <button 
-                className={`${styles.actionBtn} ${styles.primaryBtn} ${styles.apiSearchBtn}`} 
-                onClick={handleApiSearch} 
+              <button
+                className={`${styles.actionBtn} ${styles.primaryBtn} ${styles.apiSearchBtn}`}
+                onClick={handleApiSearch}
                 disabled={isSearchingApi}
               >
                 {isSearchingApi ? "..." : "BUSCAR"}
               </button>
             </div>
-            
+
             <div className={styles.apiResultList}>
               {apiSearchResults.length === 0 && !isSearchingApi && (
                 <p className={styles.emptyFolderText}>No hay resultados para mostrar.</p>
               )}
               {apiSearchResults.map((animeResult) => (
-                <div key={animeResult.mal_id} className={styles.apiResultItem} onClick={() => handleLinkAndAdd(animeResult)}>
-                  <img 
-                    src={animeResult.images?.jpg?.small_image_url} 
-                    className={styles.apiResultThumb} 
-                    alt="" 
-                  />
+                <div
+                  key={animeResult.mal_id}
+                  className={styles.apiResultItem}
+                  onClick={() => handleLinkAndAdd(animeResult)}
+                >
+                  <img src={animeResult.images?.jpg?.small_image_url} className={styles.apiResultThumb} alt="" />
                   <div className={styles.apiResultInfo}>
-                    <span className={styles.apiResultTitle}>
-                      {animeResult.title}
-                    </span>
+                    <span className={styles.apiResultTitle}>{animeResult.title}</span>
                     <span className={styles.apiResultMeta}>
                       {animeResult.type} • {animeResult.episodes || "?"} EPS • {animeResult.status}
                     </span>

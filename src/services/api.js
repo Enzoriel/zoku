@@ -1,4 +1,4 @@
-const url = "https://graphql.anilist.co";
+const url = "https://graphql.anilist.co/";
 let lastRequest = 0;
 
 const MIN_INTERVAL = 170;
@@ -280,12 +280,18 @@ export async function searchAnime(queryText, page = 1) {
 export async function getAnimeDetailsBatch(ids) {
   if (!ids || ids.length === 0) return [];
 
-  const aliases = ids.map((id, i) => `a${i}: Media(id: ${id}, type: ANIME) { ${MEDIA_FIELDS} }`).join("\n");
+  const query = `
+    query ($ids: [Int]) {
+      Page (perPage: 50) {
+        media (idMal_in: $ids, type: ANIME) {
+          ${MEDIA_FIELDS}
+        }
+      }
+    }
+  `;
 
-  const query = `query { ${aliases} }`;
+  const result = await queryAniList(query, { ids });
+  if (!result || !result.Page) return [];
 
-  const result = await queryAniList(query, {});
-  if (!result) return [];
-
-  return Object.values(result).map(mapMedia).filter(Boolean);
+  return result.Page.media.map(mapMedia).filter(Boolean);
 }
