@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import FansubOnboardingModal from "../components/ui/FansubOnboardingModal";
 import styles from "./Configuration.module.css";
 
 const Configuration = () => {
@@ -12,6 +13,7 @@ const Configuration = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [showFansubModal, setShowFansubModal] = useState(false);
 
   const KNOWN_PLAYERS = ["mpv", "vlc", "mpc-hc", "mpc-be", "potplayer"];
 
@@ -95,6 +97,16 @@ const Configuration = () => {
       </section>
 
       <section className={styles.section}>
+        <h2>Torrents y Fansubs</h2>
+        <p className={styles.hint} style={{ marginBottom: "16px" }}>
+          Configurá tus grupos de subtítulos preferidos y el fansub principal para automatizar la integración de episodios.
+        </p>
+        <button className={styles.secondaryButton} onClick={() => setShowFansubModal(true)}>
+          ADMINISTRAR FANSUBS
+        </button>
+      </section>
+
+      <section className={styles.section}>
         <h2>Eliminar Datos</h2>
         <p className={styles.warningText}>
           Esta acción eliminará todos tus datos de la aplicación: biblioteca, historial y configuración.
@@ -120,6 +132,10 @@ const Configuration = () => {
           variant="danger"
           confirmLabel="ELIMINAR TODO"
         />
+      )}
+
+      {showFansubModal && (
+        <FansubOnboardingModal onComplete={() => setShowFansubModal(false)} />
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import "./App.css";
 import { StoreProvider } from "./context/StoreContext";
 import { AnimeProvider } from "./context/AnimeContext";
 import { LibraryProvider } from "./context/LibraryContext";
+import { TorrentProvider } from "./context/TorrentContext";
 import Layout from "./components/layout/Layout";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -16,29 +17,33 @@ const Configuration = lazy(() => import("./pages/Configuration"));
 const AnimeDetails = lazy(() => import("./pages/AnimeDetails"));
 const Recent = lazy(() => import("./pages/Recent"));
 const History = lazy(() => import("./pages/History"));
+const TorrentPage = lazy(() => import("./pages/TorrentPage"));
 
 function App() {
   return (
     <AnimeProvider>
       <StoreProvider>
-        <LibraryProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="discover" element={<Discover />} />
-                <Route path="search" element={<Search />} />
-                <Route path="my-animes" element={<MyAnimes />} />
-                <Route path="library" element={<Library />} />
-                <Route path="recent" element={<Recent />} />
-                <Route path="history" element={<History />} />
-                <Route path="stats" element={<Stats />} />
-                <Route path="configuration" element={<Configuration />} />
-                <Route path="anime/:id" element={<AnimeDetails />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </LibraryProvider>
+        <TorrentProvider>
+          <LibraryProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="discover" element={<Discover />} />
+                  <Route path="search" element={<Search />} />
+                  <Route path="my-animes" element={<MyAnimes />} />
+                  <Route path="library" element={<Library />} />
+                  <Route path="recent" element={<Recent />} />
+                  <Route path="history" element={<History />} />
+                  <Route path="torrents" element={<TorrentPage />} />
+                  <Route path="stats" element={<Stats />} />
+                  <Route path="configuration" element={<Configuration />} />
+                  <Route path="anime/:id" element={<AnimeDetails />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </LibraryProvider>
+        </TorrentProvider>
       </StoreProvider>
     </AnimeProvider>
   );

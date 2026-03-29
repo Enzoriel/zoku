@@ -116,3 +116,21 @@
   color: white;
   box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
 }
+
+.secondaryButton {
+  background: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-family: 'Tektur', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.secondaryButton:hover {
+  background: rgba(255, 30, 30, 0.1);
+  box-shadow: 0 4px 12px rgba(255, 30, 30, 0.2);
+}

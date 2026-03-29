@@ -280,18 +280,30 @@ export async function searchAnime(queryText, page = 1) {
 export async function getAnimeDetailsBatch(ids) {
   if (!ids || ids.length === 0) return [];
 
-  const query = `
-    query ($ids: [Int]) {
-      Page (perPage: 50) {
-        media (idMal_in: $ids, type: ANIME) {
-          ${MEDIA_FIELDS}
+  const chunkSize = 50;
+  let allResults = [];
+
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunkIds = ids.slice(i, i + chunkSize);
+    const query = `
+      query ($ids: [Int]) {
+        Page (perPage: 50) {
+          media (idMal_in: $ids, type: ANIME) {
+            ${MEDIA_FIELDS}
+          }
         }
       }
+    `;
+
+    try {
+      const result = await queryAniList(query, { ids: chunkIds });
+      if (result && result.Page && result.Page.media) {
+        allResults = allResults.concat(result.Page.media.map(mapMedia).filter(Boolean));
+      }
+    } catch (err) {
+      console.warn(`Error fetching batch from ${i} to ${i + chunkSize}:`, err);
     }
-  `;
+  }
 
-  const result = await queryAniList(query, { ids });
-  if (!result || !result.Page) return [];
-
-  return result.Page.media.map(mapMedia).filter(Boolean);
+  return allResults;
 }

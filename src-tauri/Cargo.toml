@@ -26,4 +26,10 @@ tauri-plugin-store = "2"
 tauri-plugin-fs = { version = "2", features = ["watch"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
+rss = "2.0"
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
+regex = "1"
+urlencoding = "2"
+futures = "0.3"
 

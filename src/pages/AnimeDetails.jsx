@@ -3,6 +3,9 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useLibrary } from "../context/LibraryContext";
 import { useAnime } from "../context/AnimeContext";
+import { useTorrent } from "../context/TorrentContext";
+import { findTorrentMatches } from "../utils/torrentMatch";
+import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import { openFile, isPlayerStillOpen, normalizeForSearch } from "../services/fileSystem";
 import { searchAnime } from "../services/api";
 import { extractEpisodeNumber } from "../utils/fileParsing";
@@ -51,6 +54,7 @@ function AnimeDetails() {
   const { data, setMyAnimes } = useStore();
   const { getAnimeById } = useAnime();
   const { performSync } = useLibrary();
+  const { data: torrentData, isLoading: torrentLoading, principalFansub } = useTorrent();
 
   const [anime, setAnime] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -66,6 +70,11 @@ function AnimeDetails() {
   const [apiSearchQuery, setApiSearchQuery] = useState("");
   const [apiSearchResults, setApiSearchResults] = useState([]);
   const [isSearchingApi, setIsSearchingApi] = useState(false);
+
+  // States for Torrents
+  const [torrentModalOpen, setTorrentModalOpen] = useState(false);
+  const [torrentModalItems, setTorrentModalItems] = useState([]);
+  const [torrentModalTitle, setTorrentModalTitle] = useState("");
 
   const menuRef = useRef(null);
   const watchIntervalRef = useRef(null);
@@ -93,9 +102,16 @@ function AnimeDetails() {
 
   const animeFilesData = useMemo(() => {
     if (!mainAnime) return { files: [] };
-    if (mainAnime.folderName && data?.localFiles?.[mainAnime.folderName]) return data.localFiles[mainAnime.folderName];
-    if (folderName && data?.localFiles?.[folderName]) return data.localFiles[folderName];
-    return { files: [] };
+    
+    // Primero intentamos buscar por malId (gracias al parche del FS auto-linker)
+    const folderObj = Object.values(data?.localFiles || {}).find(f => {
+      if (f.malId && mainAnime.malId && String(f.malId) === String(mainAnime.malId)) return true;
+      if (mainAnime.folderName && f.folderName === mainAnime.folderName) return true;
+      if (folderName && f.folderName === folderName) return true;
+      return false;
+    });
+
+    return folderObj || { files: [] };
   }, [mainAnime, data?.localFiles, folderName]);
 
   const unlinkedFolders = useMemo(() => {
@@ -428,6 +444,7 @@ function AnimeDetails() {
         (f) => (f.episodeNumber ?? extractEpisodeNumber(f.name, [mainAnime?.title, folderName])) === epNum,
       );
       if (isWatched) return { label: "VISTO", type: "tagWatched", file: localFile };
+      if (localFile?.isDownloading) return { label: "DESCARGANDO", type: "tagDownloading", file: localFile };
       if (localFile) return { label: "DESCARGADO", type: "tagDownloaded", file: localFile };
 
       const st = mainAnime?.status;
@@ -676,7 +693,15 @@ function AnimeDetails() {
               {episodes.map((epNum) => {
                 const status = getEpisodeStatus(epNum);
                 const isPlaying = playingEp === epNum;
-                const isPlayable = !!status.file;
+                const isPlayable = !!status.file && status.type !== "tagDownloading";
+                const isDownloading = status.type === "tagDownloading";
+
+                // Logica de Torrents en linea con este episodio
+                const titleRomaji = mainAnime.title;
+                const titleEnglish = mainAnime.title_english || null;
+                const matches = findTorrentMatches(titleRomaji, titleEnglish, epNum, torrentData);
+                const hasPrincipalMatch = matches.some((m) => m.fansub === principalFansub);
+
                 return (
                   <div
                     key={epNum}
@@ -711,6 +736,12 @@ function AnimeDetails() {
                         <span className={styles.playText}>REPRODUCIR</span>
                       </span>
                     )}
+                    {isDownloading && (
+                      <span className={styles.epPlayIcon}>
+                        <span style={{ fontSize: "1.5rem", marginRight: "8px", animation: "pulse 1.5s infinite" }}>⏳</span>
+                        <span className={styles.playText}>EN CURSO...</span>
+                      </span>
+                    )}
                     <div className={styles.episodeInfo}>
                       <span className={styles.episodeTitle}>
                         {mainAnime.episodeList?.find((e) => e.mal_id === epNum)?.title || `Episodio ${epNum}`}
@@ -718,6 +749,28 @@ function AnimeDetails() {
                       <span className={`${styles.statusTag} ${styles[status.type]}`}>{status.label}</span>
                     </div>
                     {isPlaying && <span className={styles.tagPlaying}>REPRODUCIENDO</span>}
+
+                    {/* Botones de Torrent */}
+                    {principalFansub && !isPlayable && !isDownloading && (
+                      <div className={styles.torrentActions} onClick={(e) => e.stopPropagation()}>
+                        {torrentLoading ? (
+                          <div className={styles.torrentSpinner}></div>
+                        ) : matches.length > 0 ? (
+                          <button
+                            className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
+                            title={hasPrincipalMatch ? `Descargar en ${principalFansub}` : `No disponible en ${principalFansub}. Hay alternativas de otros grupos.`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTorrentModalItems(matches);
+                              setTorrentModalTitle(`${mainAnime.title} — Episodio ${epNum}`);
+                              setTorrentModalOpen(true);
+                            }}
+                          >
+                            {hasPrincipalMatch ? "⬇ Disponible" : "⬇ Alternativa"}
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -850,6 +903,13 @@ function AnimeDetails() {
           {toast.message}
         </div>
       )}
+
+      <TorrentDownloadModal
+        isOpen={torrentModalOpen}
+        onClose={() => setTorrentModalOpen(false)}
+        animeTitle={torrentModalTitle}
+        items={torrentModalItems}
+      />
     </div>
   );
 }

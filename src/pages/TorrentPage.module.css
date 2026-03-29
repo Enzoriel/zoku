@@ -1,0 +1,321 @@
+.container {
+  padding: 32px 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeIn 0.3s ease;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-family: var(--font-pixel);
+  font-size: 2rem;
+  color: var(--px-cyan);
+  margin: 0;
+  text-shadow: 2px 2px 0 var(--px-cyan-dim);
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--px-border);
+  color: var(--px-text-dim);
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  clip-path: var(--clip-sm);
+  cursor: pointer;
+  transition: var(--tx-fast);
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: rgba(0, 245, 255, 0.05);
+  border-color: var(--px-cyan-dim);
+  color: var(--px-text);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+/* Tabs */
+.tabsContainer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 12px;
+}
+
+.tabBtn {
+  background: transparent;
+  border: none;
+  color: var(--px-text-dim);
+  font-family: var(--font-text);
+  font-size: 0.95rem;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: var(--tx-fast);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tabBtn:hover {
+  color: var(--px-cyan-dim);
+}
+
+.tabActive {
+  color: var(--px-cyan);
+  border-bottom-color: var(--px-cyan);
+  font-weight: 600;
+}
+
+.starIcon {
+  font-size: 0.8rem;
+}
+
+/* Search */
+.searchSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  background: var(--px-dark);
+  border: 1px solid var(--px-border);
+  clip-path: var(--clip-md);
+  padding: 4px;
+  transition: border-color var(--tx-fast);
+}
+
+.searchBar:focus-within {
+  border-color: var(--px-cyan-dim);
+}
+
+.searchIcon {
+  width: 20px;
+  height: 20px;
+  margin: 0 12px;
+  color: var(--px-gray);
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--px-text);
+  font-family: var(--font-text);
+  font-size: 1rem;
+  outline: none;
+  padding: 8px 0;
+}
+
+.searchBtn {
+  background: var(--px-cyan);
+  color: var(--px-dark);
+  border: none;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 10px 24px;
+  clip-path: var(--clip-sm);
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+
+.searchBtn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.searchOptionsBox {
+  display: flex;
+  gap: 12px;
+}
+
+.searchOptionBtn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--px-border);
+  color: var(--px-text-dim);
+  font-family: var(--font-text);
+  font-size: 0.95rem;
+  padding: 12px;
+  clip-path: var(--clip-sm);
+  cursor: pointer;
+  transition: var(--tx-fast);
+}
+
+.searchOptionBtn:hover {
+  border-color: var(--px-cyan-dim);
+  background: rgba(0, 245, 255, 0.05);
+  color: var(--px-text);
+}
+
+/* Results */
+.resultsContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border: 1px solid var(--px-border);
+  clip-path: var(--clip-md);
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-family: var(--font-text);
+}
+
+.table th {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--px-gray);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  padding: 16px;
+  font-weight: 400;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tableRow {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.2s;
+}
+
+.tableRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.table td {
+  padding: 14px 16px;
+  font-size: 0.9rem;
+  color: var(--px-text-dim);
+  vertical-align: middle;
+}
+
+/* Columns */
+.colTitle { width: 45%; max-width: 400px; }
+.colFansub { width: 15%; }
+.colSize { width: 10%; }
+.colSeeders { width: 10%; white-space: nowrap; }
+.colDate { width: 15%; }
+.colAction { width: 5%; text-align: center; }
+
+.titleClickable {
+  color: var(--px-text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titleClickable:hover {
+  color: var(--px-cyan);
+}
+
+.badge {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--px-text);
+}
+
+.seedersHigh { color: #4ade80; font-weight: 600; }
+.seedersMed { color: #fbbf24; font-weight: 600; }
+.seedersLow { color: #ef4444; font-weight: 600; }
+.leechers { color: var(--px-gray); }
+
+.downloadBtn {
+  background: var(--px-border);
+  border: none;
+  color: var(--px-text);
+  font-size: 1rem;
+  padding: 8px 12px;
+  clip-path: var(--clip-sm);
+  cursor: pointer;
+  transition: var(--tx-fast);
+}
+
+.downloadBtn:hover {
+  background: var(--px-cyan);
+  color: var(--px-dark);
+}
+
+/* States */
+.skeletonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.skeletonRow {
+  height: 48px;
+  background: rgba(255, 255, 255, 0.03);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.emptyState, .errorState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--px-text-dim);
+  font-family: var(--font-text);
+  font-size: 1rem;
+}
+
+.retryBtn {
+  background: transparent;
+  border: 1px solid var(--px-pink);
+  color: var(--px-pink);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  padding: 10px 20px;
+  clip-path: var(--clip-sm);
+  cursor: pointer;
+  transition: var(--tx-fast);
+}
+
+.retryBtn:hover {
+  background: var(--px-pink);
+  color: var(--px-dark);
+}

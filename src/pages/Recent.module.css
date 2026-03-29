@@ -459,3 +459,76 @@
   text-transform: uppercase;
   margin: 0;
 }
+
+/* ─── TORRENTS ─── */
+.torrentBtn {
+  font-family: "Tektur", sans-serif;
+  font-size: 0.6rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.torrentBtn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.torrentBtnPrincipal {
+  background: var(--px-cyan);
+  color: var(--px-dark);
+}
+
+.torrentBtnAlt {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.torrentBtnAlt:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.torrentSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 245, 255, 0.1);
+  border-top-color: var(--px-cyan);
+  border-radius: 50%;
+  animation: torrentSpin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes torrentSpin {
+  100% { transform: rotate(360deg); }
+}
+
+.downloadingBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Tektur", sans-serif;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  padding: 6px 12px;
+  border-radius: 3px;
+  cursor: not-allowed;
+  opacity: 0.8;
+  animation: pulseDownloading 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseDownloading {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}

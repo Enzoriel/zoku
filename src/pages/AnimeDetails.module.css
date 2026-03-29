@@ -617,6 +617,62 @@
   border: 1px solid var(--px-border);
 }
 
+/* Torrent Actions */
+.torrentActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 90px;
+}
+
+.torrentBtn {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: none;
+  clip-path: var(--clip-sm);
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.torrentBtn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.torrentBtnPrincipal {
+  background: var(--px-cyan);
+  color: var(--px-dark);
+}
+
+.torrentBtnAlt {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--px-text-dim);
+  border: 1px solid var(--px-border);
+}
+
+.torrentBtnAlt:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--px-text);
+  border-color: var(--px-gray);
+}
+
+.torrentSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 245, 255, 0.1);
+  border-top-color: var(--px-cyan);
+  border-radius: 50%;
+  animation: torrentSpin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes torrentSpin {
+  100% { transform: rotate(360deg); }
+}
+
 /* Menu */
 .menuWrapper {
   position: relative;
@@ -1027,4 +1083,11 @@
   .episodesList {
     max-height: calc(100vh - 450px);
   }
+}
+
+.tagDownloading {
+  background: rgba(255, 200, 0, 0.1);
+  color: #ffcc00;
+  border-color: rgba(255, 200, 0, 0.3);
+  animation: pulseDownloading 1.5s infinite ease-in-out;
 }

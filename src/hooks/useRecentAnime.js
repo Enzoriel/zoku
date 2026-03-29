@@ -26,8 +26,8 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
         const finishedRecently =
           (status === "finished airing" || status === "completed" || status === "finalizado") &&
           (anime.completedAt
-? now - new Date(anime.completedAt).getTime() < RECENT_MS
-            : true); // Si no tenemos fecha pero está finalizada hoy/ayer segun AniList
+            ? now - new Date(anime.completedAt).getTime() < RECENT_MS
+            : false);
 
         return isAiring || finishedRecently;
       })

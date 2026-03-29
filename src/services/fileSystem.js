@@ -74,14 +74,15 @@ export function extractBaseTitle(fileName) {
   name = name.replace(/Season [0-9]{1,2}/gi, "");
   name = name.replace(/v[0-9]{1}/gi, "");
 
-  const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/i;
+  const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/ig;
   const endingPattern = /\b(end|final|ova|special|movie|film)\b/i;
 
-  let match = name.match(episodePattern);
-  if (match) {
-    name = name.substring(0, match.index);
+  const matches = [...name.matchAll(episodePattern)];
+  if (matches.length > 0) {
+    const lastMatch = matches[matches.length - 1];
+    name = name.substring(0, lastMatch.index);
   } else {
-    match = name.match(endingPattern);
+    const match = name.match(endingPattern);
     if (match) name = name.substring(0, match.index);
   }
 
@@ -164,18 +165,27 @@ async function getVideosInFolder(folderPath) {
   try {
     const entries = await readDir(folderPath);
     const videoExtensions = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
+    const dlExtensions = [".!qb", ".part", ".bc!"];
 
-    const videoFiles = entries.filter(
-      (e) => !e.isDirectory && videoExtensions.some((ext) => e.name.toLowerCase().endsWith(ext)),
-    );
+    const fileEntries = entries.filter((e) => !e.isDirectory);
+    
+    const videoFiles = fileEntries.filter((e) => {
+      const nameL = e.name.toLowerCase();
+      return videoExtensions.some((ext) => nameL.endsWith(ext)) || dlExtensions.some((ext) => nameL.endsWith(ext));
+    });
 
     const constantNumbers = detectConstantNumbers(videoFiles.map((e) => e.name));
 
-    return videoFiles.map((e) => ({
-      name: e.name,
-      path: `${folderPath}/${e.name}`.replace(/\/+/g, "/"),
-      episodeNumber: extractEpisodeNumber(e.name, constantNumbers.map(String)),
-    }));
+    return videoFiles.map((e) => {
+      const nameL = e.name.toLowerCase();
+      const isDownloading = dlExtensions.some((ext) => nameL.endsWith(ext));
+      return {
+        name: e.name,
+        path: `${folderPath}/${e.name}`.replace(/\/+/g, "/"),
+        episodeNumber: extractEpisodeNumber(e.name, constantNumbers.map(String)),
+        isDownloading,
+      };
+    });
   } catch (error) {
     console.error(`[FS] Error leyendo carpeta ${folderPath}:`, error);
     return [];
@@ -216,9 +226,14 @@ export async function scanLibrary(basePath, myAnimes) {
 
     // Archivos en raíz
     const videoExts = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
+    const dlExts = [".!qb", ".part", ".bc!"];
     fileEntries.forEach((entry) => {
       const fullPath = `${basePath}/${entry.name}`.replace(/\/+/g, "/");
-      if (videoExts.some((ext) => entry.name.toLowerCase().endsWith(ext))) {
+      const nameL = entry.name.toLowerCase();
+      const isVideo = videoExts.some((ext) => nameL.endsWith(ext));
+      const isDl = dlExts.some((ext) => nameL.endsWith(ext));
+
+      if (isVideo || isDl) {
         const baseTitle = extractBaseTitle(entry.name);
         if (!virtualLibrary[baseTitle]) {
           virtualLibrary[baseTitle] = {
@@ -234,6 +249,7 @@ export async function scanLibrary(basePath, myAnimes) {
           name: entry.name,
           path: fullPath,
           episodeNumber: extractEpisodeNumber(entry.name, []),
+          isDownloading: isDl,
         });
       }
     });
@@ -248,6 +264,32 @@ export async function scanLibrary(basePath, myAnimes) {
         folder.isLinked = true;
         folder.malId = matchedAnime.malId;
         folder.animeData = matchedAnime;
+      }
+    });
+
+    // Auto-Linker heurístico: Intentar emparejar en memoria los animes no vinculados a carpetas/archivos huérfanos.
+    const unlinkedAnimes = animeList.filter((a) => !a.folderName);
+    Object.values(virtualLibrary).forEach((folder) => {
+      if (!folder.isLinked && folder.folderName) {
+        const cleanKey = normalizeForSearch(folder.folderName);
+        const match = unlinkedAnimes.find((a) => {
+          const tr = normalizeForSearch(a.title);
+          const te = normalizeForSearch(a.title_english) || "";
+          // Coincidencia amplia bidireccional
+          const isMatch = cleanKey === tr || cleanKey === te || 
+                          (cleanKey.length > 3 && tr.includes(cleanKey)) || 
+                          (tr.length > 3 && cleanKey.includes(tr)) ||
+                          (te && cleanKey.length > 3 && te.includes(cleanKey)) ||
+                          (te && te.length > 3 && cleanKey.includes(te));
+          return isMatch;
+        });
+
+        if (match) {
+          folder.isLinked = true;
+          folder.malId = match.malId;
+          folder.animeData = match;
+          folder.isAutoLinked = true; // Flag informativo
+        }
       }
     });
 

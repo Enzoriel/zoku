@@ -4,6 +4,11 @@ import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
 import { useRecentAnime } from "../hooks/useRecentAnime";
 import { extractEpisodeNumber } from "../utils/fileParsing";
+import { openFile } from "../services/fileSystem";
+import { findTorrentMatches } from "../utils/torrentMatch";
+import { useTorrent } from "../context/TorrentContext";
+import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
+import TorrentSearchModal from "../components/ui/TorrentSearchModal";
 import RetryPanel from "../components/ui/RetryPanel";
 import styles from "./Recent.module.css";
 
@@ -18,6 +23,14 @@ function Recent() {
   const [activeDay, setActiveDay] = useState(new Date().getDay());
 
   const { allAiringAnime, loadingExtra, errorExtra, retryExtra } = useRecentAnime(seasonalAnime, data.myAnimes, data.localFiles);
+  const { data: torrentData, isLoading: torrentLoading, principalFansub } = useTorrent();
+
+  const [torrentModalOpen, setTorrentModalOpen] = useState(false);
+  const [torrentModalItems, setTorrentModalItems] = useState([]);
+  const [torrentModalTitle, setTorrentModalTitle] = useState("");
+
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [searchModalItem, setSearchModalItem] = useState(null);
 
   const myAnimeMap = useMemo(() => {
     const map = {};
@@ -39,8 +52,8 @@ function Recent() {
         const stored = myAnimeMap[id] || myAnimeMap[Number(id)] || myAnimeMap[String(id)];
 
         const watchedEps = stored?.watchedEpisodes || [];
-        const folderName = stored?.folderName;
-        const localFiles = folderName ? data.localFiles?.[folderName]?.files || [] : [];
+        const localFolder = Object.values(data.localFiles || {}).find(f => f.malId === id && f.isLinked);
+        const localFiles = localFolder?.files || [];
         const nextAiring = anime.nextAiringEpisode;
         const lastAiredEp = nextAiring ? nextAiring.episode - 1 : anime.episodes || 0;
 
@@ -246,6 +259,46 @@ function Recent() {
                         <span className={styles.epNumber}>Episodio {ep}</span>
                       </div>
                       <div className={styles.episodeActions} onClick={(e) => e.stopPropagation()}>
+                        {(() => {
+                          if (!principalFansub || localFile || isWatched) return null;
+                          const titleRomaji = anime.title;
+                          const titleEnglish = anime.title_english || null;
+                          const matches = findTorrentMatches(titleRomaji, titleEnglish, ep, torrentData);
+                          const hasPrincipalMatch = matches.some((m) => m.fansub === principalFansub);
+                          
+                          if (torrentLoading) return <div className={styles.torrentSpinner}></div>;
+                          if (matches.length > 0) {
+                            return (
+                              <button
+                                className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
+                                title={hasPrincipalMatch ? `Descargar en ${principalFansub}` : `No disponible en ${principalFansub}. Hay alternativas de otros grupos.`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTorrentModalItems(matches);
+                                  setTorrentModalTitle(`${anime.title} — Episodio ${ep}`);
+                                  setTorrentModalOpen(true);
+                                }}
+                              >
+                                {hasPrincipalMatch ? "⬇ Disponible" : "⬇ Alternativa"}
+                              </button>
+                            );
+                          }
+                          // Botón para iniciar búsqueda manual si no hay coincidencias pre-cargadas
+                          return (
+                            <button
+                              className={`${styles.torrentBtn} ${styles.torrentBtnAlt}`}
+                              title="Buscar torrent manualmente en otras pestañas"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSearchModalItem({ title: anime.title, ep });
+                                setSearchModalOpen(true);
+                              }}
+                            >
+                              🔍 Buscar
+                            </button>
+                          );
+                        })()}
+
                         {isWatched ? (
                           <span className={styles.watchedBadge}>
                             <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
@@ -254,16 +307,29 @@ function Recent() {
                             VISTO
                           </span>
                         ) : localFile ? (
-                          <button
-                            className={styles.playBtn}
-                            onClick={() => navigate(`/anime/${anime.malId || anime.mal_id}`)}
-                            title="Reproducir"
-                          >
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                            REPRODUCIR
-                          </button>
+                          localFile.isDownloading ? (
+                            <button
+                              className={styles.downloadingBtn}
+                              disabled
+                              title="El cliente externo está procesando el archivo (.part / .!qB)"
+                            >
+                              ⏳ DESCARGANDO
+                            </button>
+                          ) : (
+                            <button
+                              className={styles.playBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFile(localFile.path);
+                              }}
+                              title="Reproducir"
+                            >
+                              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                              REPRODUCIR
+                            </button>
+                          )
                         ) : (
                           <span className={styles.pendingBadge}>PENDIENTE</span>
                         )}
@@ -337,6 +403,20 @@ function Recent() {
           </div>
         </div>
       )}
+
+      <TorrentDownloadModal
+        isOpen={torrentModalOpen}
+        onClose={() => setTorrentModalOpen(false)}
+        animeTitle={torrentModalTitle}
+        items={torrentModalItems}
+      />
+      
+      <TorrentSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+        animeTitle={searchModalItem?.title}
+        epNumber={searchModalItem?.ep}
+      />
     </div>
   );
 }

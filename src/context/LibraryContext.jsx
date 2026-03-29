@@ -73,13 +73,24 @@ export function LibraryProvider({ children }) {
           folderPath,
           (event) => {
             const relevantKinds = ["create", "remove", "modify", "rename"];
-            const kind = event.type?.toLowerCase?.() ?? "";
+            
+            // event.type puede ser un string o un objeto en Tauri
+            const typeStr = typeof event.type === "string" 
+              ? event.type 
+              : JSON.stringify(event.type || {});
+              
+            const kind = typeStr.toLowerCase();
             const isRelevant = relevantKinds.some((k) => kind.includes(k));
             if (!isRelevant) return;
 
             const paths = Array.isArray(event.paths) ? event.paths : [];
             const videoExts = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
-            const hasVideoFile = paths.some((p) => videoExts.some((ext) => p.toLowerCase().endsWith(ext)));
+            const dlExts = [".!qb", ".part", ".bc!"];
+            
+            const hasVideoFile = paths.some((p) => {
+              const pLow = p.toLowerCase();
+              return videoExts.some((ext) => pLow.endsWith(ext)) || dlExts.some((ext) => pLow.endsWith(ext));
+            });
             if (paths.length > 0 && !hasVideoFile) return;
 
             debouncedSync();
