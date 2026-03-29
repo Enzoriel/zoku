@@ -4,7 +4,7 @@ import { useStore } from "../../hooks/useStore";
 import { getAllFansubs, getPrincipalFansub } from "../../utils/torrentConfig";
 import styles from "./FansubOnboardingModal.module.css"; // Reutilizamos estilos base
 
-function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber }) {
+function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
   const { data: storeData } = useStore();
   const navigate = useNavigate();
   const modalRef = useRef(null);
@@ -39,6 +39,8 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber }) {
         activeTab: fansubName,
         activeQuery: query,
         searchInput: query,
+        malId: malId,
+        animeTitle: animeTitle,
       },
     });
     onClose();

@@ -15,7 +15,7 @@ const CACHE_DURATION = 10 * 60 * 1000;
 
 function TorrentPage() {
   const location = useLocation();
-  const { data: storeData } = useStore();
+  const { data: storeData, setMyAnimes } = useStore();
   const { refresh: contextRefresh } = useTorrent();
 
   // Fansub settings
@@ -36,6 +36,10 @@ function TorrentPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalItems, setModalItems] = useState([]);
   const [modalTitle, setModalTitle] = useState("");
+
+  const targetAnimeId = location.state?.malId;
+  const targetAnimeTitle = location.state?.animeTitle;
+  const currentAlias = targetAnimeId ? storeData.myAnimes[targetAnimeId]?.torrentAlias : null;
 
   const showSearchOptions = activeTab !== "general" && searchInput.trim() !== "";
 
@@ -112,6 +116,30 @@ function TorrentPage() {
     fetchTorrents(activeTab, activeQuery, true);
     if (activeTab === principalFansub) {
       contextRefresh();
+    }
+  };
+
+  const handleLinkAlias = async () => {
+    if (!targetAnimeId || !activeQuery) return;
+    try {
+      // Limpiamos el query para que sea solo el nombre base (sin el episodio)
+      // El usuario puede haber buscado "Frieren 10", el alias debería ser solo "Frieren"
+      const cleanAlias = activeQuery.replace(/\s+\d+$/, "").trim();
+      
+      await setMyAnimes(prev => {
+        const updated = { ...prev };
+        if (updated[targetAnimeId]) {
+          updated[targetAnimeId] = {
+            ...updated[targetAnimeId],
+            torrentAlias: cleanAlias,
+            lastUpdated: new Date().toISOString()
+          };
+        }
+        return updated;
+      });
+      alert(`Nombre "${cleanAlias}" vinculado a ${targetAnimeTitle || 'la serie'}.`);
+    } catch (e) {
+      console.error("Error linking alias:", e);
     }
   };
 
@@ -283,6 +311,7 @@ function TorrentPage() {
         onClose={() => setModalOpen(false)}
         animeTitle={modalTitle}
         items={modalItems}
+        malId={targetAnimeId}
       />
     </div>
   );

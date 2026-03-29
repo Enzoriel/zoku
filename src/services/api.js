@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+
 const url = "https://graphql.anilist.co/";
 let lastRequest = 0;
 
@@ -16,40 +18,21 @@ async function queryAniList(query, variables = {}) {
     lastRequest = Date.now();
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ query, variables }),
-      signal: controller.signal,
-    });
+    const result = await invoke("query_anilist", { query, variables });
 
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-    const json = await response.json();
-    if (json.errors) {
-      console.error("[AniList] GraphQL Errors:", json.errors);
+    if (!result) return null;
+    if (result.errors) {
+      console.error("[AniList] GraphQL Errors:", result.errors);
       return null;
     }
 
-    console.log("ESTE ES EL RAW API:", json.data);
+    console.log("ESTE ES EL RAW API:", result.data);
 
-    return json.data;
+    return result.data;
   } catch (error) {
-    if (error.name === "AbortError") {
-      console.error("[AniList] Request timeout después de 9 segundos");
-    } else {
-      console.error("[AniList] Fetch Error:", error);
-    }
+    console.error("[AniList] Fetch Error:", error);
     return null;
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 

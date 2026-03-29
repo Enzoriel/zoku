@@ -699,7 +699,7 @@ function AnimeDetails() {
                 // Logica de Torrents en linea con este episodio
                 const titleRomaji = mainAnime.title;
                 const titleEnglish = mainAnime.title_english || null;
-                const matches = findTorrentMatches(titleRomaji, titleEnglish, epNum, torrentData);
+                const matches = findTorrentMatches(titleRomaji, titleEnglish, epNum, torrentData, mainAnime.torrentAlias);
                 const hasPrincipalMatch = matches.some((m) => m.fansub === principalFansub);
 
                 return (

@@ -188,3 +188,22 @@ pub async fn fetch_nyaa_multiple(
 
     Ok(all_items)
 }
+
+#[tauri::command]
+pub async fn query_anilist(query: String, variables: serde_json::Value) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post("https://graphql.anilist.co/")
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json")
+        .json(&serde_json::json!({
+            "query": query,
+            "variables": variables
+        }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}

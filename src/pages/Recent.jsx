@@ -261,9 +261,10 @@ function Recent() {
                       <div className={styles.episodeActions} onClick={(e) => e.stopPropagation()}>
                         {(() => {
                           if (!principalFansub || localFile || isWatched) return null;
+                          const stored = myAnimeMap[anime.malId] || myAnimeMap[anime.mal_id];
                           const titleRomaji = anime.title;
                           const titleEnglish = anime.title_english || null;
-                          const matches = findTorrentMatches(titleRomaji, titleEnglish, ep, torrentData);
+                          const matches = findTorrentMatches(titleRomaji, titleEnglish, ep, torrentData, stored?.torrentAlias);
                           const hasPrincipalMatch = matches.some((m) => m.fansub === principalFansub);
                           
                           if (torrentLoading) return <div className={styles.torrentSpinner}></div>;
@@ -290,7 +291,7 @@ function Recent() {
                               title="Buscar torrent manualmente en otras pestañas"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSearchModalItem({ title: anime.title, ep });
+                                setSearchModalItem({ title: anime.title, ep, malId: anime.malId || anime.mal_id });
                                 setSearchModalOpen(true);
                               }}
                             >
@@ -416,6 +417,7 @@ function Recent() {
         onClose={() => setSearchModalOpen(false)}
         animeTitle={searchModalItem?.title}
         epNumber={searchModalItem?.ep}
+        malId={searchModalItem?.malId}
       />
     </div>
   );

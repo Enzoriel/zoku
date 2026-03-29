@@ -11,6 +11,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             torrent::fetch_nyaa,
             torrent::fetch_nyaa_multiple,
+            torrent::query_anilist,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

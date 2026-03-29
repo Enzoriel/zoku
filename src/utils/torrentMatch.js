@@ -66,9 +66,19 @@ function jaroWinkler(s1, s2, prefixScale = 0.1) {
   return jaroScore + prefix * prefixScale * (1 - jaroScore);
 }
 
+/**
+ * Normaliza una cadena eliminando todo lo que no sea alfanumérico.
+ * @param {string} str 
+ * @returns {string}
+ */
+function superNormalize(str) {
+  if (!str) return "";
+  return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 // ─── Matching de torrents ─────────────────────────────────────────────────────
 
-const MATCH_SCORE_THRESHOLD = 0.72;
+const MATCH_SCORE_THRESHOLD = 0.75; // Aumentamos ligeramente de 0.72
 
 /**
  * Dado un título de anime (de AniList), un número de episodio,
@@ -79,12 +89,13 @@ const MATCH_SCORE_THRESHOLD = 0.72;
  * @param {string} animeTitleEnglish - título en inglés de AniList (puede ser null)
  * @param {number} episodeNumber - número del episodio a buscar
  * @param {TorrentItem[]} torrentItems - items del TorrentContext
+ * @param {string} torrentAlias - Alias opcional vinculado manualmente por el usuario
  * @returns {TorrentItem[]} items que matchean, ordenados por score desc
  */
-export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeNumber, torrentItems) {
+export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeNumber, torrentItems, torrentAlias = null) {
   if (!torrentItems?.length || !episodeNumber) return [];
 
-  const titlesToMatch = [animeTitleRomaji, animeTitleEnglish].filter(Boolean);
+  const titlesToMatch = [torrentAlias, animeTitleRomaji, animeTitleEnglish].filter(Boolean);
   if (titlesToMatch.length === 0) return [];
 
   return torrentItems
@@ -107,21 +118,41 @@ export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeN
         .trim();
 
       // 4. Calcular score máximo contra todos los títulos disponibles
-      let score = Math.max(
-        ...titlesToMatch.map((t) => jaroWinkler(cleanTitle.toLowerCase(), t.toLowerCase())),
-      );
-
-      // Penalizar si la diferencia de longitud es masiva (Jaro-Winkler falla con prefijos en strings muy asimétricos)
-      const maxTitleLen = Math.max(...titlesToMatch.map(t => t.length));
-      const minLen = Math.min(cleanTitle.length, maxTitleLen);
-      const maxLen = Math.max(cleanTitle.length, maxTitleLen);
-      const lengthRatio = minLen / maxLen;
+      let score = 0;
+      let matchedTitle = "";
       
-      if (lengthRatio < 0.4) {
-        score *= 0.8;
+      titlesToMatch.forEach(t => {
+        const s = jaroWinkler(cleanTitle.toLowerCase(), t.toLowerCase());
+        if (s > score) {
+          score = s;
+          matchedTitle = t;
+        }
+      });
+
+      // 5. Normalización agresiva y validación cruzada
+      const normTorrent = superNormalize(cleanTitle);
+      const normAnime = superNormalize(matchedTitle);
+
+      // Si el título es largo (> 10 chars) y no hay contención mutua, penalizar
+      // Esto previene que "Yuusha Party..." matchee con "Yuusha no Kuzu" solo por el prefijo
+      if (normAnime.length > 5 && normTorrent.length > 5) {
+        const contains = normTorrent.includes(normAnime) || normAnime.includes(normTorrent);
+        if (!contains) {
+          // Si no se contienen, el score debe ser muy alto para aceptarlo (p. ej. error tipográfico mínimo)
+          if (score < 0.9) score *= 0.6; 
+        }
       }
 
-      // 5. Descartar si el score es menor al umbral
+      // Penalizar si la diferencia de longitud es masiva
+      const minLen = Math.min(normTorrent.length, normAnime.length);
+      const maxLen = Math.max(normTorrent.length, normAnime.length);
+      const lengthRatio = minLen / maxLen;
+      
+      if (lengthRatio < 0.45) {
+        score *= 0.7; // Penalización más agresiva
+      }
+
+      // 6. Descartar si el score es menor al umbral
       if (score < MATCH_SCORE_THRESHOLD) return null;
 
       return { item, score };

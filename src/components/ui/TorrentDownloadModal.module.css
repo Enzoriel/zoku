@@ -178,6 +178,19 @@
   letter-spacing: 1px;
 }
 
+.itemTitle {
+  width: 100%;
+  font-family: var(--font-text);
+  font-size: 0.82rem;
+  color: var(--px-text-dim);
+  font-weight: 500;
+  line-height: 1.4;
+  word-break: break-all;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
 .itemInfo {
   display: flex;
   align-items: center;
@@ -251,4 +264,66 @@
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Alias Proposal Section */
+.aliasProposal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(255, 193, 7, 0.03);
+  border: 1px dashed rgba(255, 193, 7, 0.2);
+  margin: 0 32px;
+  padding: 16px 20px;
+  clip-path: var(--clip-md);
+  margin-top: 16px;
+}
+
+.aliasInfo {
+  display: flex;
+  gap: 12px;
+}
+
+.aliasIcon {
+  font-size: 1.2rem;
+}
+
+.aliasTexts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aliasTitle {
+  font-family: var(--font-text);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--px-yellow);
+}
+
+.aliasDesc {
+  font-family: var(--font-text);
+  font-size: 0.8rem;
+  color: var(--px-text-dim);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.linkBtn {
+  align-self: flex-end;
+  background: var(--px-yellow);
+  color: var(--px-dark);
+  border: none;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  font-weight: 700;
+  padding: 8px 16px;
+  clip-path: var(--clip-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.linkBtn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
 }
