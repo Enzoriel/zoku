@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { getAnimeDetailsBatch } from "../services/api";
 
 const RECENT_DAYS = 14;
@@ -7,6 +7,7 @@ const RECENT_MS = RECENT_DAYS * 24 * 60 * 60 * 1000;
 export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
   const [extraAnime, setExtraAnime] = useState([]);
   const [loadingExtra, setLoadingExtra] = useState(false);
+  const [errorExtra, setErrorExtra] = useState(null);
 
   // IDs que ya tenemos frescos de seasonalAnime
   const seasonalIds = useMemo(() => new Set(seasonalAnime.map((a) => Number(a.malId || a.mal_id))), [seasonalAnime]);
@@ -33,26 +34,34 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
       .map(([id]) => Number(id));
   }, [myAnimes, seasonalIds]);
 
+  const fetchExtra = useCallback(async (ids) => {
+    setLoadingExtra(true);
+    setErrorExtra(null);
+    try {
+      const results = await getAnimeDetailsBatch(ids);
+      if (!results || results.length === 0) {
+        // Si la API devolvió null/vacío pero no lanzó error, puede ser timeout
+        if (ids.length > 0) {
+          setErrorExtra("No se pudieron cargar las series adicionales. La API no respondió.");
+        }
+      }
+      setExtraAnime(results || []);
+    } catch (e) {
+      console.error("[useRecentAnime] Error fetching extra:", e);
+      setErrorExtra("Error al cargar series adicionales. Revisa tu conexión.");
+    } finally {
+      setLoadingExtra(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (missingIds.length === 0) {
       setExtraAnime([]);
       return;
     }
 
-    let cancelled = false;
-    setLoadingExtra(true);
-
-    getAnimeDetailsBatch(missingIds).then((results) => {
-      if (!cancelled) {
-        setExtraAnime(results);
-        setLoadingExtra(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [missingIds.join(",")]); // solo re-fetch si cambian los IDs
+    fetchExtra(missingIds);
+  }, [missingIds.join(","), fetchExtra]);
 
   // Combinar seasonal + extra, sin duplicados
   const allAiringAnime = useMemo(() => {
@@ -68,5 +77,11 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
     return combined;
   }, [seasonalAnime, extraAnime]);
 
-  return { allAiringAnime, loadingExtra };
+  const retryExtra = useCallback(() => {
+    if (missingIds.length > 0) {
+      return fetchExtra(missingIds);
+    }
+  }, [missingIds, fetchExtra]);
+
+  return { allAiringAnime, loadingExtra, errorExtra, retryExtra };
 }

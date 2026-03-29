@@ -4,6 +4,7 @@ import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
 import { useRecentAnime } from "../hooks/useRecentAnime";
 import { extractEpisodeNumber } from "../utils/fileParsing";
+import RetryPanel from "../components/ui/RetryPanel";
 import styles from "./Recent.module.css";
 
 const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
@@ -11,12 +12,12 @@ const DAY_NAMES_SHORT = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 
 function Recent() {
   const { data } = useStore();
-  const { seasonalAnime, loading } = useAnime();
+  const { seasonalAnime, loading, error, retryFetch } = useAnime();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("recientes");
   const [activeDay, setActiveDay] = useState(new Date().getDay());
 
-  const { allAiringAnime, loadingExtra } = useRecentAnime(seasonalAnime, data.myAnimes, data.localFiles);
+  const { allAiringAnime, loadingExtra, errorExtra, retryExtra } = useRecentAnime(seasonalAnime, data.myAnimes, data.localFiles);
 
   const myAnimeMap = useMemo(() => {
     const map = {};
@@ -150,6 +151,14 @@ function Recent() {
     return `${m}m`;
   };
 
+  if (error) {
+    return (
+      <div className={styles.page}>
+        <RetryPanel message={error} onRetry={retryFetch} />
+      </div>
+    );
+  }
+
   if (loading || loadingExtra) {
     return (
       <div className={styles.page}>
@@ -157,6 +166,14 @@ function Recent() {
           <div className={styles.loadingSpinner} />
           <p>{loading ? "Sincronizando con AniList..." : "Cargando series adicionales..."}</p>
         </div>
+      </div>
+    );
+  }
+
+  if (errorExtra) {
+    return (
+      <div className={styles.page}>
+        <RetryPanel message={errorExtra} onRetry={retryExtra} />
       </div>
     );
   }

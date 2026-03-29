@@ -69,6 +69,11 @@ export function AnimeProvider({ children }) {
     [seasonalAnime, searchAnimes],
   );
 
+  const retryFetch = useCallback(async () => {
+    setLoading(true);
+    await fetchSeasonal();
+  }, []);
+
   const value = useMemo(
     () => ({
       seasonalAnime,
@@ -77,8 +82,9 @@ export function AnimeProvider({ children }) {
       loading,
       error,
       getAnimeById,
+      retryFetch,
     }),
-    [seasonalAnime, searchAnimes, loading, error, getAnimeById],
+    [seasonalAnime, searchAnimes, loading, error, getAnimeById, retryFetch],
   );
 
   return <AnimeContext.Provider value={value}>{children}</AnimeContext.Provider>;

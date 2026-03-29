@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { searchAnime } from "../services/api";
 import SearchBar from "../components/anime/SearchBar";
 import AnimeList from "../components/anime/AnimeList";
+import RetryPanel from "../components/ui/RetryPanel";
 import styles from "./Search.module.css";
 import { useAnime } from "../context/AnimeContext";
 
@@ -12,18 +13,30 @@ function Search() {
   const [query, setQuery] = useState("");
   const [pagination, setPagination] = useState({});
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchError, setSearchError] = useState(null);
 
   const loadResults = useCallback(async (currentQuery, currentPage) => {
     if (!currentQuery.trim()) return;
     setLoading(true);
+    setSearchError(null);
     try {
       const result = await searchAnime(currentQuery, currentPage);
-      setAnimes(result.data);
-      setSearchAnimes(result.data);
-      setPagination(result.pagination || {});
+      if (!result || !result.data || result.data.length === 0) {
+        // Si no har resultados pero teníamos query, puede ser timeout
+        if (currentQuery.trim()) {
+          setAnimes([]);
+          setSearchAnimes([]);
+          setHasSearched(true);
+        }
+      } else {
+        setAnimes(result.data);
+        setSearchAnimes(result.data);
+      }
+      setPagination(result?.pagination || {});
       setHasSearched(true);
     } catch (error) {
       console.error("Error searching animes:", error);
+      setSearchError("Error al buscar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -76,6 +89,12 @@ function Search() {
               <span className={styles.loadingText}>CARGANDO...</span>
             </div>
           </div>
+        ) : searchError ? (
+          <RetryPanel
+            message={searchError}
+            onRetry={() => loadResults(query, 1)}
+            compact
+          />
         ) : hasSearched ? (
           <>
             <div className={styles.resultsSection}>

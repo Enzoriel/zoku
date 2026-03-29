@@ -1,0 +1,154 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-height: 50vh;
+  padding: 40px 24px;
+  text-align: center;
+  animation: fadeIn 0.35s ease;
+}
+
+.panel.compact {
+  min-height: auto;
+  padding: 32px 20px;
+}
+
+/* Icono */
+.iconWrap {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 45, 120, 0.1);
+  border: 2px solid var(--px-pink-dim);
+  clip-path: var(--clip-md);
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+.icon {
+  width: 28px;
+  height: 28px;
+  color: var(--px-pink);
+  filter: drop-shadow(0 0 6px rgba(255, 45, 120, 0.4));
+}
+
+/* Texto */
+.textBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 380px;
+}
+
+.label {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: var(--px-pink);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.message {
+  font-family: var(--font-text);
+  font-size: 0.95rem;
+  color: var(--px-text-dim);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Botón de reintento */
+.retryBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  background: var(--px-cyan);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--px-dark);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  clip-path: var(--clip-sm);
+  position: relative;
+  overflow: hidden;
+  transition:
+    filter 0.15s,
+    transform 0.1s;
+  box-shadow:
+    inset 0 -3px 0 var(--px-cyan-dim),
+    inset 0 3px 0 rgba(255, 255, 255, 0.5),
+    inset 3px 0 0 rgba(255, 255, 255, 0.3);
+}
+
+.retryBtn:hover:not(:disabled) {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.retryBtn:active:not(:disabled) {
+  filter: brightness(0.9);
+  transform: translateY(1px);
+}
+
+.retryBtn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.retryBtn.retrying {
+  background: var(--px-yellow);
+  box-shadow:
+    inset 0 -3px 0 var(--px-yellow-dim),
+    inset 0 3px 0 rgba(255, 255, 255, 0.5),
+    inset 3px 0 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Icono del botón */
+.retryIcon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s;
+}
+
+.retryIcon.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Animaciones ── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(255, 45, 120, 0);
+    border-color: var(--px-pink-dim);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(255, 45, 120, 0.2);
+    border-color: var(--px-pink);
+  }
+}

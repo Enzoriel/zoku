@@ -1,10 +1,11 @@
 import { useState, useMemo, useTransition } from "react";
 import AnimeList from "../components/anime/AnimeList";
+import RetryPanel from "../components/ui/RetryPanel";
 import styles from "./Discover.module.css";
 import { useAnime } from "../context/AnimeContext";
 
 function Discover() {
-  const { seasonalAnime: allAnimes, loading, error } = useAnime();
+  const { seasonalAnime: allAnimes, loading, error, retryFetch } = useAnime();
   const [type, setType] = useState("TV");
   const [pendingType, setPendingType] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -63,9 +64,7 @@ function Discover() {
             <p>CONECTANDO CON ANILIST...</p>
           </div>
         ) : error ? (
-          <div className={styles.errorContainer}>
-            <p>{error}</p>
-          </div>
+          <RetryPanel message={error} onRetry={retryFetch} />
         ) : (
           <div className={styles.resultsArea} style={{ opacity: isPending ? 0.7 : 1 }}>
             <div className={styles.resultsHeader}>
