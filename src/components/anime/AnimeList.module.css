@@ -1,7 +1,7 @@
 .list {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 30px;
   padding: 0;
@@ -9,37 +9,58 @@
 }
 
 .empty {
-  text-align: center;
-  color: rgba(255, 255, 255, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: var(--px-gray);
   padding: 80px;
-  font-family: "Tektur", sans-serif;
+  font-family: var(--font-pixel);
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 2px;
+  background: var(--px-card);
+  border: 2px solid var(--px-border);
+  clip-path: var(--clip-md);
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
 }
 
+/* Paginación estilo pixel */
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 8px;
   margin-top: 40px;
+  padding: 20px;
+  width: 100%;
 }
 
 .pageBtn {
-  background: transparent;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
   height: 36px;
+  padding: 0 12px;
+  background: transparent;
+  border: 2px solid var(--px-border);
+  color: var(--px-text-dim);
   cursor: pointer;
-  font-family: "Tektur", sans-serif;
+  font-family: var(--font-pixel);
+  font-size: 8px;
   font-weight: 700;
-  font-size: 0.8rem;
-  transition: border-color 0.2s ease;
+  clip-path: var(--clip-sm);
+  transition: var(--tx-normal);
+  text-transform: uppercase;
 }
 
 .pageBtn:hover:not(:disabled) {
-  border-color: white;
+  border-color: var(--px-yellow);
+  color: var(--px-yellow);
+  background: rgba(232, 240, 0, 0.05);
 }
 
 .pageBtn:disabled {
@@ -48,7 +69,30 @@
 }
 
 .activePage {
-  border-color: white;
-  background: white;
-  color: black;
+  background: var(--px-yellow);
+  border-color: var(--px-yellow);
+  color: var(--px-dark);
+}
+
+.activePage:hover:not(:disabled) {
+  background: var(--px-yellow);
+  color: var(--px-dark);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .list {
+    gap: 20px;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .pageBtn {
+    min-width: 32px;
+    height: 32px;
+    font-size: 7px;
+  }
 }

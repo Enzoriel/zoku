@@ -323,7 +323,7 @@ function AnimeDetails() {
     } else {
       performRemoval();
     }
-  }, [animeId, mainAnime.watchedEpisodes, mainAnime.folderName, data.myAnimes, setMyAnimes, performSync, navigate]);
+  }, [animeId, mainAnime?.watchedEpisodes, mainAnime?.folderName, data.myAnimes, setMyAnimes, performSync, navigate]);
 
   const handleToggleWatched = useCallback(
     async (epNumber, currentlyWatched) => {
