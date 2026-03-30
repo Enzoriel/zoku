@@ -1,19 +1,21 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
 import { useRecentAnime } from "../hooks/useRecentAnime";
 import { extractEpisodeNumber } from "../utils/fileParsing";
-import { openFile } from "../services/fileSystem";
+import { openFile, isPlayerStillOpen } from "../services/fileSystem";
 import { findTorrentMatches, extractAliasFromTitle } from "../utils/torrentMatch";
 import { useTorrent } from "../context/TorrentContext";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import TorrentSearchModal from "../components/ui/TorrentSearchModal";
 import RetryPanel from "../components/ui/RetryPanel";
+import { usePlayTracking } from "../hooks/usePlayTracking";
 import styles from "./Recent.module.css";
 
 const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
 const DAY_NAMES_SHORT = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+const WATCH_TIMER_MS = 60 * 1000; // 1 minuto
 
 function Recent() {
   const { data, setMyAnimes } = useStore();
@@ -37,6 +39,17 @@ function Recent() {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalItem, setSearchModalItem] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const showToast = useCallback((message, type = "info") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  const {
+    playingEp,
+    handlePlayEpisode: trackPlay,
+    handleToggleWatched
+  } = usePlayTracking((msg, type) => showToast(msg, type));
 
   // Aprendizaje automático de alias al detectar matches exitosos
   useEffect(() => {
@@ -78,10 +91,6 @@ function Recent() {
     }
   }, [torrentData, allAiringAnime, torrentLoading, data.myAnimes, setMyAnimes]);
 
-  const showToast = (message, type = "info") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   const myAnimeMap = useMemo(() => {
     const map = {};
@@ -195,6 +204,13 @@ function Recent() {
 
     return groups;
   }, [myAiringAnime]);
+
+  const handlePlayEpisode = useCallback(
+    (animeId, epNumber, filePath) => {
+      trackPlay(animeId, epNumber, filePath);
+    },
+    [trackPlay]
+  );
 
   const formatRelativeDate = (date) => {
     const now = new Date();
@@ -376,33 +392,37 @@ function Recent() {
                             </svg>
                             VISTO
                           </span>
-                        ) : localFile ? (
-                          localFile.isDownloading ? (
-                            <button
-                              className={styles.downloadingBtn}
-                              disabled
-                              title="El cliente externo está procesando el archivo (.part / .!qB)"
-                            >
-                              ⏳ DESCARGANDO
-                            </button>
+                        ) : playingEp?.animeId === (anime.malId || anime.mal_id) && playingEp?.epNumber === ep ? (
+                            <span className={styles.playingBadge}>
+                              REPRODUCIENDO
+                            </span>
+                          ) : localFile ? (
+                            localFile.isDownloading ? (
+                              <button
+                                className={styles.downloadingBtn}
+                                disabled
+                                title="El cliente externo está procesando el archivo (.part / .!qB)"
+                              >
+                                ⏳ DESCARGANDO
+                              </button>
+                            ) : (
+                              <button
+                                className={styles.playBtn}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePlayEpisode(anime.malId || anime.id, ep, localFile.path);
+                                }}
+                                title="Reproducir"
+                              >
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
+                                REPRODUCIR
+                              </button>
+                            )
                           ) : (
-                            <button
-                              className={styles.playBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFile(localFile.path);
-                              }}
-                              title="Reproducir"
-                            >
-                              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                              REPRODUCIR
-                            </button>
-                          )
-                        ) : (
-                          <span className={styles.pendingBadge}>PENDIENTE</span>
-                        )}
+                            <span className={styles.pendingBadge}>PENDIENTE</span>
+                          )}
                       </div>
                     </div>
                   ))}
