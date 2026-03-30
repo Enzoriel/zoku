@@ -21,6 +21,15 @@ export function getAllFansubs(settings) {
 }
 
 /**
+ * Devuelve la resolución preferida (1080p, 720p, etc.)
+ * @param {object} settings
+ * @returns {string}
+ */
+export function getPreferredResolution(settings) {
+  return settings?.torrent?.resolution ?? "1080p";
+}
+
+/**
  * Devuelve true si el usuario ya configuró al menos un fansub.
  * @param {object} settings
  * @returns {boolean}

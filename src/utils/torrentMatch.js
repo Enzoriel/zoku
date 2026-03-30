@@ -122,9 +122,23 @@ export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeN
       let matchedTitle = "";
       
       titlesToMatch.forEach(t => {
-        const s = jaroWinkler(cleanTitle.toLowerCase(), t.toLowerCase());
-        if (s > score) {
-          score = s;
+        const jw = jaroWinkler(cleanTitle.toLowerCase(), t.toLowerCase());
+        
+        // Bonus por coincidencia de palabras (similar a AnimeDetails)
+        const getWords = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
+        const wT = getWords(cleanTitle);
+        const wA = getWords(t);
+        
+        let wordScore = 0;
+        if (wT.length > 0 && wA.length > 0) {
+            const matchesCount = wA.filter(w => wT.includes(w)).length;
+            wordScore = matchesCount / Math.max(wA.length, wT.length);
+        }
+
+        const compositeScore = Math.max(jw, wordScore);
+
+        if (compositeScore > score) {
+          score = compositeScore;
           matchedTitle = t;
         }
       });
@@ -133,23 +147,12 @@ export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeN
       const normTorrent = superNormalize(cleanTitle);
       const normAnime = superNormalize(matchedTitle);
 
-      // Si el título es largo (> 10 chars) y no hay contención mutua, penalizar
-      // Esto previene que "Yuusha Party..." matchee con "Yuusha no Kuzu" solo por el prefijo
-      if (normAnime.length > 5 && normTorrent.length > 5) {
+      // Si el título es largo y no se contienen, penalizamos si el score no es perfecto
+      if (normAnime.length > 5) {
         const contains = normTorrent.includes(normAnime) || normAnime.includes(normTorrent);
-        if (!contains) {
-          // Si no se contienen, el score debe ser muy alto para aceptarlo (p. ej. error tipográfico mínimo)
-          if (score < 0.9) score *= 0.6; 
+        if (!contains && score < 0.95) {
+          score *= 0.8; 
         }
-      }
-
-      // Penalizar si la diferencia de longitud es masiva
-      const minLen = Math.min(normTorrent.length, normAnime.length);
-      const maxLen = Math.max(normTorrent.length, normAnime.length);
-      const lengthRatio = minLen / maxLen;
-      
-      if (lengthRatio < 0.45) {
-        score *= 0.7; // Penalización más agresiva
       }
 
       // 6. Descartar si el score es menor al umbral
@@ -160,4 +163,29 @@ export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeN
     .filter(Boolean)
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);
+}
+
+/**
+ * Extrae el alias de Nyaa de un título de torrent ruidoso.
+ * @param {string} rawTitle 
+ * @returns {string}
+ */
+export function extractAliasFromTitle(rawTitle) {
+  if (!rawTitle) return "";
+  
+  const fansubMatch = rawTitle.match(/^(\[[^\]]+\])/);
+  const fansubPart = fansubMatch ? fansubMatch[1] : "";
+  
+  let titlePart = rawTitle
+    .replace(/^\[[^\]]+\]\s*/, "") // fansub
+    .replace(/\s*-\s*\d+.*$/, "") // ep
+    .replace(/\s*-\s*v\d+.*$/, "") // v2
+    .replace(/\b(2160p|1080p|720p|480p|360p)\b/gi, "")
+    .replace(/\b(HEVC|x265|x264|h265|h264|10bit|8bit)\b/gi, "")
+    .replace(/[[\(][a-f0-9]{8}[\]\)]/gi, "") // hash
+    .replace(/\s+\d+.*$/, "") // ep (space)
+    .replace(/[\[\(].*$/, "") // metadata tags
+    .trim();
+
+  return fansubPart ? `${fansubPart} ${titlePart}` : titlePart;
 }

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import FansubOnboardingModal from "../components/ui/FansubOnboardingModal";
+import { getPreferredResolution } from "../utils/torrentConfig";
 import styles from "./Configuration.module.css";
 
 const Configuration = () => {
@@ -12,8 +13,10 @@ const Configuration = () => {
   const [customPlayer, setCustomPlayer] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [showFansubModal, setShowFansubModal] = useState(false);
+  const [localResolution, setLocalResolution] = useState("1080p");
 
   const KNOWN_PLAYERS = ["mpv", "vlc", "mpc-hc", "mpc-be", "potplayer"];
 
@@ -25,16 +28,27 @@ const Configuration = () => {
       setPlayer("custom");
       setCustomPlayer(savedPlayer);
     }
-  }, [data?.settings?.player]);
+    
+    setLocalResolution(getPreferredResolution(data?.settings));
+  }, [data?.settings]);
 
-  const handleSave = async () => {
+  const handleSaveTrigger = () => {
+    setShowSaveModal(true);
+  };
+
+  const handleSaveExecute = async () => {
     setIsSaving(true);
     const finalPlayer = player === "custom" ? customPlayer : player;
     try {
       await setSettings({
         ...data.settings,
         player: finalPlayer,
+        torrent: {
+          ...(data.settings?.torrent || {}),
+          resolution: localResolution
+        }
       });
+      setShowSaveModal(false);
       setTimeout(() => setIsSaving(false), 500);
     } catch (err) {
       console.error("Error saving settings:", err);
@@ -98,9 +112,24 @@ const Configuration = () => {
 
       <section className={styles.section}>
         <h2>Torrents y Fansubs</h2>
-        <p className={styles.hint} style={{ marginBottom: "16px" }}>
-          Configurá tus grupos de subtítulos preferidos y el fansub principal para automatizar la integración de episodios.
-        </p>
+        <div className={styles.settingItem} style={{ marginBottom: "20px" }}>
+          <label>Calidad de video preferida:</label>
+          <div className={styles.resContainer}>
+             {["2160p", "1080p", "720p", "480p"].map(res => {
+               return (
+                <button 
+                  key={res} 
+                  className={`${styles.resBtn} ${localResolution === res ? styles.resBtnActive : ""}`}
+                  onClick={() => setLocalResolution(res)}
+                >
+                  {res}
+                </button>
+               )
+             })}
+          </div>
+          <p className={styles.hint}>Los cambios de resolución se aplicarán después de guardar.</p>
+        </div>
+
         <button className={styles.secondaryButton} onClick={() => setShowFansubModal(true)}>
           ADMINISTRAR FANSUBS
         </button>
@@ -118,7 +147,7 @@ const Configuration = () => {
         </button>
       </section>
 
-      <button className={styles.saveButton} onClick={handleSave} disabled={isSaving}>
+      <button className={styles.saveButton} onClick={handleSaveTrigger} disabled={isSaving}>
         {isSaving ? "Guardando..." : "Guardar Cambios"}
       </button>
 
@@ -131,6 +160,17 @@ const Configuration = () => {
           isLoading={isClearing}
           variant="danger"
           confirmLabel="ELIMINAR TODO"
+        />
+      )}
+
+      {showSaveModal && (
+        <ConfirmModal
+          title="Guardar Configuración"
+          message="¿Quieres aplicar los nuevos ajustes a Zoku? Esto podría reiniciar el feed de torrents."
+          onConfirm={handleSaveExecute}
+          onCancel={() => setShowSaveModal(false)}
+          isLoading={isSaving}
+          confirmLabel="GUARDAR CAMBIOS"
         />
       )}
 

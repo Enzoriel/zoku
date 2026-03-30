@@ -134,3 +134,33 @@
   background: rgba(255, 30, 30, 0.1);
   box-shadow: 0 4px 12px rgba(255, 30, 30, 0.2);
 }
+
+.resContainer {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.resBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.resBtn:hover {
+  border-color: var(--primary-color);
+  background: rgba(255, 30, 30, 0.05);
+}
+
+.resBtnActive {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(255, 30, 30, 0.3);
+}

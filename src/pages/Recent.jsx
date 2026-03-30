@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
 import { useRecentAnime } from "../hooks/useRecentAnime";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import { openFile } from "../services/fileSystem";
-import { findTorrentMatches } from "../utils/torrentMatch";
+import { findTorrentMatches, extractAliasFromTitle } from "../utils/torrentMatch";
 import { useTorrent } from "../context/TorrentContext";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import TorrentSearchModal from "../components/ui/TorrentSearchModal";
@@ -16,21 +16,72 @@ const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNE
 const DAY_NAMES_SHORT = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 
 function Recent() {
-  const { data } = useStore();
+  const { data, setMyAnimes } = useStore();
   const { seasonalAnime, loading, error, retryFetch } = useAnime();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("recientes");
   const [activeDay, setActiveDay] = useState(new Date().getDay());
 
-  const { allAiringAnime, loadingExtra, errorExtra, retryExtra } = useRecentAnime(seasonalAnime, data.myAnimes, data.localFiles);
+  const { allAiringAnime, loadingExtra, errorExtra, retryExtra } = useRecentAnime(
+    seasonalAnime,
+    data.myAnimes,
+    data.localFiles,
+  );
   const { data: torrentData, isLoading: torrentLoading, principalFansub } = useTorrent();
 
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
   const [torrentModalTitle, setTorrentModalTitle] = useState("");
+  const [torrentModalMalId, setTorrentModalMalId] = useState(null);
 
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalItem, setSearchModalItem] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  // Aprendizaje automático de alias al detectar matches exitosos
+  useEffect(() => {
+    if (torrentLoading || !allAiringAnime.length || !torrentData.length) return;
+
+    const itemsToUpdate = [];
+    allAiringAnime.forEach((anime) => {
+      const id = anime.malId || anime.id;
+      const stored = data.myAnimes[id];
+      if (stored && !stored.torrentAlias) {
+        // Buscamos si hay algún match para el último episodio emitido para "aprender" el nombre de Nyaa
+        const nextAiring = anime.nextAiringEpisode;
+        const lastAiredEp = nextAiring ? nextAiring.episode - 1 : anime.episodes || 0;
+        
+        if (lastAiredEp > 0) {
+          const titleRomaji = anime.title;
+          const titleEnglish = anime.title_english || null;
+          const matches = findTorrentMatches(titleRomaji, titleEnglish, lastAiredEp, torrentData);
+          if (matches.length > 0) {
+            const alias = extractAliasFromTitle(matches[0].title);
+            itemsToUpdate.push({ id, alias });
+          }
+        }
+      }
+    });
+
+    if (itemsToUpdate.length > 0) {
+      setMyAnimes((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        itemsToUpdate.forEach(({ id, alias }) => {
+          if (next[id] && next[id].torrentAlias !== alias) {
+            next[id] = { ...next[id], torrentAlias: alias, lastUpdated: new Date().toISOString() };
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [torrentData, allAiringAnime, torrentLoading, data.myAnimes, setMyAnimes]);
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const myAnimeMap = useMemo(() => {
     const map = {};
@@ -52,7 +103,7 @@ function Recent() {
         const stored = myAnimeMap[id] || myAnimeMap[Number(id)] || myAnimeMap[String(id)];
 
         const watchedEps = stored?.watchedEpisodes || [];
-        const localFolder = Object.values(data.localFiles || {}).find(f => f.malId === id && f.isLinked);
+        const localFolder = Object.values(data.localFiles || {}).find((f) => f.malId === id && f.isLinked);
         const localFiles = localFolder?.files || [];
         const nextAiring = anime.nextAiringEpisode;
         const lastAiredEp = nextAiring ? nextAiring.episode - 1 : anime.episodes || 0;
@@ -75,7 +126,7 @@ function Recent() {
 
     myAiringAnime.forEach((anime) => {
       const SECONDS_IN_WEEK = 7 * 24 * 60 * 60;
-      
+
       // Intentar obtener una fecha de referencia: o el próximo episodio o la fecha de finalización
       let refAiringAt = null;
       let refEpisode = null;
@@ -264,19 +315,30 @@ function Recent() {
                           const stored = myAnimeMap[anime.malId] || myAnimeMap[anime.mal_id];
                           const titleRomaji = anime.title;
                           const titleEnglish = anime.title_english || null;
-                          const matches = findTorrentMatches(titleRomaji, titleEnglish, ep, torrentData, stored?.torrentAlias);
+                          const matches = findTorrentMatches(
+                            titleRomaji,
+                            titleEnglish,
+                            ep,
+                            torrentData,
+                            stored?.torrentAlias,
+                          );
                           const hasPrincipalMatch = matches.some((m) => m.fansub === principalFansub);
-                          
+
                           if (torrentLoading) return <div className={styles.torrentSpinner}></div>;
                           if (matches.length > 0) {
                             return (
                               <button
                                 className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
-                                title={hasPrincipalMatch ? `Descargar en ${principalFansub}` : `No disponible en ${principalFansub}. Hay alternativas de otros grupos.`}
+                                title={
+                                  hasPrincipalMatch
+                                    ? `Descargar en ${principalFansub}`
+                                    : `No disponible en ${principalFansub}. Hay alternativas de otros grupos.`
+                                }
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setTorrentModalItems(matches);
                                   setTorrentModalTitle(`${anime.title} — Episodio ${ep}`);
+                                  setTorrentModalMalId(anime.malId || anime.mal_id);
                                   setTorrentModalOpen(true);
                                 }}
                               >
@@ -291,7 +353,14 @@ function Recent() {
                               title="Buscar torrent manualmente en otras pestañas"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSearchModalItem({ title: anime.title, ep, malId: anime.malId || anime.mal_id });
+                                const stored = myAnimeMap[anime.malId || anime.mal_id];
+                                const query = stored?.torrentAlias || anime.title;
+
+                                setSearchModalItem({
+                                  title: query,
+                                  ep,
+                                  malId: anime.malId || anime.mal_id,
+                                });
                                 setSearchModalOpen(true);
                               }}
                             >
@@ -408,10 +477,12 @@ function Recent() {
       <TorrentDownloadModal
         isOpen={torrentModalOpen}
         onClose={() => setTorrentModalOpen(false)}
-        animeTitle={torrentModalTitle}
+        animeTitle={torrentModalTitle.split(" — ")[0]}
         items={torrentModalItems}
+        malId={torrentModalMalId}
+        showToast={showToast}
       />
-      
+
       <TorrentSearchModal
         isOpen={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}

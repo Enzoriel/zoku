@@ -10,6 +10,10 @@
       "identifier": "opener:allow-open-path",
       "allow": [{ "path": "**" }]
     },
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "magnet:*" }, { "url": "http:*" }, { "url": "https:*" }]
+    },
     "store:default",
     "dialog:default",
     "fs:allow-exists",

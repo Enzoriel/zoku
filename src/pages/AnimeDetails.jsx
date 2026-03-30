@@ -12,6 +12,9 @@ import { extractEpisodeNumber } from "../utils/fileParsing";
 import { calculateUserStatus } from "../utils/animeStatus";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import TorrentAliasModal from "../components/ui/TorrentAliasModal";
+import FolderLinkModal from "../components/ui/FolderLinkModal";
+import SearchApiModal from "../components/ui/SearchApiModal";
 import styles from "./AnimeDetails.module.css";
 
 const WATCH_TIMER_MS = 60 * 1000;
@@ -20,29 +23,18 @@ const METADATA_REFRESH_DAYS = 7;
 function titlesMatch(normalizedTitle, normalizedKey) {
   if (!normalizedTitle || !normalizedKey) return false;
   if (normalizedTitle === normalizedKey) return true;
-
   const blacklist = ["season", "part", "anime", "2nd", "3rd", "4th", "5th", "s2", "s3", "s4"];
-
-  // Extraemos solo las palabras clave que identifican la serie (excluyendo temporadas/partes/secuelas)
   const getBaseNameWords = (str) =>
     str
       .split(" ")
       .filter((w) => w.length > 2)
       .filter((w) => !blacklist.includes(w));
-
   const wordsTitle = getBaseNameWords(normalizedTitle);
   const wordsKey = getBaseNameWords(normalizedKey);
-
-  // Si después de limpiar no queda nada (ej: "3rd Season") no podemos confiar en el match automatizado
   if (wordsTitle.length === 0 || wordsKey.length === 0) return false;
-
-  // Comprobamos la coincidencia del "Nombre Base" exclusivamente
   const matches = wordsTitle.filter((w) => wordsKey.includes(w)).length;
   const totalUniqueWords = Math.max(wordsTitle.length, wordsKey.length);
-  const baseScore = matches / totalUniqueWords;
-
-  // Exigimos un 80% de coincidencia en el nombre base antes de considerar que es la misma serie
-  return baseScore >= 0.8;
+  return matches / totalUniqueWords >= 0.8;
 }
 
 function AnimeDetails() {
@@ -62,6 +54,7 @@ function AnimeDetails() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLinkFolderModal, setShowLinkFolderModal] = useState(false);
+  const [showAliasModal, setShowAliasModal] = useState(false);
   const [folderSearch, setFolderSearch] = useState("");
   const [contextMenu, setContextMenu] = useState(null);
   const [toast, setToast] = useState(null);
@@ -71,7 +64,6 @@ function AnimeDetails() {
   const [apiSearchResults, setApiSearchResults] = useState([]);
   const [isSearchingApi, setIsSearchingApi] = useState(false);
 
-  // States for Torrents
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
   const [torrentModalTitle, setTorrentModalTitle] = useState("");
@@ -79,8 +71,6 @@ function AnimeDetails() {
   const menuRef = useRef(null);
   const watchIntervalRef = useRef(null);
   const watchStartTimeRef = useRef(null);
-
-  // ─── Reactive data ──────────────────────────────────────────────────────────
 
   const animeId = useMemo(() => {
     return id && id !== "null" && id !== "undefined" ? id : anime?.malId || anime?.mal_id || null;
@@ -102,15 +92,12 @@ function AnimeDetails() {
 
   const animeFilesData = useMemo(() => {
     if (!mainAnime) return { files: [] };
-    
-    // Primero intentamos buscar por malId (gracias al parche del FS auto-linker)
-    const folderObj = Object.values(data?.localFiles || {}).find(f => {
+    const folderObj = Object.values(data?.localFiles || {}).find((f) => {
       if (f.malId && mainAnime.malId && String(f.malId) === String(mainAnime.malId)) return true;
       if (mainAnime.folderName && f.folderName === mainAnime.folderName) return true;
       if (folderName && f.folderName === folderName) return true;
       return false;
     });
-
     return folderObj || { files: [] };
   }, [mainAnime, data?.localFiles, folderName]);
 
@@ -126,8 +113,6 @@ function AnimeDetails() {
     return unlinkedFolders.filter((f) => f.key.toLowerCase().includes(q));
   }, [unlinkedFolders, folderSearch]);
 
-  // ─── Effects ────────────────────────────────────────────────────────────────
-
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
@@ -137,9 +122,10 @@ function AnimeDetails() {
   }, []);
 
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(t);
+    }
   }, [toast]);
 
   useEffect(() => {
@@ -153,51 +139,29 @@ function AnimeDetails() {
     };
   }, [contextMenu]);
 
-  const dataMyAnimesRef = useRef(data.myAnimes);
-  const getAnimeByIdRef = useRef(getAnimeById);
-  const setMyAnimesRef = useRef(setMyAnimes);
-  useEffect(() => {
-    dataMyAnimesRef.current = data.myAnimes;
-  }, [data.myAnimes]);
-  useEffect(() => {
-    getAnimeByIdRef.current = getAnimeById;
-  }, [getAnimeById]);
-  useEffect(() => {
-    setMyAnimesRef.current = setMyAnimes;
-  }, [setMyAnimes]);
+  const autoRefreshMetadata = useCallback(
+    async (currentAnimeId) => {
+      const stored = data.myAnimes[currentAnimeId];
+      if (!stored) return;
+      const apiData = getAnimeById(currentAnimeId);
+      if (!apiData) return;
+      await setMyAnimes((prev) => ({
+        ...prev,
+        [currentAnimeId]: {
+          ...prev[currentAnimeId],
+          ...apiData,
+          lastMetadataFetch: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+        },
+      }));
+    },
+    [data.myAnimes, getAnimeById, setMyAnimes],
+  );
 
-  const autoRefreshMetadata = useCallback(async (currentAnimeId) => {
-    const stored = dataMyAnimesRef.current[currentAnimeId];
-    if (!stored) return;
-    const lastFetch = stored.lastMetadataFetch;
-    const daysSince = lastFetch ? (Date.now() - new Date(lastFetch).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
-    const isMissingData = !stored.rank || !stored.studios?.length;
-    if (daysSince < METADATA_REFRESH_DAYS && !isMissingData) return;
-    const apiData = getAnimeByIdRef.current(currentAnimeId);
-    if (!apiData) return;
-    await setMyAnimesRef.current((prev) => ({
-      ...prev,
-      [currentAnimeId]: {
-        ...prev[currentAnimeId],
-        ...apiData,
-        lastMetadataFetch: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-      },
-    }));
-  }, []);
-
-  const lastLoadedId = useRef(null);
   useEffect(() => {
-    if (lastLoadedId.current !== id) {
-      setLoading(true);
-      lastLoadedId.current = id;
-    }
-    if (!mainAnime && folderName) setAnime({ title: folderName, isUnknown: true, episodeList: [] });
     if (animeId && data.myAnimes[animeId]) autoRefreshMetadata(animeId);
     setLoading(false);
-  }, [id, folderName, mainAnime, animeId, autoRefreshMetadata, data.myAnimes]);
-
-  // ─── Actions ────────────────────────────────────────────────────────────────
+  }, [animeId, autoRefreshMetadata, data.myAnimes]);
 
   const showToast = useCallback((message, type = "info") => {
     setToast({ message, type });
@@ -226,12 +190,9 @@ function AnimeDetails() {
         .replace(/^[-\s]+|[-\s]+$/g, "")
         .replace(/(-\s*\d+(v\d+)?.*)$/i, "")
         .trim();
-
       setApiSearchQuery(cleanName);
       setShowSearchApiModal(true);
-      if (cleanName) {
-        handleApiSearch(cleanName);
-      }
+      if (cleanName) handleApiSearch(cleanName);
     } else {
       handleAddToLibrary();
     }
@@ -239,11 +200,9 @@ function AnimeDetails() {
 
   const handleLinkAndAdd = async (apiAnime) => {
     const newMalId = apiAnime.mal_id || apiAnime.malId;
-
-    // Normalización de datos para que la librería y detalles funcionen
     const animeData = {
       malId: newMalId,
-      mal_id: newMalId, // Compatibilidad doble
+      mal_id: newMalId,
       title: apiAnime.title || apiAnime.title_english || apiAnime.title_japanese || "Unknown Title",
       coverImage: apiAnime.images?.jpg?.large_image_url || apiAnime.images?.jpg?.image_url || apiAnime.coverImage,
       totalEpisodes: apiAnime.episodes || apiAnime.totalEpisodes || 0,
@@ -272,11 +231,9 @@ function AnimeDetails() {
       folderName: folderName,
       isInLibrary: true,
     };
-
-    const newMyAnimes = { ...data.myAnimes, [newMalId]: animeData };
-    await setMyAnimes(newMyAnimes);
+    await setMyAnimes({ ...data.myAnimes, [newMalId]: animeData });
     setShowSearchApiModal(false);
-    await performSync(newMyAnimes);
+    await performSync({ ...data.myAnimes, [newMalId]: animeData });
     showToast(`Serie vinculada con éxito.`, "success");
     navigate(`/anime/${newMalId}`);
   };
@@ -289,17 +246,12 @@ function AnimeDetails() {
       malId: animeId,
       addedAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
-      watchedEpisodes: (data.myAnimes[animeId] || {}).watchedEpisodes || [],
-      lastEpisodeWatched: (data.myAnimes[animeId] || {}).lastEpisodeWatched || 0,
-      watchHistory: (data.myAnimes[animeId] || {}).watchHistory || [],
+      userStatus: "PLAN_TO_WATCH",
     };
-    if (!entry.userStatus) entry.userStatus = "PLAN_TO_WATCH";
-
     const normalizedTitle = normalizeForSearch(mainAnime.title);
-    const match = Object.entries(data.localFiles).find(([k, v]) => {
-      if (v.isLinked) return false;
-      return titlesMatch(normalizedTitle, normalizeForSearch(k));
-    });
+    const match = Object.entries(data.localFiles).find(
+      ([k, v]) => !v.isLinked && titlesMatch(normalizedTitle, normalizeForSearch(k)),
+    );
     const newMyAnimes = { ...data.myAnimes, [animeId]: entry };
     if (match) {
       entry.folderName = match[0];
@@ -309,46 +261,31 @@ function AnimeDetails() {
       showToast(`Vinculado con "${match[0]}"`, "success");
     } else {
       await setMyAnimes(newMyAnimes);
-      showToast("Añadido a la lista. No se encontró carpeta local.", "info");
+      showToast("Añadido a la lista.", "info");
     }
   }, [mainAnime, animeId, data.myAnimes, data.localFiles, setMyAnimes, performSync, showToast]);
 
   const handleRemoveFromLibrary = useCallback(() => {
     if (!animeId) return;
     setMenuOpen(false);
-
-    const hasProgress = (mainAnime.watchedEpisodes || []).length > 0;
-    const hasDownloads = !!mainAnime.folderName;
-
-    const linkedFolder = mainAnime.folderName;
-
     const performRemoval = async () => {
       const newMyAnimes = { ...data.myAnimes };
       delete newMyAnimes[animeId];
       await setMyAnimes(newMyAnimes);
       await performSync(newMyAnimes);
-
-      // Si tenía carpeta local, volver a la vista de carpeta sin vincular
-      if (linkedFolder) {
-        navigate(`/anime/null?folder=${encodeURIComponent(linkedFolder)}`, { replace: true });
-      } else {
-        navigate(-1);
-      }
+      if (mainAnime.folderName)
+        navigate(`/anime/null?folder=${encodeURIComponent(mainAnime.folderName)}`, { replace: true });
+      else navigate(-1);
     };
-
-    if (hasProgress || hasDownloads) {
-      setConfirmModal({
-        title: "¿Quitar de la lista?",
-        message: "Se eliminará el progreso pero no tus archivos locales.",
-        onConfirm: async () => {
-          setConfirmModal(null);
-          await performRemoval();
-        },
-      });
-    } else {
-      performRemoval();
-    }
-  }, [animeId, mainAnime?.watchedEpisodes, mainAnime?.folderName, data.myAnimes, setMyAnimes, performSync, navigate]);
+    setConfirmModal({
+      title: "¿Quitar de la lista?",
+      message: "Se eliminará el progreso.",
+      onConfirm: async () => {
+        setConfirmModal(null);
+        await performRemoval();
+      },
+    });
+  }, [animeId, mainAnime?.folderName, data.myAnimes, setMyAnimes, performSync, navigate]);
 
   const handleToggleWatched = useCallback(
     async (epNumber, currentlyWatched) => {
@@ -359,15 +296,7 @@ function AnimeDetails() {
         const watchedEps = currentlyWatched
           ? (current.watchedEpisodes || []).filter((n) => n !== epNumber)
           : [...(current.watchedEpisodes || []), epNumber];
-        const newHistory = currentlyWatched
-          ? (current.watchHistory || []).filter((h) => h.episode !== epNumber)
-          : [...(current.watchHistory || []), { episode: epNumber, watchedAt: new Date().toISOString() }];
-        const updated = {
-          ...current,
-          watchedEpisodes: watchedEps,
-          watchHistory: newHistory,
-          lastUpdated: new Date().toISOString(),
-        };
+        const updated = { ...current, watchedEpisodes: watchedEps, lastUpdated: new Date().toISOString() };
         updated.userStatus = calculateUserStatus(updated);
         return { ...prev, [animeId]: updated };
       });
@@ -380,7 +309,7 @@ function AnimeDetails() {
       if (!filePath) return;
       const ok = await openFile(filePath);
       if (!ok) {
-        showToast("Error al abrir el reproductor.", "warn");
+        showToast("Error al abrir.", "warn");
         return;
       }
       if (!animeId || !mainAnime?.isInLibrary) return;
@@ -403,12 +332,6 @@ function AnimeDetails() {
     },
     [animeId, mainAnime?.isInLibrary, data?.settings?.player, showToast, handleToggleWatched],
   );
-
-  useEffect(() => {
-    return () => {
-      if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
-    };
-  }, []);
 
   const handleContextMenu = useCallback(
     (e, epNum, isWatched) => {
@@ -435,8 +358,6 @@ function AnimeDetails() {
     [animeId, setMyAnimes, performSync, showToast],
   );
 
-  // ─── Episode status (4 states) ──────────────────────────────────────────────
-
   const getEpisodeStatus = useCallback(
     (epNum) => {
       const isWatched = mainAnime?.watchedEpisodes?.includes(epNum);
@@ -446,48 +367,22 @@ function AnimeDetails() {
       if (isWatched) return { label: "VISTO", type: "tagWatched", file: localFile };
       if (localFile?.isDownloading) return { label: "DESCARGANDO", type: "tagDownloading", file: localFile };
       if (localFile) return { label: "DESCARGADO", type: "tagDownloaded", file: localFile };
-
       const st = mainAnime?.status;
-
-      // Si el anime ya terminó, todos están emitidos
-      if (st === "Finalizado" || st === "Finished Airing" || st === "FINISHED") {
+      if (st === "Finalizado" || st === "Finished Airing" || st === "FINISHED")
         return { label: "EMITIDO", type: "tagAired", file: null };
-      }
-
-      // Si aún no sale
-      if (st === "Próximamente" || st === "NOT_YET_RELEASED" || st === "Not yet aired") {
+      if (st === "Próximamente" || st === "NOT_YET_RELEASED" || st === "Not yet aired")
         return { label: "PRÓXIMO", type: "tagNotAired", file: null };
-      }
-
-      // Si está en emisión (o cancelado/en pausa)
       if (mainAnime?.nextAiringEpisode) {
         const nextEp = mainAnime.nextAiringEpisode.episode;
         if (epNum < nextEp) return { label: "EMITIDO", type: "tagAired", file: null };
         return { label: "PRÓXIMO", type: "tagNotAired", file: null };
       }
-
-      // Fallback si no hay nextAiringEpisode pero está en emisión,
-      // comparamos si la cantidad total/emitidos conocida de los datos alcanza para este episodio
       const airedEstimate = mainAnime?.episodes || mainAnime?.episodeList?.length || 0;
-      if (airedEstimate > 0 && epNum <= airedEstimate) {
-        return { label: "EMITIDO", type: "tagAired", file: null };
-      }
-
+      if (airedEstimate > 0 && epNum <= airedEstimate) return { label: "EMITIDO", type: "tagAired", file: null };
       return { label: "PRÓXIMO", type: "tagNotAired", file: null };
     },
-    [
-      mainAnime?.watchedEpisodes,
-      mainAnime?.title,
-      mainAnime?.status,
-      mainAnime?.nextAiringEpisode,
-      mainAnime?.episodes,
-      mainAnime?.episodeList,
-      animeFilesData.files,
-      folderName,
-    ],
+    [mainAnime, animeFilesData.files, folderName],
   );
-
-  // ─── Render ─────────────────────────────────────────────────────────────────
 
   if (loading)
     return (
@@ -503,14 +398,12 @@ function AnimeDetails() {
     animeFilesData.files.length > 0 ? Math.max(...animeFilesData.files.map((f) => f.episodeNumber || 0)) : 0,
   );
   const episodes = Array.from({ length: totalEps || 1 }, (_, i) => i + 1);
-  const watchedCount = mainAnime.watchedEpisodes.length;
-  const progressPct = episodes.length > 0 ? (watchedCount / episodes.length) * 100 : 0;
+  const progressPct = episodes.length > 0 ? (mainAnime.watchedEpisodes.length / episodes.length) * 100 : 0;
   const isLinked = !!mainAnime.folderName;
 
   return (
     <div className={styles.container}>
       <div className={styles.contentLayout}>
-        {/* SIDEBAR */}
         <aside className={styles.sidebar}>
           <div className={styles.posterWrapper}>
             {mainAnime.coverImage ? (
@@ -564,6 +457,26 @@ function AnimeDetails() {
                         {isLinked ? "CAMBIAR CARPETA" : "VINCULAR CARPETA"}
                       </button>
                       <button
+                        className={styles.menuItem}
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setShowAliasModal(true);
+                        }}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                        CAMBIAR ALIAS NYAA
+                      </button>
+                      <button
                         className={`${styles.menuItem} ${styles.menuItemDanger}`}
                         onClick={handleRemoveFromLibrary}
                       >
@@ -588,8 +501,8 @@ function AnimeDetails() {
           </div>
           <div className={styles.tagsList}>
             {mainAnime.genres?.map((g) => (
-              <span key={g.mal_id} className={styles.tag}>
-                {g.name}
+              <span key={g.mal_id || g.name} className={styles.tag}>
+                {g.name || g}
               </span>
             ))}
           </div>
@@ -612,12 +525,10 @@ function AnimeDetails() {
               </span>
             </div>
             <div className={styles.dataItem} data-label="MIEMBROS">
-              <span className={styles.dataValue}>{mainAnime.members ? mainAnime.members.toLocaleString() : "N/A"}</span>
+              <span className={styles.dataValue}>{mainAnime.members?.toLocaleString() || "N/A"}</span>
             </div>
             <div className={styles.dataItem} data-label="FAVORITOS">
-              <span className={styles.dataValue}>
-                ❤ {mainAnime.favorites ? mainAnime.favorites.toLocaleString() : "0"}
-              </span>
+              <span className={styles.dataValue}>❤ {mainAnime.favorites?.toLocaleString() || "0"}</span>
             </div>
             <div className={styles.dataItem} data-label="ORIGEN">
               <span className={styles.dataValue}>{mainAnime.source || "N/A"}</span>
@@ -627,63 +538,21 @@ function AnimeDetails() {
             <p className={styles.synopsisText}>{mainAnime.synopsis || "Sinopsis no disponible."}</p>
           </div>
         </aside>
-
-        {/* MAIN */}
         <main className={styles.mainContent}>
           <header className={styles.headerArea}>
             <div className={styles.titleContainer}>
-              <h1 className={styles.mainTitle}>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 40 40"
-                  width="18"
-                  height="18"
-                  className={styles.titleIcon}
-                >
-                  <polygon
-                    points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8"
-                    fill="currentColor"
-                  />
-                  <polygon
-                    points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8"
-                    transform="translate(20, 20) scale(0.4) translate(-20, -20)"
-                    className={styles.titleIconInner}
-                  />
-                </svg>
-                {mainAnime.title}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 40 40"
-                  width="18"
-                  height="18"
-                  className={styles.titleIcon}
-                >
-                  <polygon
-                    points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8"
-                    fill="currentColor"
-                  />
-                  <polygon
-                    points="16,0 24,0 24,8 32,8 32,16 40,16 40,24 32,24 32,32 24,32 24,40 16,40 16,32 8,32 8,24 0,24 0,16 8,16 8,8 16,8"
-                    transform="translate(20, 20) scale(0.4) translate(-20, -20)"
-                    className={styles.titleIconInner}
-                  />
-                </svg>
-              </h1>
+              <h1 className={styles.mainTitle}>{mainAnime.title}</h1>
               <div className={styles.titleMeta}>
-                <span>{mainAnime.type}</span>
-                <span className={styles.separator}>•</span>
-                <span>{mainAnime.year}</span>
-                <span className={styles.separator}>•</span>
+                <span>{mainAnime.type}</span> • <span>{mainAnime.year}</span> •{" "}
                 <span className={styles.statusText}>{mainAnime.status}</span>
               </div>
             </div>
           </header>
-
           <section className={styles.episodesSection}>
             <div className={styles.episodesHeader}>
               <h2 className={styles.episodesTitle}>Lista de Episodios</h2>
               <span className={styles.episodesStats}>
-                {watchedCount} / {episodes.length} VISTOS
+                {mainAnime.watchedEpisodes.length} / {episodes.length} VISTOS
               </span>
             </div>
             <div className={styles.progressBar}>
@@ -694,82 +563,36 @@ function AnimeDetails() {
                 const status = getEpisodeStatus(epNum);
                 const isPlaying = playingEp === epNum;
                 const isPlayable = !!status.file && status.type !== "tagDownloading";
-                const isDownloading = status.type === "tagDownloading";
-
-                // Logica de Torrents en linea con este episodio
-                const titleRomaji = mainAnime.title;
-                const titleEnglish = mainAnime.title_english || null;
-                const matches = findTorrentMatches(titleRomaji, titleEnglish, epNum, torrentData, mainAnime.torrentAlias);
+                const matches = findTorrentMatches(
+                  mainAnime.title,
+                  mainAnime.title_english,
+                  epNum,
+                  torrentData,
+                  mainAnime.torrentAlias,
+                );
                 const hasPrincipalMatch = matches.some((m) => m.fansub === principalFansub);
-
                 return (
                   <div
                     key={epNum}
-                    className={`${styles.episodeCard} ${status.type === "tagWatched" ? styles.episodeCardWatched : ""} ${isPlayable ? styles.episodeCardPlayable : ""} ${!isPlayable && status.type !== "tagNotAired" ? styles.episodeCardNoFile : ""} ${isPlaying ? styles.episodeCardPlaying : ""}`}
+                    className={`${styles.episodeCard} ${isPlaying ? styles.episodeCardPlaying : ""} ${isPlayable ? styles.episodeCardPlayable : ""}`}
                     onClick={() => isPlayable && handlePlayEpisode(epNum, status.file.path)}
-                    onContextMenu={(e) => handleContextMenu(e, epNum, status.type === "tagWatched")}
                   >
-                    {isPlayable && (
-                      <span className={styles.epPlayIcon}>
-                        <svg width="40" height="50" viewBox="0 0 70 90" className={styles.playPixel}>
-                          <polygon
-                            points="
-                            0,0
-                            12,0 12,6
-                            18,6 18,12
-                            24,12 24,18
-                            30,18 30,24
-                            36,24 36,30
-                            42,30 42,36
-                            48,36 48,42
-                            42,42 42,48
-                            36,48 36,54
-                            30,54 30,60
-                            24,60 24,66
-                            18,66 18,72
-                            12,72 12,78
-                            0,78
-                          "
-                            className={styles.pixelFill}
-                          />
-                        </svg>
-                        <span className={styles.playText}>REPRODUCIR</span>
-                      </span>
-                    )}
-                    {isDownloading && (
-                      <span className={styles.epPlayIcon}>
-                        <span style={{ fontSize: "1.5rem", marginRight: "8px", animation: "pulse 1.5s infinite" }}>⏳</span>
-                        <span className={styles.playText}>EN CURSO...</span>
-                      </span>
-                    )}
                     <div className={styles.episodeInfo}>
-                      <span className={styles.episodeTitle}>
-                        {mainAnime.episodeList?.find((e) => e.mal_id === epNum)?.title || `Episodio ${epNum}`}
-                      </span>
+                      <span className={styles.episodeTitle}>Episodio {epNum}</span>
                       <span className={`${styles.statusTag} ${styles[status.type]}`}>{status.label}</span>
                     </div>
-                    {isPlaying && <span className={styles.tagPlaying}>REPRODUCIENDO</span>}
-
-                    {/* Botones de Torrent */}
-                    {principalFansub && !isPlayable && !isDownloading && (
-                      <div className={styles.torrentActions} onClick={(e) => e.stopPropagation()}>
-                        {torrentLoading ? (
-                          <div className={styles.torrentSpinner}></div>
-                        ) : matches.length > 0 ? (
-                          <button
-                            className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
-                            title={hasPrincipalMatch ? `Descargar en ${principalFansub}` : `No disponible en ${principalFansub}. Hay alternativas de otros grupos.`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTorrentModalItems(matches);
-                              setTorrentModalTitle(`${mainAnime.title} — Episodio ${epNum}`);
-                              setTorrentModalOpen(true);
-                            }}
-                          >
-                            {hasPrincipalMatch ? "⬇ Disponible" : "⬇ Alternativa"}
-                          </button>
-                        ) : null}
-                      </div>
+                    {principalFansub && !isPlayable && matches.length > 0 && (
+                      <button
+                        className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTorrentModalItems(matches);
+                          setTorrentModalTitle(`${mainAnime.title} — EP ${epNum}`);
+                          setTorrentModalOpen(true);
+                        }}
+                      >
+                        ⬇ {hasPrincipalMatch ? "Disponible" : "Alternativa"}
+                      </button>
                     )}
                   </div>
                 );
@@ -778,14 +601,8 @@ function AnimeDetails() {
           </section>
         </main>
       </div>
-
-      {/* Context menu (right-click) */}
       {contextMenu && (
-        <div
-          className={styles.contextMenu}
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
+        <div className={styles.contextMenu} style={{ top: contextMenu.y, left: contextMenu.x }}>
           <button
             className={styles.contextMenuItem}
             onClick={() => {
@@ -793,102 +610,34 @@ function AnimeDetails() {
               setContextMenu(null);
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
             {contextMenu.isWatched ? "MARCAR COMO NO VISTO" : "MARCAR COMO VISTO"}
           </button>
         </div>
       )}
-
-      {/* Link folder modal */}
-      {showLinkFolderModal && (
-        <div
-          className={styles.modalOverlay}
-          onClick={() => {
-            setShowLinkFolderModal(false);
-            setFolderSearch("");
-          }}
-        >
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.sectionTitle}>{isLinked ? "CAMBIAR CARPETA" : "VINCULAR CARPETA"}</h3>
-            <input
-              type="text"
-              className={styles.folderSearchInput}
-              placeholder="Buscar carpeta..."
-              value={folderSearch}
-              onChange={(e) => setFolderSearch(e.target.value)}
-              autoFocus
-            />
-            <div className={styles.folderList}>
-              {filteredFolders.length === 0 && (
-                <p className={styles.emptyFolderText}>No hay carpetas sin vincular disponibles.</p>
-              )}
-              {filteredFolders.map((f) => (
-                <div key={f.key} className={styles.folderItem} onClick={() => handleLinkFolder(f.key)}>
-                  <span className={styles.folderName}>{f.key}</span>
-                  <span className={styles.folderEpCount}>{f.files?.length || 0} archivos</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Search API Modal para vincular la carpeta */}
-      {showSearchApiModal && (
-        <div
-          className={styles.modalOverlay}
-          onClick={() => {
-            setShowSearchApiModal(false);
-            setApiSearchResults([]);
-          }}
-        >
-          <div className={`${styles.modal} ${styles.apiSearchModal}`} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.sectionTitle}>BUSCAR EN LA RED</h3>
-            <div className={styles.apiSearchForm}>
-              <input
-                type="text"
-                className={styles.apiSearchInput}
-                placeholder="Nombre del anime..."
-                value={apiSearchQuery}
-                onChange={(e) => setApiSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleApiSearch()}
-                autoFocus
-              />
-              <button
-                className={`${styles.actionBtn} ${styles.primaryBtn} ${styles.apiSearchBtn}`}
-                onClick={handleApiSearch}
-                disabled={isSearchingApi}
-              >
-                {isSearchingApi ? "..." : "BUSCAR"}
-              </button>
-            </div>
-
-            <div className={styles.apiResultList}>
-              {apiSearchResults.length === 0 && !isSearchingApi && (
-                <p className={styles.emptyFolderText}>No hay resultados para mostrar.</p>
-              )}
-              {apiSearchResults.map((animeResult) => (
-                <div
-                  key={animeResult.mal_id}
-                  className={styles.apiResultItem}
-                  onClick={() => handleLinkAndAdd(animeResult)}
-                >
-                  <img src={animeResult.images?.jpg?.small_image_url} className={styles.apiResultThumb} alt="" />
-                  <div className={styles.apiResultInfo}>
-                    <span className={styles.apiResultTitle}>{animeResult.title}</span>
-                    <span className={styles.apiResultMeta}>
-                      {animeResult.type} • {animeResult.episodes || "?"} EPS • {animeResult.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
+      <FolderLinkModal
+        isOpen={showLinkFolderModal}
+        onClose={() => {
+          setShowLinkFolderModal(false);
+          setFolderSearch("");
+        }}
+        folderSearch={folderSearch}
+        setFolderSearch={setFolderSearch}
+        filteredFolders={filteredFolders}
+        onLink={handleLinkFolder}
+      />
+      <SearchApiModal
+        isOpen={showSearchApiModal}
+        onClose={() => {
+          setShowSearchApiModal(false);
+          setApiSearchResults([]);
+        }}
+        query={apiSearchQuery}
+        setQuery={setApiSearchQuery}
+        results={apiSearchResults}
+        onSearch={handleApiSearch}
+        onSelect={handleLinkAndAdd}
+        isLoading={isSearchingApi}
+      />
       {confirmModal && (
         <ConfirmModal
           title={confirmModal.title}
@@ -897,21 +646,34 @@ function AnimeDetails() {
           onCancel={() => setConfirmModal(null)}
         />
       )}
-
       {toast && (
         <div className={styles.toast} data-type={toast.type}>
           {toast.message}
         </div>
       )}
-
+      {showAliasModal && (
+        <TorrentAliasModal
+          isOpen={showAliasModal}
+          onClose={() => setShowAliasModal(false)}
+          initialValue={data.myAnimes[animeId]?.torrentAlias || ""}
+          onSave={async (newAlias) => {
+            await setMyAnimes((prev) => ({
+              ...prev,
+              [animeId]: { ...prev[animeId], torrentAlias: newAlias, lastUpdated: new Date().toISOString() },
+            }));
+            showToast("Alias de Nyaa actualizado.", "success");
+          }}
+        />
+      )}
       <TorrentDownloadModal
         isOpen={torrentModalOpen}
         onClose={() => setTorrentModalOpen(false)}
-        animeTitle={torrentModalTitle}
+        animeTitle={mainAnime?.title}
         items={torrentModalItems}
+        malId={animeId}
+        showToast={showToast}
       />
     </div>
   );
 }
-
 export default AnimeDetails;

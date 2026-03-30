@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useStore } from "../../hooks/useStore";
+import { getPreferredResolution } from "../../utils/torrentConfig";
 import styles from "./FansubOnboardingModal.module.css";
 
 const PRESET_FANSUBS = [
@@ -22,6 +23,7 @@ function FansubOnboardingModal({ onComplete }) {
   const [customFansubs, setCustomFansubs] = useState([]);
   const [customInput, setCustomInput] = useState("");
   const [principal, setPrincipal] = useState(null);
+  const [resolution, setResolution] = useState("1080p");
   const [saving, setSaving] = useState(false);
 
   // Precargar si ya hay fansubs configurados (edición)
@@ -32,11 +34,15 @@ function FansubOnboardingModal({ onComplete }) {
       setSelected(names);
       const principalEntry = existing.find((f) => f.principal);
       if (principalEntry) setPrincipal(principalEntry.name);
+      
+      const savedRes = getPreferredResolution(data?.settings);
+      setResolution(savedRes);
+
       // Detectar custom fansubs (no están en la lista de presets)
       const customs = names.filter((n) => !PRESET_FANSUBS.some((p) => p.toLowerCase() === n.toLowerCase()));
       setCustomFansubs(customs);
     }
-  }, [data?.settings?.torrent?.fansubs]);
+  }, [data?.settings]);
 
   const allOptions = [...PRESET_FANSUBS, ...customFansubs.filter((c) => !PRESET_FANSUBS.some((p) => p.toLowerCase() === c.toLowerCase()))];
 
@@ -74,6 +80,7 @@ function FansubOnboardingModal({ onComplete }) {
       await setSettings({
         ...data.settings,
         torrent: {
+          resolution,
           fansubs: selected.map((name) => ({
             name,
             principal: principal ? name.toLowerCase() === principal.toLowerCase() : false,
@@ -86,7 +93,7 @@ function FansubOnboardingModal({ onComplete }) {
     } finally {
       setSaving(false);
     }
-  }, [selected, principal, data.settings, setSettings, onComplete]);
+  }, [selected, principal, resolution, data.settings, setSettings, onComplete]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -178,6 +185,31 @@ function FansubOnboardingModal({ onComplete }) {
             </p>
           </div>
         )}
+
+        {/* Sección 3: Resolución */}
+        <div className={styles.section}>
+          <div className={styles.principalHeader}>
+            <span className={styles.starIcon}>📺</span>
+            <span className={styles.principalLabel}>RESOLUCIÓN PREFERIDA</span>
+          </div>
+          <div className={styles.resolutionGrid}>
+            {["2160p", "1080p", "720p", "480p"].map((res) => (
+              <label key={res} className={`${styles.radioItem} ${resolution === res ? styles.radioActive : ""}`}>
+                <input
+                  type="radio"
+                  name="resolution-select"
+                  checked={resolution === res}
+                  onChange={() => setResolution(res)}
+                  className={styles.radioInput}
+                />
+                <span className={styles.radioLabel}>{res}</span>
+              </label>
+            ))}
+          </div>
+          <p className={styles.principalHint}>
+            Zoku usará esta calidad para que los resultados en <strong>Recent</strong> sean más precisos y puedas encontrar episodios de hace varios días fácilmente.
+          </p>
+        </div>
 
         {/* Footer */}
         <div className={styles.footer}>

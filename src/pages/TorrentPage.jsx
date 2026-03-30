@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import { useStore } from "../hooks/useStore";
 import { useTorrent } from "../context/TorrentContext";
-import { hasConfiguredFansubs, getAllFansubs, getPrincipalFansub } from "../utils/torrentConfig";
+import { hasConfiguredFansubs, getAllFansubs, getPrincipalFansub, getPreferredResolution } from "../utils/torrentConfig";
 import FansubOnboardingModal from "../components/ui/FansubOnboardingModal";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import styles from "./TorrentPage.module.css";
@@ -22,11 +22,20 @@ function TorrentPage() {
   const hasConfig = hasConfiguredFansubs(storeData.settings);
   const allFansubs = getAllFansubs(storeData.settings);
   const principalFansub = getPrincipalFansub(storeData.settings);
+  const preferredRes = useMemo(() => getPreferredResolution(storeData.settings), [storeData.settings]);
 
   // States
   const [activeTab, setActiveTab] = useState(location.state?.activeTab || "general");
   const [searchInput, setSearchInput] = useState(location.state?.searchInput || "");
-  const [activeQuery, setActiveQuery] = useState(location.state?.activeQuery || "");
+  const [activeQuery, setActiveQuery] = useState(() => {
+    if (location.state?.activeQuery) return location.state.activeQuery;
+    if (location.state?.animeTitle) {
+      const ep = location.state?.epNumber;
+      const q = ep ? `${location.state.animeTitle} ${ep}` : location.state.animeTitle;
+      return q.toLowerCase().includes(preferredRes.toLowerCase()) ? q : `${q} ${preferredRes}`;
+    }
+    return "";
+  });
 
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +45,12 @@ function TorrentPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalItems, setModalItems] = useState([]);
   const [modalTitle, setModalTitle] = useState("");
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const targetAnimeId = location.state?.malId;
   const targetAnimeTitle = location.state?.animeTitle;
@@ -137,7 +152,7 @@ function TorrentPage() {
         }
         return updated;
       });
-      alert(`Nombre "${cleanAlias}" vinculado a ${targetAnimeTitle || 'la serie'}.`);
+      showToast(`Nombre "${cleanAlias}" vinculado a ${targetAnimeTitle || 'la serie'}.`, "success");
     } catch (e) {
       console.error("Error linking alias:", e);
     }
@@ -309,10 +324,17 @@ function TorrentPage() {
       <TorrentDownloadModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        animeTitle={modalTitle}
+        animeTitle={targetAnimeTitle || modalTitle}
         items={modalItems}
         malId={targetAnimeId}
+        showToast={showToast}
       />
+
+      {toast && (
+        <div className={styles.toast} data-type={toast.type}>
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
