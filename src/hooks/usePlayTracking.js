@@ -35,10 +35,11 @@ export function usePlayTracking(showToast) {
           const watchedEps = currentlyWatched
             ? (current.watchedEpisodes || []).filter((n) => n !== epNumber)
             : [...(current.watchedEpisodes || []), epNumber];
-            
+
+          const filteredHistory = (current.watchHistory || []).filter((h) => h.episode !== epNumber);
           const newHistory = currentlyWatched
-            ? (current.watchHistory || []).filter((h) => h.episode !== epNumber)
-            : [...(current.watchHistory || []), { episode: epNumber, watchedAt: new Date().toISOString() }];
+            ? filteredHistory
+            : [...filteredHistory, { episode: epNumber, watchedAt: new Date().toISOString() }];
 
           const updated = { 
             ...current, 

@@ -8,7 +8,7 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 import styles from "./Library.module.css";
 
 function Library() {
-  const { data, setFolderPath, setMyAnimes } = useStore();
+  const { data, setFolderPath, setMyAnimes, setSettings } = useStore();
   const { performSync, syncing } = useLibrary();
   const [viewMode, setViewMode] = useState("grid");
   const [confirmModal, setConfirmModal] = useState(null);
@@ -29,7 +29,7 @@ function Library() {
       .map(([name, folderData]) => ({
         ...folderData,
         name,
-        type: folderData.animeData?.type || "UNKNOWN",
+        type: folderData.resolvedAnimeData?.type || folderData.animeData?.type || "UNKNOWN",
       }))
       .sort((a, b) => {
         // isTracking al final dentro de su grupo
@@ -161,12 +161,29 @@ function Library() {
           ...data.myAnimes,
           [folder.malId]: {
             ...data.myAnimes[folder.malId],
-            folderName: null, // sin flag unlinked, regla única
+            folderName: null,
             lastUpdated: new Date().toISOString(),
           },
         };
         await setMyAnimes(newMyAnimes);
-        await performSync(newMyAnimes);
+        await setSettings({
+          ...data.settings,
+          library: {
+            ...(data.settings?.library || {}),
+            ignoredSuggestions: Array.from(
+              new Set([...(data.settings?.library?.ignoredSuggestions || []), folder.name]),
+            ),
+          },
+        });
+        await performSync(newMyAnimes, {
+          ...data.settings,
+          library: {
+            ...(data.settings?.library || {}),
+            ignoredSuggestions: Array.from(
+              new Set([...(data.settings?.library?.ignoredSuggestions || []), folder.name]),
+            ),
+          },
+        });
       },
     });
   };
@@ -177,15 +194,17 @@ function Library() {
       navigate(`/anime/${folder.malId}`);
       return;
     }
-    if (folder.malId) {
-      navigate(`/anime/${folder.malId}?folder=${encodeURIComponent(folder.name)}`);
+    const resolvedMalId = folder.resolvedMalId || folder.malId;
+    if (resolvedMalId) {
+      navigate(`/anime/${resolvedMalId}?folder=${encodeURIComponent(folder.name)}`);
     } else {
       navigate(`/anime/null?folder=${encodeURIComponent(folder.name)}`);
     }
   };
 
   const renderFolderCard = (folder) => {
-    const hasPoster = (folder.isLinked || folder.isTracking) && folder.animeData?.coverImage;
+    const displayAnime = folder.resolvedAnimeData || folder.animeData;
+    const hasPoster = (folder.isLinked || folder.isTracking || folder.isSuggested) && displayAnime?.coverImage;
     const isGrid = viewMode === "grid";
     const isTracking = folder.isTracking;
 
@@ -197,7 +216,7 @@ function Library() {
       >
         <div className={styles.posterWrapper}>
           {hasPoster ? (
-            <img src={folder.animeData.coverImage} alt="" className={styles.posterImage} />
+            <img src={displayAnime.coverImage} alt={displayAnime?.title || folder.name} className={styles.posterImage} />
           ) : (
             <div className={styles.folderIcon}>
               {isTracking ? (
@@ -240,7 +259,7 @@ function Library() {
                   </button>
                 )}
               </div>
-              <span className={styles.folderRealName}>{isTracking ? folder.animeData?.title : folder.name}</span>
+              <span className={styles.folderRealName}>{isTracking ? displayAnime?.title : folder.name}</span>
             </div>
           )}
         </div>
@@ -248,7 +267,7 @@ function Library() {
         <div className={styles.cardInfo}>
           <div className={styles.cardHeader}>
             <h3 className={styles.cardTitle}>
-              {folder.isLinked || isTracking ? folder.animeData?.title || folder.name : folder.name}
+              {folder.isLinked || isTracking || folder.isSuggested ? displayAnime?.title || folder.name : folder.name}
             </h3>
             {!isTracking && folder.files.length > 0 && (
               <span className={styles.epCount}>{folder.files.length} EPS</span>
@@ -257,6 +276,8 @@ function Library() {
           <div className={styles.cardMeta}>
             {isTracking ? (
               <span className={styles.trackingBadge}>SIN ARCHIVOS</span>
+            ) : folder.isSuggested && !folder.isLinked ? (
+              <span className={styles.localBadge}>SUGERIDA</span>
             ) : !folder.isLinked ? (
               <span className={styles.localBadge}>SIN VINCULAR</span>
             ) : (

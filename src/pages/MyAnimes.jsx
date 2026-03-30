@@ -3,6 +3,7 @@ import { useStore } from "../hooks/useStore";
 import AnimeCard from "../components/anime/AnimeCard";
 import { calculateUserStatus } from "../utils/animeStatus";
 import styles from "./MyAnimes.module.css";
+import { usePlayTracking } from "../hooks/usePlayTracking";
 
 const STATUS_LABELS = {
   ALL: "Todos",
@@ -15,6 +16,7 @@ const STATUS_LABELS = {
 
 function MyAnimes() {
   const { data, setMyAnimes } = useStore();
+  const playback = usePlayTracking();
   const [activeTab, setActiveTab] = useState("ALL");
   const [pendingTab, setPendingTab] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -103,8 +105,8 @@ function MyAnimes() {
               key={anime.malId} 
               anime={anime} 
               inLibraryData={anime} 
-              playerSetting={data?.settings?.player}
               setMyAnimes={setMyAnimes}
+              playback={playback}
             />
           ))}
         </div>

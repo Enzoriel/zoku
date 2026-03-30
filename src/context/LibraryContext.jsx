@@ -20,14 +20,15 @@ export function LibraryProvider({ children }) {
   const debounceRef = useRef(null);
 
   const performSync = useCallback(
-    async (myAnimesOverride = null) => {
+    async (myAnimesOverride = null, settingsOverride = null) => {
       const currentData = dataRef.current;
       if (!currentData.folderPath) return;
 
       setSyncing(true);
       try {
         const myAnimesToUse = myAnimesOverride || currentData.myAnimes;
-        const localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse);
+        const settingsToUse = settingsOverride || currentData.settings;
+        const localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
         if (dataRef.current.folderPath === currentData.folderPath) {
           await setLocalFiles(localFiles);
         }

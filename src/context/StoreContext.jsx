@@ -58,10 +58,9 @@ export function StoreProvider({ children }) {
           try {
             const currentValue = storeStateRef.current[key] || (key === "folderPath" ? "" : {});
             const newValue = typeof valueOrAction === "function" ? valueOrAction(currentValue) : valueOrAction;
-            // Actualizar Ref sincrónicamente para que el siguiente task en queue lo vea
+            await setStore(key, newValue);
             storeStateRef.current = { ...storeStateRef.current, [key]: newValue };
             setData(storeStateRef.current);
-            await setStore(key, newValue);
             resolve(newValue);
           } catch (error) {
             console.error(`[Store] Error actualizando ${key}:`, error);

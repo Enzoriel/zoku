@@ -1,14 +1,19 @@
 import { useNavigate } from "react-router-dom";
-import { useRef, memo } from "react";
-import { usePlayTracking } from "../../hooks/usePlayTracking";
+import { memo } from "react";
 import { calculateUserStatus } from "../../utils/animeStatus";
 import styles from "./AnimeCard.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
-function AnimeCard({ anime, showAddButton = false, onAdd, type = false, inLibraryData, setMyAnimes }) {
+function AnimeCard({
+  anime,
+  showAddButton = false,
+  onAdd,
+  type = false,
+  inLibraryData,
+  setMyAnimes,
+  playback = null,
+}) {
   const navigate = useNavigate();
-  const noToastRef = useRef(null);
-  const { playingEp, handlePlayEpisode, cancelPlay } = usePlayTracking(noToastRef);
 
   if (!anime) {
     return (
@@ -26,7 +31,7 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false, inLibrar
   const animeId = anime.malId || anime.mal_id;
   const isInLibrary = !!inLibraryData;
   const displayAnime = isInLibrary ? { ...anime, ...inLibraryData } : anime;
-  const isPlaying = playingEp?.animeId === animeId;
+  const isPlaying = playback?.playingEp?.animeId === animeId;
 
   const handleClick = () => {
     navigate(`/anime/${animeId}`);
@@ -34,13 +39,13 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false, inLibrar
 
   const handleQuickPlay = async (e) => {
     e.stopPropagation();
-    if (!displayAnime.nextEpisodeFile) return;
-    await handlePlayEpisode(animeId, displayAnime.nextEpisode, displayAnime.nextEpisodeFile.path);
+    if (!displayAnime.nextEpisodeFile || !playback?.handlePlayEpisode) return;
+    await playback.handlePlayEpisode(animeId, displayAnime.nextEpisode, displayAnime.nextEpisodeFile.path);
   };
 
   const handleCancelPlay = (e) => {
     e.stopPropagation();
-    cancelPlay();
+    playback?.cancelPlay?.();
   };
 
   const handleAddToLibrary = async (e) => {
@@ -125,8 +130,8 @@ function AnimeCard({ anime, showAddButton = false, onAdd, type = false, inLibrar
 
         {image && <img src={image} alt={title} className={styles.image} loading="lazy" />}
 
-        {displayAnime.nextEpisodeFile && !isPlaying && (
-          <button className={styles.quickPlayButton} onClick={handleQuickPlay}>
+        {displayAnime.nextEpisodeFile && !isPlaying && playback?.handlePlayEpisode && (
+          <button className={styles.quickPlayButton} onClick={handleQuickPlay} aria-label={`Reproducir ${title}`}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
               <path d="M8 5v14l11-7z" />
             </svg>

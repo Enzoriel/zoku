@@ -20,11 +20,13 @@ export function TorrentProvider({ children }) {
   const [userTriggered, setUserTriggered] = useState(false);
 
   const intervalRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   const fetchPrincipal = useCallback(
     async (triggeredByUser = false) => {
       if (!principalFansub || storeLoading) return;
 
+      const requestId = ++requestIdRef.current;
       setIsLoading(true);
       setError(null);
 
@@ -38,13 +40,16 @@ export function TorrentProvider({ children }) {
           fansub: principalFansub 
         });
 
+        if (requestId !== requestIdRef.current) return;
         setData(result || []);
         setLastFetch(Date.now());
         setUserTriggered(triggeredByUser);
       } catch (e) {
+        if (requestId !== requestIdRef.current) return;
         console.error("[TorrentContext] Error:", e);
         setError(typeof e === "string" ? e : "Error al obtener torrents del fansub principal.");
       } finally {
+        if (requestId !== requestIdRef.current) return;
         setIsLoading(false);
       }
     },

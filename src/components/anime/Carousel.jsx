@@ -4,7 +4,7 @@ import styles from "./Carousel.module.css";
 import { useStore } from "../../hooks/useStore";
 import PixelReveal from "../common/PixelReveal";
 
-function Carousel({ title, animes = [], loading = false }) {
+function Carousel({ title, animes = [], loading = false, playback = null }) {
   const scrollRef = useRef(null);
   const { data, setMyAnimes } = useStore();
 
@@ -55,8 +55,8 @@ function Carousel({ title, animes = [], loading = false }) {
                     key={uniqueKey}
                     anime={anime}
                     inLibraryData={inLibraryData}
-                    playerSetting={data?.settings?.player}
                     setMyAnimes={setMyAnimes}
+                    playback={playback}
                   />
                 );
               })}

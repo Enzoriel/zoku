@@ -12,6 +12,19 @@ const PLAYER_PROCESS_NAMES = {
   potplayer: "PotPlayerMini64",
 };
 
+function normalizeComparablePath(path) {
+  if (!path) return "";
+  return path.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+function isPathWithinBase(targetPath, basePath) {
+  const normalizedTarget = normalizeComparablePath(targetPath);
+  const normalizedBase = normalizeComparablePath(basePath);
+
+  if (!normalizedTarget || !normalizedBase) return false;
+  return normalizedTarget.startsWith(`${normalizedBase}/`);
+}
+
 export async function isPlayerStillOpen(playerName) {
   const tryProcess = async (pName) => {
     try {
@@ -105,10 +118,7 @@ export function extractBaseTitle(fileName) {
 export async function deleteFolderFromDisk(folderPath, basePath) {
   if (!folderPath) return false;
 
-  const normalizedFolder = folderPath.replace(/\\/g, "/").toLowerCase();
-  const normalizedBase = basePath?.replace(/\\/g, "/").toLowerCase();
-
-  if (!normalizedBase || !normalizedFolder.startsWith(normalizedBase)) {
+  if (!isPathWithinBase(folderPath, basePath)) {
     console.error(`[FS] Intento de borrado fuera del basePath: ${folderPath}`);
     return false;
   }
@@ -124,8 +134,6 @@ export async function deleteFolderFromDisk(folderPath, basePath) {
 
 export async function deleteVirtualFolderFiles(files, basePath) {
   if (!files?.length || !basePath) return { deleted: 0, failed: 0 };
-
-  const normalizedBase = basePath.replace(/\\/g, "/").toLowerCase();
   let deleted = 0;
   let failed = 0;
 
@@ -136,8 +144,7 @@ export async function deleteVirtualFolderFiles(files, basePath) {
       continue;
     }
 
-    const normalizedFile = filePath.replace(/\\/g, "/").toLowerCase();
-    if (!normalizedFile.startsWith(normalizedBase)) {
+    if (!isPathWithinBase(filePath, basePath)) {
       console.error(`[FS] Intento de borrado fuera del basePath: ${filePath}`);
       failed++;
       continue;
@@ -202,11 +209,12 @@ async function getVideosInFolder(folderPath) {
   }
 }
 
-export async function scanLibrary(basePath, myAnimes) {
+export async function scanLibrary(basePath, myAnimes, settings = {}) {
   if (!basePath) return {};
 
   const virtualLibrary = {};
   const animeList = Object.values(myAnimes || {});
+  const ignoredSuggestions = new Set((settings?.library?.ignoredSuggestions || []).map((name) => name.toLowerCase()));
 
   try {
     const rootEntries = await readDir(basePath);
@@ -229,8 +237,13 @@ export async function scanLibrary(basePath, myAnimes) {
         physicalPath: fullPath,
         isRootFile: false,
         isLinked: false,
+        isSuggested: false,
         malId: null,
         animeData: null,
+        suggestedMalId: null,
+        suggestedAnimeData: null,
+        resolvedMalId: null,
+        resolvedAnimeData: null,
       };
     });
 
@@ -251,8 +264,13 @@ export async function scanLibrary(basePath, myAnimes) {
             folderName: baseTitle,
             isRootFile: true,
             isLinked: false,
+            isSuggested: false,
             malId: null,
             animeData: null,
+            suggestedMalId: null,
+            suggestedAnimeData: null,
+            resolvedMalId: null,
+            resolvedAnimeData: null,
           };
         }
         virtualLibrary[baseTitle].files.push({
@@ -274,13 +292,15 @@ export async function scanLibrary(basePath, myAnimes) {
         folder.isLinked = true;
         folder.malId = matchedAnime.malId;
         folder.animeData = matchedAnime;
+        folder.resolvedMalId = matchedAnime.malId;
+        folder.resolvedAnimeData = matchedAnime;
       }
     });
 
-    // Auto-Linker heurístico: Intentar emparejar en memoria los animes no vinculados a carpetas/archivos huérfanos.
+    // Auto-Linker heurístico: solo sugiere coincidencias en memoria.
     const unlinkedAnimes = animeList.filter((a) => !a.folderName);
     Object.values(virtualLibrary).forEach((folder) => {
-      if (!folder.isLinked && folder.folderName) {
+      if (!folder.isLinked && folder.folderName && !ignoredSuggestions.has(folder.folderName.toLowerCase())) {
         const cleanKey = normalizeForSearch(folder.folderName);
         const match = unlinkedAnimes.find((a) => {
           const tr = normalizeForSearch(a.title);
@@ -295,10 +315,11 @@ export async function scanLibrary(basePath, myAnimes) {
         });
 
         if (match) {
-          folder.isLinked = true;
-          folder.malId = match.malId;
-          folder.animeData = match;
-          folder.isAutoLinked = true; // Flag informativo
+          folder.isSuggested = true;
+          folder.suggestedMalId = match.malId;
+          folder.suggestedAnimeData = match;
+          folder.resolvedMalId = match.malId;
+          folder.resolvedAnimeData = match;
         }
       }
     });
@@ -313,8 +334,13 @@ export async function scanLibrary(basePath, myAnimes) {
           virtualLibrary[anime.folderName] = {
             files: [],
             isLinked: true,
+            isSuggested: false,
             malId: anime.malId,
             animeData: anime,
+            suggestedMalId: null,
+            suggestedAnimeData: null,
+            resolvedMalId: anime.malId,
+            resolvedAnimeData: anime,
             folderName: anime.folderName,
             isMissing: true,
           };
@@ -328,9 +354,14 @@ export async function scanLibrary(basePath, myAnimes) {
         virtualLibrary[`__tracking__${anime.malId}`] = {
           files: [],
           isLinked: false,
+          isSuggested: false,
           isTracking: true, // sin carpeta, solo seguimiento
           malId: anime.malId,
           animeData: anime,
+          suggestedMalId: null,
+          suggestedAnimeData: null,
+          resolvedMalId: anime.malId,
+          resolvedAnimeData: anime,
           folderName: null,
         };
       }

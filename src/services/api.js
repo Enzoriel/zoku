@@ -227,7 +227,10 @@ export async function getFullSeasonAnime() {
 
   while (hasNextPage && page <= 2) {
     const result = await queryAniList(query, { page, season, seasonYear: year });
-    if (!result) break;
+    if (!result) {
+      if (page === 1) return null;
+      break;
+    }
 
     allAnimes = [...allAnimes, ...result.Page.media.map(mapMedia)];
     hasNextPage = result.Page.pageInfo.hasNextPage;
@@ -245,6 +248,7 @@ export async function searchAnime(queryText, page = 1) {
           lastPage
           hasNextPage
           currentPage
+          total
         }
         media (search: $search, type: ANIME, isAdult: false) {
           ${MEDIA_FIELDS}
@@ -259,6 +263,7 @@ export async function searchAnime(queryText, page = 1) {
   return {
     data: result.Page.media.map(mapMedia),
     pagination: {
+      total: result.Page.pageInfo.total,
       last_visible_page: result.Page.pageInfo.lastPage,
       has_next_page: result.Page.pageInfo.hasNextPage,
     },

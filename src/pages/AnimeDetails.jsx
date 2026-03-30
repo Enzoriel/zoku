@@ -40,7 +40,7 @@ function AnimeDetails() {
   const folderName = searchParams.get("folder");
   const navigate = useNavigate();
 
-  const { data, setMyAnimes } = useStore();
+  const { data, setMyAnimes, setSettings } = useStore();
   const { getAnimeById, loading: animeLoading } = useAnime();
   const { performSync } = useLibrary();
   const { data: torrentData, principalFansub } = useTorrent();
@@ -89,7 +89,8 @@ function AnimeDetails() {
   const animeFilesData = useMemo(() => {
     if (!mainAnime) return { files: [] };
     const folderObj = Object.values(data?.localFiles || {}).find((f) => {
-      if (f.malId && mainAnime.malId && String(f.malId) === String(mainAnime.malId)) return true;
+      const resolvedMalId = f.resolvedMalId || f.malId;
+      if (resolvedMalId && mainAnime.malId && String(resolvedMalId) === String(mainAnime.malId)) return true;
       if (mainAnime.folderName && f.folderName === mainAnime.folderName) return true;
       if (folderName && f.folderName === folderName) return true;
       return false;
@@ -254,8 +255,21 @@ function AnimeDetails() {
       isInLibrary: true,
     };
     await setMyAnimes({ ...data.myAnimes, [newMalId]: animeData });
+    let nextSettings = data.settings;
+    if (folderName) {
+      nextSettings = {
+        ...data.settings,
+        library: {
+          ...(data.settings?.library || {}),
+          ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
+            (name) => name.toLowerCase() !== folderName.toLowerCase(),
+          ),
+        },
+      };
+      await setSettings(nextSettings);
+    }
     setShowSearchApiModal(false);
-    await performSync({ ...data.myAnimes, [newMalId]: animeData });
+    await performSync({ ...data.myAnimes, [newMalId]: animeData }, nextSettings);
     showToast(`Serie vinculada con éxito.`, "success");
     navigate(`/anime/${newMalId}`);
   };
@@ -276,10 +290,20 @@ function AnimeDetails() {
     );
     const newMyAnimes = { ...data.myAnimes, [animeId]: entry };
     if (match) {
+      const nextSettings = {
+        ...data.settings,
+        library: {
+          ...(data.settings?.library || {}),
+          ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
+            (name) => name.toLowerCase() !== match[0].toLowerCase(),
+          ),
+        },
+      };
       entry.folderName = match[0];
       newMyAnimes[animeId] = entry;
       await setMyAnimes(newMyAnimes);
-      await performSync(newMyAnimes);
+      await setSettings(nextSettings);
+      await performSync(newMyAnimes, nextSettings);
       showToast(`Vinculado con "${match[0]}"`, "success");
     } else {
       await setMyAnimes(newMyAnimes);
@@ -329,16 +353,26 @@ function AnimeDetails() {
   const handleLinkFolder = useCallback(
     async (folderKey) => {
       if (!animeId) return;
+      const nextSettings = {
+        ...data.settings,
+        library: {
+          ...(data.settings?.library || {}),
+          ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
+            (name) => name.toLowerCase() !== folderKey.toLowerCase(),
+          ),
+        },
+      };
       await setMyAnimes((prev) => ({
         ...prev,
         [animeId]: { ...prev[animeId], folderName: folderKey, lastUpdated: new Date().toISOString() },
       }));
+      await setSettings(nextSettings);
       setShowLinkFolderModal(false);
       setFolderSearch("");
-      await performSync();
+      await performSync(null, nextSettings);
       showToast(`Carpeta "${folderKey}" vinculada.`, "success");
     },
-    [animeId, setMyAnimes, performSync, showToast],
+    [animeId, setMyAnimes, setSettings, data.settings, performSync, showToast],
   );
 
 

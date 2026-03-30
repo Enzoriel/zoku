@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
@@ -17,7 +17,13 @@ const CACHE_DURATION = 10 * 60 * 1000;
 function TorrentPage() {
   const location = useLocation();
   const { data: storeData } = useStore();
-  const { refresh: contextRefresh } = useTorrent();
+  const {
+    data: contextItems,
+    isLoading: contextLoading,
+    error: contextError,
+    lastFetch: contextLastFetch,
+    refresh: contextRefresh,
+  } = useTorrent();
 
   // Fansub settings
   const hasConfig = hasConfiguredFansubs(storeData.settings);
@@ -47,13 +53,16 @@ function TorrentPage() {
   const [modalItems, setModalItems] = useState([]);
   const [modalTitle, setModalTitle] = useState("");
   const { toast, showToast } = useToast();
+  const requestIdRef = useRef(0);
 
   const targetAnimeId = location.state?.malId;
   const targetAnimeTitle = location.state?.animeTitle;
 
   const showSearchOptions = activeTab !== "general" && searchInput.trim() !== "";
+  const isContextBackedTab = activeTab === principalFansub && activeQuery === "";
 
   const fetchTorrents = useCallback(async (tab, query, force = false) => {
+    const requestId = ++requestIdRef.current;
     setIsLoading(true);
     setError(null);
 
@@ -65,6 +74,7 @@ function TorrentPage() {
     if (!force && !isSearch && resultCache.has(cacheKey)) {
       const cached = resultCache.get(cacheKey);
       if (Date.now() - cached.timestamp < CACHE_DURATION) {
+        if (requestId !== requestIdRef.current) return;
         setItems(cached.data);
         setLastFetchTime(cached.timestamp);
         setIsLoading(false);
@@ -74,6 +84,7 @@ function TorrentPage() {
 
     try {
       const result = await invoke("fetch_nyaa", { query, fansub: fansubParam });
+      if (requestId !== requestIdRef.current) return;
       setItems(result || []);
       const now = Date.now();
       setLastFetchTime(now);
@@ -83,20 +94,40 @@ function TorrentPage() {
         resultCache.set(cacheKey, { data: result || [], timestamp: now });
       }
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       console.error("[TorrentPage] Fetch error:", e);
       setError(typeof e === "string" ? e : "Error de conexión con Nyaa.");
       setItems([]);
     } finally {
+      if (requestId !== requestIdRef.current) return;
       setIsLoading(false);
     }
   }, []);
 
   // Fetch when tab or query changes
   useEffect(() => {
-    if (hasConfig) {
-      fetchTorrents(activeTab, activeQuery);
+    if (!hasConfig) return;
+
+    if (isContextBackedTab) {
+      setItems(contextItems || []);
+      setError(contextError);
+      setLastFetchTime(contextLastFetch);
+      setIsLoading(contextLoading);
+      return;
     }
-  }, [activeTab, activeQuery, hasConfig, fetchTorrents]);
+
+    fetchTorrents(activeTab, activeQuery);
+  }, [
+    activeTab,
+    activeQuery,
+    hasConfig,
+    fetchTorrents,
+    isContextBackedTab,
+    contextItems,
+    contextError,
+    contextLastFetch,
+    contextLoading,
+  ]);
 
   const handleTabClick = (tab) => {
     if (tab === activeTab) return;
@@ -123,10 +154,11 @@ function TorrentPage() {
   };
 
   const handleRefresh = () => {
-    fetchTorrents(activeTab, activeQuery, true);
-    if (activeTab === principalFansub) {
+    if (isContextBackedTab) {
       contextRefresh();
+      return;
     }
+    fetchTorrents(activeTab, activeQuery, true);
   };
 
 

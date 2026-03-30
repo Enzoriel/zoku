@@ -14,6 +14,13 @@ import RetryPanel from "../components/ui/RetryPanel";
 import { usePlayTracking } from "../hooks/usePlayTracking";
 import styles from "./Recent.module.css";
 
+function getLocalDayKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
 const DAY_NAMES_SHORT = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 
@@ -56,6 +63,8 @@ function Recent() {
     return map;
   }, [data.myAnimes]);
 
+  const hasTrackedAnime = useMemo(() => Object.keys(data.myAnimes || {}).length > 0, [data.myAnimes]);
+
   const myAiringAnime = useMemo(() => {
     return allAiringAnime
       .filter((anime) => {
@@ -68,7 +77,7 @@ function Recent() {
 
         const watchedEps = stored?.watchedEpisodes || [];
         const localFolder = Object.values(data.localFiles || {}).find(
-          (f) => String(f.malId) === String(id) && f.isLinked,
+          (f) => String(f.resolvedMalId || f.malId) === String(id),
         );
         const localFiles = localFolder?.files || [];
         const nextAiring = anime.nextAiringEpisode;
@@ -116,7 +125,7 @@ function Recent() {
         if (epAiredAt > now + 3600000 || epAiredAt < now - TWO_WEEKS) continue;
 
         const date = new Date(epAiredAt);
-        const dayKey = date.toISOString().split("T")[0];
+        const dayKey = getLocalDayKey(date);
 
         if (!groups[dayKey]) groups[dayKey] = { date, episodes: [] };
 
@@ -183,6 +192,14 @@ function Recent() {
     return groups;
   }, [myAiringAnime]);
 
+  const shouldShowApiUnavailableState =
+    hasTrackedAnime && seasonalAnime.length === 0 && allAiringAnime.length === 0 && !loading && !loadingExtra;
+
+  const handleRetryAll = useCallback(async () => {
+    await retryFetch();
+    await retryExtra?.();
+  }, [retryFetch, retryExtra]);
+
   const handlePlayEpisode = useCallback(
     (animeId, epNumber, filePath) => {
       trackPlay(animeId, epNumber, filePath);
@@ -233,8 +250,7 @@ function Recent() {
           <h1 className={styles.pageTitle}>{activeTab === "recientes" ? "RECIENTES" : "HORARIO"}</h1>
           <p className={styles.pageSubtitle}>
             {activeTab === "recientes"
-              ? "Últimos episodios emitidos de tus series"
-              : "Próximos episodios de esta semana"}
+              ? "Ultimos episodios estimados de tus series" : "Proximos episodios estimados de esta semana"}
           </p>
         </div>
         <div className={styles.tabs}>
@@ -255,10 +271,15 @@ function Recent() {
 
       {activeTab === "recientes" ? (
         <div className={styles.recentContent}>
-          {groupedByDay.length === 0 ? (
+          {shouldShowApiUnavailableState ? (
+            <RetryPanel
+              message="No se pudo cargar la programacion reciente desde AniList. Tus series siguen en tu lista, pero la API no respondio."
+              onRetry={handleRetryAll}
+            />
+          ) : groupedByDay.length === 0 ? (
             <div className={styles.emptyState}>
               <p>No hay episodios recientes de tus series en emisión.</p>
-              <span>Añade series a tu lista desde Descubrir.</span>
+              <span>{hasTrackedAnime ? "Vuelve a revisar mas tarde." : "Anade series a tu lista desde Descubrir."}</span>
             </div>
           ) : (
             groupedByDay.map(({ key, date, episodes }) => (

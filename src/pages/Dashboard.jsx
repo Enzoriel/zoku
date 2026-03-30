@@ -6,10 +6,12 @@ import Carousel from "../components/anime/Carousel";
 import Button from "../components/ui/Button";
 import styles from "./Dashboard.module.css";
 import { useAnime } from "../context/AnimeContext";
+import { usePlayTracking } from "../hooks/usePlayTracking";
 
 function Dashboard() {
   const { data } = useStore();
   const { seasonalAnime, loading } = useAnime();
+  const playback = usePlayTracking();
 
   const isEmpty = Object.keys(data.myAnimes).length === 0;
 
@@ -49,13 +51,13 @@ function Dashboard() {
               </div>
             )}
           </div>
-          <Carousel title="Animes en emisión" animes={seasonalAnime} loading={loading} />
+          <Carousel title="Animes en emisión" animes={seasonalAnime} loading={loading} playback={playback} />
         </section>
       ) : (
         <>
-          <Carousel title="Continuar viendo" animes={continueWatching} />
-          <Carousel title="Nuevos episodios disponibles" animes={newEpisodes} />
-          <Carousel title="Añadidos recientemente" animes={recentlyAdded} />
+          <Carousel title="Continuar viendo" animes={continueWatching} playback={playback} />
+          <Carousel title="Nuevos episodios disponibles" animes={newEpisodes} playback={playback} />
+          <Carousel title="Añadidos recientemente" animes={recentlyAdded} playback={playback} />
         </>
       )}
     </div>

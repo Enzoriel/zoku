@@ -22,6 +22,9 @@ export function AnimeProvider({ children }) {
     setError(null);
     try {
       const data = await getFullSeasonAnime();
+      if (data === null) {
+        throw new Error("AniList unavailable");
+      }
       setSeasonalAnime(data || []);
       lastFetchRef.current = Date.now();
     } catch (e) {
