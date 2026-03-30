@@ -6,6 +6,7 @@ import { AnimeProvider } from "./context/AnimeContext";
 import { LibraryProvider } from "./context/LibraryContext";
 import { TorrentProvider } from "./context/TorrentContext";
 import Layout from "./components/layout/Layout";
+import { GlobalSync } from "./components/core/GlobalSync";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Discover = lazy(() => import("./pages/Discover"));
@@ -21,11 +22,12 @@ const TorrentPage = lazy(() => import("./pages/TorrentPage"));
 
 function App() {
   return (
-    <AnimeProvider>
-      <StoreProvider>
+    <StoreProvider>
+      <AnimeProvider>
         <TorrentProvider>
           <LibraryProvider>
             <BrowserRouter>
+              <GlobalSync />
               <Routes>
                 <Route path="/" element={<Layout />}>
                   <Route index element={<Dashboard />} />
@@ -44,8 +46,8 @@ function App() {
             </BrowserRouter>
           </LibraryProvider>
         </TorrentProvider>
-      </StoreProvider>
-    </AnimeProvider>
+      </AnimeProvider>
+    </StoreProvider>
   );
 }
 

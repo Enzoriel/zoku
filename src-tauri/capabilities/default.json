@@ -37,7 +37,7 @@
         {
           "name": "powershell",
           "cmd": "powershell",
-          "args": ["-Command", { "validator": ".+" }]
+          "args": ["-Command", { "validator": "^Get-Process -Name \"[a-zA-Z0-9_\\-]+\" -ErrorAction SilentlyContinue \\| Select-Object -First 1$" }]
         }
       ]
     }

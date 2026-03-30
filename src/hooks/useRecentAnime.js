@@ -34,23 +34,24 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
       .map(([id]) => Number(id));
   }, [myAnimes, seasonalIds]);
 
-  const fetchExtra = useCallback(async (ids) => {
+  const fetchExtra = useCallback(async (ids, signalObj = { active: true }) => {
     setLoadingExtra(true);
     setErrorExtra(null);
     try {
       const results = await getAnimeDetailsBatch(ids);
+      if (!signalObj.active) return;
       if (!results || results.length === 0) {
-        // Si la API devolvió null/vacío pero no lanzó error, puede ser timeout
         if (ids.length > 0) {
           setErrorExtra("No se pudieron cargar las series adicionales. La API no respondió.");
         }
       }
       setExtraAnime(results || []);
     } catch (e) {
+      if (!signalObj.active) return;
       console.error("[useRecentAnime] Error fetching extra:", e);
       setErrorExtra("Error al cargar series adicionales. Revisa tu conexión.");
     } finally {
-      setLoadingExtra(false);
+      if (signalObj.active) setLoadingExtra(false);
     }
   }, []);
 
@@ -60,7 +61,12 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
       return;
     }
 
-    fetchExtra(missingIds);
+    const signalObj = { active: true };
+    fetchExtra(missingIds, signalObj);
+
+    return () => {
+      signalObj.active = false;
+    };
   }, [missingIds.join(","), fetchExtra]);
 
   // Combinar seasonal + extra, sin duplicados

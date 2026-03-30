@@ -1,33 +1,41 @@
 import { invoke } from "@tauri-apps/api/core";
 
-const url = "https://graphql.anilist.co/";
-let lastRequest = 0;
-
 const MIN_INTERVAL = 170;
 const FETCH_TIMEOUT = 9000; // 9 segundos
 
-async function queryAniList(query, variables = {}) {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequest;
+let lastRequestTime = 0;
+let queuePromise = Promise.resolve();
 
-  if (timeSinceLastRequest < MIN_INTERVAL) {
-    const wait = MIN_INTERVAL - timeSinceLastRequest;
-    lastRequest = Date.now() + wait;
-    await new Promise((resolve) => setTimeout(resolve, wait));
-  } else {
-    lastRequest = Date.now();
-  }
+async function queryAniList(query, variables = {}) {
+  const execute = async () => {
+    const now = Date.now();
+    const timeSinceLast = now - lastRequestTime;
+    if (timeSinceLast < MIN_INTERVAL) {
+      await new Promise(r => setTimeout(r, MIN_INTERVAL - timeSinceLast));
+    }
+    lastRequestTime = Date.now();
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout de conexión con AniList")), FETCH_TIMEOUT)
+    );
+
+    return Promise.race([
+      invoke("query_anilist", { query, variables }),
+      timeoutPromise
+    ]);
+  };
+
+  const task = queuePromise.then(() => execute());
+  queuePromise = task.catch(() => {});
 
   try {
-    const result = await invoke("query_anilist", { query, variables });
+    const result = await task;
 
     if (!result) return null;
     if (result.errors) {
       console.error("[AniList] GraphQL Errors:", result.errors);
       return null;
     }
-
-    console.log("ESTE ES EL RAW API:", result.data);
 
     return result.data;
   } catch (error) {
@@ -214,8 +222,8 @@ export async function getFullSeasonAnime() {
   `;
 
   let allAnimes = [];
-  let hasNextPage = true;
   let page = 1;
+  let hasNextPage = true;
 
   while (hasNextPage && page <= 2) {
     const result = await queryAniList(query, { page, season, seasonYear: year });
@@ -225,8 +233,6 @@ export async function getFullSeasonAnime() {
     hasNextPage = result.Page.pageInfo.hasNextPage;
     page++;
   }
-
-  console.log("ESTA ES LA TEMPORADA", allAnimes);
 
   return allAnimes;
 }

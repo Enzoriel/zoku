@@ -104,8 +104,9 @@ const Configuration = () => {
           )}
 
           <p className={styles.hint}>
-            Zoku usará esto para detectar si el reproductor sigue abierto después de 1 minuto y marcar el episodio como
-            visto automáticamente.
+            <strong>Sistema de detección inteligente:</strong> Zoku intentará encontrar el proceso que elijas aquí,
+            pero si el sistema abre un reproductor distinto (ej: el predeterminado del sistema), Zoku también 
+            intentará detectarlo automáticamente para no perder el progreso.
           </p>
         </div>
       </section>

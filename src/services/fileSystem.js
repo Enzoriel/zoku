@@ -13,21 +13,31 @@ const PLAYER_PROCESS_NAMES = {
 };
 
 export async function isPlayerStillOpen(playerName) {
-  const processName = PLAYER_PROCESS_NAMES[playerName];
-  if (!processName) {
-    console.warn(`[FS] Reproductor no reconocido: ${playerName}`);
-    return false;
+  const tryProcess = async (pName) => {
+    try {
+      const output = await Command.create("powershell", [
+        "-Command",
+        `Get-Process -Name "${pName}" -ErrorAction SilentlyContinue | Select-Object -First 1`,
+      ]).execute();
+      return output.stdout.trim().length > 0;
+    } catch (err) {
+      // console.error(`[FS] Error verificando proceso ${pName}:`, err);
+      return false;
+    }
+  };
+
+  // 1. Intentar el proceso específico configurado
+  const specificName = PLAYER_PROCESS_NAMES[playerName] || playerName;
+  if (await tryProcess(specificName)) return true;
+
+  // 2. Si no se encuentra, hacer un barrido rápido por todos los conocidos (Broad check)
+  // Esto ayuda si el sistema abrió un reproductor distinto al configurado
+  for (const knownName of Object.values(PLAYER_PROCESS_NAMES)) {
+    if (knownName === specificName) continue;
+    if (await tryProcess(knownName)) return true;
   }
-  try {
-    const output = await Command.create("powershell", [
-      "-Command",
-      `Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Select-Object -First 1`,
-    ]).execute();
-    return output.stdout.trim().length > 0;
-  } catch (err) {
-    console.error(`[FS] Error verificando proceso ${processName}:`, err);
-    return false;
-  }
+
+  return false;
 }
 
 export function normalizeForSearch(text) {

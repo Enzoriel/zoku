@@ -12,6 +12,7 @@ export function StoreProvider({ children }) {
       player: "mpv",
     },
   });
+  const storeStateRef = useRef(data);
   const [loading, setLoading] = useState(true);
 
   const writeQueue = useRef([]);
@@ -38,7 +39,9 @@ export function StoreProvider({ children }) {
         const myAnimes = (await getStore("myAnimes")) || {};
         const localFiles = (await getStore("localFiles")) || {};
         const settings = (await getStore("settings")) || { player: "mpv" };
-        setData({ folderPath, myAnimes, localFiles, settings });
+        const loadedData = { folderPath, myAnimes, localFiles, settings };
+        storeStateRef.current = loadedData;
+        setData(loadedData);
       } catch (error) {
         console.error("[Store] Error al cargar datos:", error);
       } finally {
@@ -53,10 +56,12 @@ export function StoreProvider({ children }) {
       return new Promise((resolve, reject) => {
         writeQueue.current.push(async () => {
           try {
-            const currentValue = (await getStore(key)) || (key === "folderPath" ? "" : {});
+            const currentValue = storeStateRef.current[key] || (key === "folderPath" ? "" : {});
             const newValue = typeof valueOrAction === "function" ? valueOrAction(currentValue) : valueOrAction;
+            // Actualizar Ref sincrónicamente para que el siguiente task en queue lo vea
+            storeStateRef.current = { ...storeStateRef.current, [key]: newValue };
+            setData(storeStateRef.current);
             await setStore(key, newValue);
-            setData((prev) => ({ ...prev, [key]: newValue }));
             resolve(newValue);
           } catch (error) {
             console.error(`[Store] Error actualizando ${key}:`, error);
@@ -79,12 +84,14 @@ export function StoreProvider({ children }) {
       writeQueue.current.push(async () => {
         try {
           await clearStore();
-          setData({
+          const clearedData = {
             folderPath: "",
             myAnimes: {},
             localFiles: {},
             settings: { player: "mpv" },
-          });
+          };
+          storeStateRef.current = clearedData;
+          setData(clearedData);
           resolve(true);
         } catch (error) {
           console.error("[Store] Error al limpiar datos:", error);

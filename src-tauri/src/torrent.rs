@@ -86,7 +86,14 @@ async fn fetch_nyaa_inner(query: String, fansub: String) -> Result<Vec<TorrentIt
 
     let url = format!("https://nyaa.si/?{}", params.join("&"));
 
-    let bytes = reqwest::get(&url)
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(12))
+        .build()
+        .map_err(|e| format!("Error building client: {}", e))?;
+
+    let bytes = client
+        .get(&url)
+        .send()
         .await
         .map_err(|e| format!("Error de conexión con Nyaa: {}", e))?
         .bytes()
@@ -158,40 +165,14 @@ pub async fn fetch_nyaa(query: String, fansub: String) -> Result<Vec<TorrentItem
     fetch_nyaa_inner(query, fansub).await
 }
 
-#[tauri::command]
-pub async fn fetch_nyaa_multiple(
-    queries: Vec<String>,
-    fansub: String,
-) -> Result<Vec<TorrentItem>, String> {
-    let tasks: Vec<_> = queries
-        .into_iter()
-        .map(|q| {
-            let f = fansub.clone();
-            tokio::spawn(async move { fetch_nyaa_inner(q, f).await })
-        })
-        .collect();
-
-    let results = join_all(tasks).await;
-
-    let mut all_items: Vec<TorrentItem> = Vec::new();
-    let mut seen_hashes: HashSet<String> = HashSet::new();
-
-    for result in results {
-        if let Ok(Ok(items)) = result {
-            for item in items {
-                if item.info_hash.is_empty() || seen_hashes.insert(item.info_hash.clone()) {
-                    all_items.push(item);
-                }
-            }
-        }
-    }
-
-    Ok(all_items)
-}
 
 #[tauri::command]
 pub async fn query_anilist(query: String, variables: serde_json::Value) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(12))
+        .build()
+        .map_err(|e| e.to_string())?;
+        
     let response = client
         .post("https://graphql.anilist.co/")
         .header("Content-Type", "application/json")

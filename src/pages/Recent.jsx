@@ -1,12 +1,13 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
 import { useRecentAnime } from "../hooks/useRecentAnime";
 import { extractEpisodeNumber } from "../utils/fileParsing";
-import { openFile, isPlayerStillOpen } from "../services/fileSystem";
-import { findTorrentMatches, extractAliasFromTitle } from "../utils/torrentMatch";
+import { findTorrentMatches } from "../utils/torrentMatch";
 import { useTorrent } from "../context/TorrentContext";
+import { useToast } from "../hooks/useToast";
+import { formatRelativeDate } from "../utils/dateFormat";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import TorrentSearchModal from "../components/ui/TorrentSearchModal";
 import RetryPanel from "../components/ui/RetryPanel";
@@ -15,10 +16,9 @@ import styles from "./Recent.module.css";
 
 const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
 const DAY_NAMES_SHORT = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
-const WATCH_TIMER_MS = 60 * 1000; // 1 minuto
 
 function Recent() {
-  const { data, setMyAnimes } = useStore();
+  const { data } = useStore();
   const { seasonalAnime, loading, error, retryFetch } = useAnime();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("recientes");
@@ -38,59 +38,14 @@ function Recent() {
 
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalItem, setSearchModalItem] = useState(null);
-  const [toast, setToast] = useState(null);
 
-  const showToast = useCallback((message, type = "info") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  }, []);
+  const { toast, showToast } = useToast();
 
   const {
     playingEp,
     handlePlayEpisode: trackPlay,
-    handleToggleWatched
+    handleToggleWatched,
   } = usePlayTracking((msg, type) => showToast(msg, type));
-
-  // Aprendizaje automático de alias al detectar matches exitosos
-  useEffect(() => {
-    if (torrentLoading || !allAiringAnime.length || !torrentData.length) return;
-
-    const itemsToUpdate = [];
-    allAiringAnime.forEach((anime) => {
-      const id = anime.malId || anime.id;
-      const stored = data.myAnimes[id];
-      if (stored && !stored.torrentAlias) {
-        // Buscamos si hay algún match para el último episodio emitido para "aprender" el nombre de Nyaa
-        const nextAiring = anime.nextAiringEpisode;
-        const lastAiredEp = nextAiring ? nextAiring.episode - 1 : anime.episodes || 0;
-        
-        if (lastAiredEp > 0) {
-          const titleRomaji = anime.title;
-          const titleEnglish = anime.title_english || null;
-          const matches = findTorrentMatches(titleRomaji, titleEnglish, lastAiredEp, torrentData);
-          if (matches.length > 0) {
-            const alias = extractAliasFromTitle(matches[0].title);
-            itemsToUpdate.push({ id, alias });
-          }
-        }
-      }
-    });
-
-    if (itemsToUpdate.length > 0) {
-      setMyAnimes((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        itemsToUpdate.forEach(({ id, alias }) => {
-          if (next[id] && next[id].torrentAlias !== alias) {
-            next[id] = { ...next[id], torrentAlias: alias, lastUpdated: new Date().toISOString() };
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }
-  }, [torrentData, allAiringAnime, torrentLoading, data.myAnimes, setMyAnimes]);
-
 
   const myAnimeMap = useMemo(() => {
     const map = {};
@@ -112,7 +67,9 @@ function Recent() {
         const stored = myAnimeMap[id] || myAnimeMap[Number(id)] || myAnimeMap[String(id)];
 
         const watchedEps = stored?.watchedEpisodes || [];
-        const localFolder = Object.values(data.localFiles || {}).find((f) => f.malId === id && f.isLinked);
+        const localFolder = Object.values(data.localFiles || {}).find(
+          (f) => String(f.malId) === String(id) && f.isLinked,
+        );
         const localFiles = localFolder?.files || [];
         const nextAiring = anime.nextAiringEpisode;
         const lastAiredEp = nextAiring ? nextAiring.episode - 1 : anime.episodes || 0;
@@ -152,7 +109,7 @@ function Recent() {
         return; // No hay datos para fechar
       }
 
-      for (let ep = anime.lastAiredEp; ep >= Math.max(1, anime.lastAiredEp - 2); ep--) {
+      for (let ep = anime.lastAiredEp; ep >= Math.max(1, anime.lastAiredEp - 3); ep--) {
         // Estimar fecha: refAiringAt - (distancia de episodios * una semana)
         const epAiredAt = (refAiringAt - (refEpisode - ep) * SECONDS_IN_WEEK) * 1000;
 
@@ -164,8 +121,10 @@ function Recent() {
         if (!groups[dayKey]) groups[dayKey] = { date, episodes: [] };
 
         const localFile = anime.localFiles.find((f) => {
-          const n = f.episodeNumber ?? extractEpisodeNumber(f.name, [anime.title, anime.storedData?.folderName]);
-          return n === ep;
+          const n =
+            f.episodeNumber ??
+            extractEpisodeNumber(f.name, [anime.title, anime.title_english, anime.storedData?.folderName]);
+          return n !== null && n === ep;
         });
 
         groups[dayKey].episodes.push({
@@ -186,6 +145,25 @@ function Recent() {
         episodes: val.episodes.sort((a, b) => b.airedAt - a.airedAt),
       }));
   }, [myAiringAnime]);
+
+  const torrentMatchesMap = useMemo(() => {
+    if (!torrentData || torrentData.length === 0 || groupedByDay.length === 0) return {};
+    const matchesMap = {};
+    groupedByDay.forEach(({ episodes }) => {
+      episodes.forEach(({ anime, ep }) => {
+        const stored = myAnimeMap[anime.malId] || myAnimeMap[anime.mal_id];
+        const key = `${anime.malId || anime.mal_id}-${ep}`;
+        matchesMap[key] = findTorrentMatches(
+          anime.title,
+          anime.title_english || null,
+          ep,
+          torrentData,
+          stored?.torrentAlias,
+        );
+      });
+    });
+    return matchesMap;
+  }, [groupedByDay, torrentData, myAnimeMap]);
 
   const scheduleByDay = useMemo(() => {
     const groups = Array.from({ length: 7 }, () => []);
@@ -209,18 +187,8 @@ function Recent() {
     (animeId, epNumber, filePath) => {
       trackPlay(animeId, epNumber, filePath);
     },
-    [trackPlay]
+    [trackPlay],
   );
-
-  const formatRelativeDate = (date) => {
-    const now = new Date();
-    const diff = now - date;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return "HOY";
-    if (days === 1) return "AYER";
-    if (days < 7) return `HACE ${days} DÍAS`;
-    return date.toLocaleDateString("es", { day: "numeric", month: "long" }).toUpperCase();
-  };
 
   const formatTimeUntil = (seconds) => {
     const d = Math.floor(seconds / 86400);
@@ -313,6 +281,14 @@ function Recent() {
                       key={`${anime.malId}-${ep}`}
                       className={`${styles.episodeRow} ${isWatched ? styles.watched : ""}`}
                       onClick={() => navigate(`/anime/${anime.malId || anime.mal_id}`)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/anime/${anime.malId || anime.mal_id}`);
+                        }
+                      }}
                     >
                       <div className={styles.animePoster}>
                         <img
@@ -328,16 +304,8 @@ function Recent() {
                       <div className={styles.episodeActions} onClick={(e) => e.stopPropagation()}>
                         {(() => {
                           if (!principalFansub || localFile || isWatched) return null;
-                          const stored = myAnimeMap[anime.malId] || myAnimeMap[anime.mal_id];
-                          const titleRomaji = anime.title;
-                          const titleEnglish = anime.title_english || null;
-                          const matches = findTorrentMatches(
-                            titleRomaji,
-                            titleEnglish,
-                            ep,
-                            torrentData,
-                            stored?.torrentAlias,
-                          );
+                          const key = `${anime.malId || anime.mal_id}-${ep}`;
+                          const matches = torrentMatchesMap[key] || [];
                           const hasPrincipalMatch = matches.some((m) => m.fansub === principalFansub);
 
                           if (torrentLoading) return <div className={styles.torrentSpinner}></div>;
@@ -393,36 +361,34 @@ function Recent() {
                             VISTO
                           </span>
                         ) : playingEp?.animeId === (anime.malId || anime.mal_id) && playingEp?.epNumber === ep ? (
-                            <span className={styles.playingBadge}>
-                              REPRODUCIENDO
-                            </span>
-                          ) : localFile ? (
-                            localFile.isDownloading ? (
-                              <button
-                                className={styles.downloadingBtn}
-                                disabled
-                                title="El cliente externo está procesando el archivo (.part / .!qB)"
-                              >
-                                ⏳ DESCARGANDO
-                              </button>
-                            ) : (
-                              <button
-                                className={styles.playBtn}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePlayEpisode(anime.malId || anime.id, ep, localFile.path);
-                                }}
-                                title="Reproducir"
-                              >
-                                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                                  <path d="M8 5v14l11-7z" />
-                                </svg>
-                                REPRODUCIR
-                              </button>
-                            )
+                          <span className={styles.playingBadge}>REPRODUCIENDO</span>
+                        ) : localFile ? (
+                          localFile.isDownloading ? (
+                            <button
+                              className={styles.downloadingBtn}
+                              disabled
+                              title="El cliente externo está procesando el archivo (.part / .!qB)"
+                            >
+                              ⏳ DESCARGANDO
+                            </button>
                           ) : (
-                            <span className={styles.pendingBadge}>PENDIENTE</span>
-                          )}
+                            <button
+                              className={styles.playBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlayEpisode(anime.malId || anime.id, ep, localFile.path);
+                              }}
+                              title="Reproducir"
+                            >
+                              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                              REPRODUCIR
+                            </button>
+                          )
+                        ) : (
+                          <span className={styles.pendingBadge}>PENDIENTE</span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -500,7 +466,6 @@ function Recent() {
         animeTitle={torrentModalTitle.split(" — ")[0]}
         items={torrentModalItems}
         malId={torrentModalMalId}
-        showToast={showToast}
       />
 
       <TorrentSearchModal
@@ -510,6 +475,11 @@ function Recent() {
         epNumber={searchModalItem?.ep}
         malId={searchModalItem?.malId}
       />
+      {toast && (
+        <div className={styles.toast} data-type={toast.type} role="alert" aria-live="polite">
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }

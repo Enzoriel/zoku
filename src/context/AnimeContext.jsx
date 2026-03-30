@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { getFullSeasonAnime } from "../services/api";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useStore } from "../hooks/useStore";
 
 const CACHE_DURATION = 60 * 60 * 1000;
 
 const AnimeContext = createContext(null);
 
 export function AnimeProvider({ children }) {
+  const { data: storeData } = useStore();
   const [seasonalAnime, setSeasonalAnime] = useState([]);
   const [searchAnimes, setSearchAnimes] = useState([]);
   const lastFetchRef = useRef(null);
@@ -61,12 +63,14 @@ export function AnimeProvider({ children }) {
     (id) => {
       const parsed = parseInt(id);
       return (
+        storeData.myAnimes[id] ||
+        storeData.myAnimes[parsed] ||
         seasonalAnime.find((a) => a.anilistId === parsed || a.mal_id === parsed) ||
         searchAnimes.find((a) => a.anilistId === parsed || a.mal_id === parsed) ||
         null
       );
     },
-    [seasonalAnime, searchAnimes],
+    [seasonalAnime, searchAnimes, storeData.myAnimes],
   );
 
   const retryFetch = useCallback(async () => {

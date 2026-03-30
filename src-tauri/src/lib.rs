@@ -10,7 +10,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             torrent::fetch_nyaa,
-            torrent::fetch_nyaa_multiple,
             torrent::query_anilist,
         ])
         .run(tauri::generate_context!())

@@ -23,7 +23,7 @@ export function getContinueWatching(myAnimes, localFiles = {}) {
         const localData = localFiles[animeTitle] || localFiles[anime.folderName] || { files: [] };
         const nextFile = localData.files.find((f) => {
           const epNum = extractEpisodeNumber(f.name, [animeTitle, anime.folderName]);
-          return epNum === nextEp;
+          return epNum !== null && epNum === nextEp;
         });
 
         const validWatched = watched.filter((ep) => total === 0 || ep <= total);
@@ -72,9 +72,10 @@ export function getNewEpisodes(myAnimes, localFiles) {
 
     if (maxLocal > maxWatched) {
       const nextEp = maxWatched + 1;
-      const nextFile = localFilesList.find(
-        (f) => extractEpisodeNumber(f.name, [animeTitle, anime.folderName]) === nextEp,
-      );
+      const nextFile = localFilesList.find((f) => {
+        const epNum = extractEpisodeNumber(f.name, [animeTitle, anime.folderName]);
+        return epNum !== null && epNum === nextEp;
+      });
 
       // Solo lo añadimos si no está "terminado"
       const total = anime.totalEpisodes || anime.episodes || 0;
@@ -101,7 +102,3 @@ export function getRecentlyAdded(myAnimes) {
     .slice(0, 10);
 }
 
-export function isLibraryEmpty(myAnimes) {
-  if (!myAnimes) return true;
-  return Object.keys(myAnimes).length === 0;
-}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
+import { formatRelativeDate } from "../utils/dateFormat";
 import styles from "./History.module.css";
 
 const MONTH_NAMES = [
@@ -95,15 +96,7 @@ function History() {
       .map(([key, val]) => ({ key, ...val }));
   }, [historyData]);
 
-  const formatDayLabel = (date) => {
-    const now = new Date();
-    const diff = now - date;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return "HOY";
-    if (days === 1) return "AYER";
-    if (days < 7) return `HACE ${days} DÍAS`;
-    return date.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" }).toUpperCase();
-  };
+  const formatDayLabel = (date) => formatRelativeDate(date);
 
   const formatTime = (date) => date.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
 

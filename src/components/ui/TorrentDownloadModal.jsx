@@ -23,7 +23,7 @@ function sortItems(items) {
   });
 }
 
-function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId, showToast }) {
+function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }) {
   const { data: storeData, setMyAnimes } = useStore();
 
   const principalFansub = getPrincipalFansub(storeData.settings);

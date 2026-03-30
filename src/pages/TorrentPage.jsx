@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import { useStore } from "../hooks/useStore";
 import { useTorrent } from "../context/TorrentContext";
+import { useToast } from "../hooks/useToast";
 import { hasConfiguredFansubs, getAllFansubs, getPrincipalFansub, getPreferredResolution } from "../utils/torrentConfig";
 import FansubOnboardingModal from "../components/ui/FansubOnboardingModal";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
@@ -15,7 +16,7 @@ const CACHE_DURATION = 10 * 60 * 1000;
 
 function TorrentPage() {
   const location = useLocation();
-  const { data: storeData, setMyAnimes } = useStore();
+  const { data: storeData } = useStore();
   const { refresh: contextRefresh } = useTorrent();
 
   // Fansub settings
@@ -45,16 +46,10 @@ function TorrentPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalItems, setModalItems] = useState([]);
   const [modalTitle, setModalTitle] = useState("");
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = "info") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
+  const { toast, showToast } = useToast();
 
   const targetAnimeId = location.state?.malId;
   const targetAnimeTitle = location.state?.animeTitle;
-  const currentAlias = targetAnimeId ? storeData.myAnimes[targetAnimeId]?.torrentAlias : null;
 
   const showSearchOptions = activeTab !== "general" && searchInput.trim() !== "";
 
@@ -134,29 +129,6 @@ function TorrentPage() {
     }
   };
 
-  const handleLinkAlias = async () => {
-    if (!targetAnimeId || !activeQuery) return;
-    try {
-      // Limpiamos el query para que sea solo el nombre base (sin el episodio)
-      // El usuario puede haber buscado "Frieren 10", el alias debería ser solo "Frieren"
-      const cleanAlias = activeQuery.replace(/\s+\d+$/, "").trim();
-      
-      await setMyAnimes(prev => {
-        const updated = { ...prev };
-        if (updated[targetAnimeId]) {
-          updated[targetAnimeId] = {
-            ...updated[targetAnimeId],
-            torrentAlias: cleanAlias,
-            lastUpdated: new Date().toISOString()
-          };
-        }
-        return updated;
-      });
-      showToast(`Nombre "${cleanAlias}" vinculado a ${targetAnimeTitle || 'la serie'}.`, "success");
-    } catch (e) {
-      console.error("Error linking alias:", e);
-    }
-  };
 
   const handleOpenLink = async (url) => {
     if (!url) return;

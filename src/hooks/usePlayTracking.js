@@ -3,7 +3,7 @@ import { useStore } from "./useStore";
 import { isPlayerStillOpen, openFile } from "../services/fileSystem";
 import { calculateUserStatus } from "../utils/animeStatus";
 
-const WATCH_TIMER_MS = 60 * 1000; // 1 minuto
+import { WATCH_TIMER_MS } from "../constants";
 
 /**
  * Hook para gestionar el seguimiento de episodios en reproducción y el marcado automático como visto.
@@ -47,6 +47,12 @@ export function usePlayTracking(showToast) {
             lastUpdated: new Date().toISOString() 
           };
           updated.userStatus = calculateUserStatus(updated);
+          // HALL-51: Setear/limpiar completedAt según estado
+          if (updated.userStatus === "COMPLETED" && !current.completedAt) {
+            updated.completedAt = new Date().toISOString();
+          } else if (updated.userStatus !== "COMPLETED" && current.completedAt) {
+            updated.completedAt = null;
+          }
           return { ...prev, [animeId]: updated };
         });
       } catch (e) {
@@ -104,7 +110,7 @@ export function usePlayTracking(showToast) {
     []
   );
 
-  const stopTracking = useCallback(() => {
+  const cancelPlay = useCallback(() => {
     if (watchIntervalRef.current) {
       clearInterval(watchIntervalRef.current);
       watchIntervalRef.current = null;
@@ -122,6 +128,6 @@ export function usePlayTracking(showToast) {
     playingEp,
     handlePlayEpisode,
     handleToggleWatched,
-    stopTracking
+    cancelPlay
   };
 }

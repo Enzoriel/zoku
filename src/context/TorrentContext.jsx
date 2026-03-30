@@ -2,8 +2,9 @@ import { createContext, useState, useEffect, useCallback, useRef, useMemo, useCo
 import { invoke } from "@tauri-apps/api/core";
 import { StoreContext } from "./StoreContext";
 import { getPrincipalFansub, getPreferredResolution } from "../utils/torrentConfig";
+import { TORRENT_REFRESH_INTERVAL_MS } from "../constants";
 
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos
+const CACHE_DURATION = TORRENT_REFRESH_INTERVAL_MS;
 
 export const TorrentContext = createContext(null);
 

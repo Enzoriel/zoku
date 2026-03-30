@@ -21,10 +21,6 @@ export async function setStore(key, value) {
   return s.set(key, value);
 }
 
-export async function deleteStore(key) {
-  const s = await initStore();
-  return s.delete(key);
-}
 
 export async function clearStore() {
   const s = await initStore();
