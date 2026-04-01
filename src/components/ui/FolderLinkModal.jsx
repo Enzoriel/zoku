@@ -8,7 +8,7 @@ function FolderLinkModal({ isOpen, onClose, folderSearch, setFolderSearch, filte
       onClose={onClose}
       size="md"
       title="VINCULAR CARPETA"
-      subtitle="Busca y selecciona la carpeta local que contiene los archivos de esta serie."
+      subtitle="Busca y selecciona la carpeta local que contenga los archivos de esta serie."
     >
       <input
         type="text"

@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, remove } from "@tauri-apps/plugin-fs";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
+import { readDir } from "@tauri-apps/plugin-fs";
 import { Command } from "@tauri-apps/plugin-shell";
 import { extractEpisodeNumber, detectConstantNumbers } from "../utils/fileParsing";
 
@@ -62,6 +62,10 @@ export function normalizeForSearch(text) {
     .trim();
 }
 
+function isCompletedAnime(anime) {
+  return anime?.userStatus === "COMPLETED";
+}
+
 export function extractBaseTitle(fileName) {
   if (!fileName) return "";
   let name = fileName.replace(/\.[^/.]+$/, "");
@@ -97,7 +101,7 @@ export function extractBaseTitle(fileName) {
   name = name.replace(/Season [0-9]{1,2}/gi, "");
   name = name.replace(/v[0-9]{1}/gi, "");
 
-  const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/ig;
+  const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/gi;
   const endingPattern = /\b(end|final|ova|special|movie|film)\b/i;
 
   const matches = [...name.matchAll(episodePattern)];
@@ -120,46 +124,89 @@ export async function deleteFolderFromDisk(folderPath, basePath) {
 
   if (!isPathWithinBase(folderPath, basePath)) {
     console.error(`[FS] Intento de borrado fuera del basePath: ${folderPath}`);
-    return false;
+    return {
+      ok: false,
+      code: "OUTSIDE_LIBRARY",
+      error: "La carpeta seleccionada esta fuera de la biblioteca autorizada.",
+    };
   }
 
   try {
-    await remove(folderPath, { recursive: true });
-    return true;
+    await invoke("secure_delete_path", { path: folderPath, recursive: true });
+    return { ok: true };
   } catch (error) {
     console.error("[FS] Error al borrar carpeta:", error);
-    return false;
+    const message = String(error);
+    const isLocked =
+      /used by another process/i.test(message) ||
+      /being used by another process/i.test(message) ||
+      /os error 32/i.test(message) ||
+      /acceso.*denegado/i.test(message) ||
+      /permiso denegado/i.test(message);
+
+    return {
+      ok: false,
+      code: isLocked ? "FILE_IN_USE" : "DELETE_FAILED",
+      error: isLocked
+        ? "No se pudo borrar porque uno o mas archivos estan siendo usados por otra aplicacion."
+        : "No se pudo borrar la carpeta seleccionada.",
+      details: message,
+    };
   }
 }
 
 export async function deleteVirtualFolderFiles(files, basePath) {
-  if (!files?.length || !basePath) return { deleted: 0, failed: 0 };
+  if (!files?.length || !basePath) return { deleted: 0, failed: 0, errors: [] };
   let deleted = 0;
   let failed = 0;
+  const errors = [];
 
   for (const file of files) {
     const filePath = file.path;
     if (!filePath) {
       failed++;
+      errors.push({
+        code: "INVALID_PATH",
+        error: `No se pudo resolver la ruta del archivo "${file?.name || "desconocido"}".`,
+      });
       continue;
     }
 
     if (!isPathWithinBase(filePath, basePath)) {
       console.error(`[FS] Intento de borrado fuera del basePath: ${filePath}`);
       failed++;
+      errors.push({
+        code: "OUTSIDE_LIBRARY",
+        error: `El archivo "${file.name}" esta fuera de la biblioteca autorizada.`,
+      });
       continue;
     }
 
     try {
-      await remove(filePath);
+      await invoke("secure_delete_path", { path: filePath, recursive: false });
       deleted++;
     } catch (error) {
       console.error(`[FS] Error al borrar archivo: ${filePath}`, error);
       failed++;
+      const message = String(error);
+      const isLocked =
+        /used by another process/i.test(message) ||
+        /being used by another process/i.test(message) ||
+        /os error 32/i.test(message) ||
+        /acceso.*denegado/i.test(message) ||
+        /permiso denegado/i.test(message);
+
+      errors.push({
+        code: isLocked ? "FILE_IN_USE" : "DELETE_FAILED",
+        error: isLocked
+          ? `No se pudo borrar "${file.name}" porque esta siendo usado por otra aplicación.`
+          : `No se pudo borrar "${file.name}".`,
+        details: message,
+      });
     }
   }
 
-  return { deleted, failed };
+  return { deleted, failed, errors };
 }
 
 export async function selectFolder() {
@@ -169,8 +216,7 @@ export async function selectFolder() {
 export async function openFile(filePath) {
   if (!filePath) return false;
   try {
-    const winPath = filePath.replace(/\//g, "\\");
-    await openPath(winPath);
+    await invoke("secure_open_path", { path: filePath });
     return true;
   } catch (error) {
     console.error("[Opener] Falló openPath:", error);
@@ -185,7 +231,7 @@ async function getVideosInFolder(folderPath) {
     const dlExtensions = [".!qb", ".part", ".bc!"];
 
     const fileEntries = entries.filter((e) => !e.isDirectory);
-    
+
     const videoFiles = fileEntries.filter((e) => {
       const nameL = e.name.toLowerCase();
       return videoExtensions.some((ext) => nameL.endsWith(ext)) || dlExtensions.some((ext) => nameL.endsWith(ext));
@@ -306,11 +352,13 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
           const tr = normalizeForSearch(a.title);
           const te = normalizeForSearch(a.title_english) || "";
           // Coincidencia amplia bidireccional
-          const isMatch = cleanKey === tr || cleanKey === te || 
-                          (cleanKey.length > 3 && tr.includes(cleanKey)) || 
-                          (tr.length > 3 && cleanKey.includes(tr)) ||
-                          (te && cleanKey.length > 3 && te.includes(cleanKey)) ||
-                          (te && te.length > 3 && cleanKey.includes(te));
+          const isMatch =
+            cleanKey === tr ||
+            cleanKey === te ||
+            (cleanKey.length > 3 && tr.includes(cleanKey)) ||
+            (tr.length > 3 && cleanKey.includes(tr)) ||
+            (te && cleanKey.length > 3 && te.includes(cleanKey)) ||
+            (te && te.length > 3 && cleanKey.includes(te));
           return isMatch;
         });
 
@@ -348,9 +396,14 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
         return;
       }
 
-      // Sin folderName: anime en seguimiento puro, aparece en Library sin carpeta
-      const alreadyInList = Object.values(virtualLibrary).some((f) => f.malId === anime.malId);
-      if (!alreadyInList) {
+      // Sin folderName: anime en seguimiento puro, solo si no esta completado
+      const alreadyInList = Object.values(virtualLibrary).some(
+        (f) =>
+          String(f.malId) === String(anime.malId) ||
+          String(f.resolvedMalId) === String(anime.malId) ||
+          String(f.suggestedMalId) === String(anime.malId),
+      );
+      if (!alreadyInList && !isCompletedAnime(anime)) {
         virtualLibrary[`__tracking__${anime.malId}`] = {
           files: [],
           isLinked: false,
@@ -372,4 +425,3 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
 
   return virtualLibrary;
 }
-

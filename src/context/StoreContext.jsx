@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { getStore, setStore, clearStore } from "../services/store";
 
 export const StoreContext = createContext();
@@ -14,9 +15,25 @@ export function StoreProvider({ children }) {
   });
   const storeStateRef = useRef(data);
   const [loading, setLoading] = useState(true);
+  const [libraryScopeReady, setLibraryScopeReady] = useState(false);
+  const [libraryScopeError, setLibraryScopeError] = useState(null);
 
   const writeQueue = useRef([]);
   const isWriting = useRef(false);
+
+  const ensureLibraryScope = useCallback(async (folderPath) => {
+    try {
+      await invoke("ensure_library_scope", { path: folderPath || "" });
+      setLibraryScopeError(null);
+      setLibraryScopeReady(true);
+      return true;
+    } catch (error) {
+      console.error("[Store] Error asegurando scope de biblioteca:", error);
+      setLibraryScopeError("No se pudo autorizar la carpeta de biblioteca actual.");
+      setLibraryScopeReady(false);
+      return false;
+    }
+  }, []);
 
   const processQueue = useCallback(async () => {
     if (isWriting.current || writeQueue.current.length === 0) return;
@@ -40,16 +57,18 @@ export function StoreProvider({ children }) {
         const localFiles = (await getStore("localFiles")) || {};
         const settings = (await getStore("settings")) || { player: "mpv" };
         const loadedData = { folderPath, myAnimes, localFiles, settings };
+        await ensureLibraryScope(folderPath);
         storeStateRef.current = loadedData;
         setData(loadedData);
       } catch (error) {
         console.error("[Store] Error al cargar datos:", error);
+        setLibraryScopeReady(false);
       } finally {
         setLoading(false);
       }
     }
     loadData();
-  }, []);
+  }, [ensureLibraryScope]);
 
   const updateStore = useCallback(
     (key, valueOrAction) => {
@@ -73,7 +92,25 @@ export function StoreProvider({ children }) {
     [processQueue],
   );
 
-  const setFolderPath = useCallback((path) => updateStore("folderPath", path), [updateStore]);
+  const setFolderPath = useCallback(
+    async (path) => {
+      const previousPath = storeStateRef.current.folderPath || "";
+      const previousLocalFiles = storeStateRef.current.localFiles || {};
+      setLibraryScopeReady(false);
+      setLibraryScopeError(null);
+      const nextPath = await updateStore("folderPath", path);
+      await updateStore("localFiles", {});
+      const scopeOk = await ensureLibraryScope(nextPath);
+      if (!scopeOk) {
+        await updateStore("folderPath", previousPath);
+        await updateStore("localFiles", previousLocalFiles);
+        await ensureLibraryScope(previousPath);
+        throw new Error("No se pudo autorizar la carpeta seleccionada.");
+      }
+      return nextPath;
+    },
+    [ensureLibraryScope, updateStore],
+  );
   const setMyAnimes = useCallback((action) => updateStore("myAnimes", action), [updateStore]);
   const setLocalFiles = useCallback((files) => updateStore("localFiles", files), [updateStore]);
   const setSettings = useCallback((settings) => updateStore("settings", settings), [updateStore]);
@@ -89,6 +126,9 @@ export function StoreProvider({ children }) {
             localFiles: {},
             settings: { player: "mpv" },
           };
+          await invoke("ensure_library_scope", { path: "" });
+          setLibraryScopeReady(true);
+          setLibraryScopeError(null);
           storeStateRef.current = clearedData;
           setData(clearedData);
           resolve(true);
@@ -105,13 +145,15 @@ export function StoreProvider({ children }) {
     () => ({
       data,
       loading,
+      libraryScopeReady,
+      libraryScopeError,
       setFolderPath,
       setMyAnimes,
       setLocalFiles,
       setSettings,
       clearAllData,
     }),
-    [data, loading, setFolderPath, setMyAnimes, setLocalFiles, setSettings, clearAllData],
+    [data, loading, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setLocalFiles, setSettings, clearAllData],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

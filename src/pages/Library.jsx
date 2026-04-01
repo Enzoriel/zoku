@@ -8,21 +8,38 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 import styles from "./Library.module.css";
 
 function Library() {
-  const { data, setFolderPath, setMyAnimes, setSettings } = useStore();
+  const { data, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setSettings } = useStore();
   const { performSync, syncing } = useLibrary();
   const [viewMode, setViewMode] = useState("grid");
   const [confirmModal, setConfirmModal] = useState(null);
   const navigate = useNavigate();
 
+  const showInfoModal = (title, message) => {
+    setConfirmModal({
+      title,
+      message,
+      confirmLabel: "ENTENDIDO",
+      hideCancel: true,
+      onConfirm: () => setConfirmModal(null),
+    });
+  };
+
   const handleSelectFolder = async () => {
     const path = await selectFolder();
-    if (path) await setFolderPath(path);
+    if (!path) return;
+
+    try {
+      await setFolderPath(path);
+    } catch (error) {
+      console.error("[Library] No se pudo autorizar la carpeta seleccionada:", error);
+    }
   };
 
   useEffect(() => {
+    if (!data.folderPath || !libraryScopeReady) return;
     performSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.folderPath]);
+  }, [data.folderPath, libraryScopeReady]);
 
   const processedFolders = useMemo(() => {
     return Object.entries(data.localFiles || {})
@@ -44,6 +61,7 @@ function Library() {
       TV: [],
       MOVIE: [],
       OVA_SPECIAL: [],
+      AUTO_LINKED: [],
       UNLINKED: [],
       TRACKING: [], // en lista, sin carpeta física
       OTHER: [],
@@ -52,6 +70,10 @@ function Library() {
     processedFolders.forEach((folder) => {
       if (folder.isTracking) {
         groups.TRACKING.push(folder);
+        return;
+      }
+      if (folder.isSuggested && !folder.isLinked) {
+        groups.AUTO_LINKED.push(folder);
         return;
       }
       if (!folder.isLinked) {
@@ -87,7 +109,10 @@ function Library() {
     // Carpetas virtuales: archivos sueltos en raíz agrupados por título
     if (folder.isRootFile) {
       const fileCount = folder.files?.length || 0;
-      if (fileCount === 0) return;
+      if (fileCount === 0) {
+        showInfoModal("No hay archivos para borrar", `"${folder.name}" ya no contiene archivos locales.`);
+        return;
+      }
 
       const fileNames = folder.files.map((f) => f.name).join("\n• ");
       setConfirmModal({
@@ -96,7 +121,19 @@ function Library() {
         onConfirm: async () => {
           setConfirmModal(null);
           const result = await deleteVirtualFolderFiles(folder.files, data.folderPath);
-          if (result.deleted > 0) {
+          if (result.failed > 0) {
+            const lockedFile = result.errors.find((item) => item.code === "FILE_IN_USE");
+            if (lockedFile) {
+              showInfoModal("No se pudo completar el borrado", `${lockedFile.error}`);
+            } else {
+              showInfoModal(
+                "No se pudo completar el borrado",
+                result.errors[0]?.error || "Uno o mas archivos no pudieron eliminarse.",
+              );
+            }
+          }
+
+          if (result.deleted > 0 && result.failed === 0) {
             if (folder.malId) {
               setConfirmModal({
                 title: "¿Eliminar de biblioteca?",
@@ -119,15 +156,25 @@ function Library() {
     }
 
     // Carpetas físicas reales
-    if (!folder.physicalPath) return;
+    if (!folder.physicalPath) {
+      setConfirmModal({
+        title: "No hay archivos para borrar",
+        message: `"${folder.name}" ya no tiene una carpeta fisica disponible en disco.`,
+        onConfirm: async () => {
+          setConfirmModal(null);
+          await performSync();
+        },
+      });
+      return;
+    }
 
     setConfirmModal({
       title: "¿Borrar carpeta?",
       message: `"${folder.name}" y todos sus archivos serán eliminados permanentemente del disco.`,
       onConfirm: async () => {
         setConfirmModal(null);
-        const success = await deleteFolderFromDisk(folder.physicalPath, data.folderPath);
-        if (success) {
+        const result = await deleteFolderFromDisk(folder.physicalPath, data.folderPath);
+        if (result.ok) {
           if (folder.malId) {
             setConfirmModal({
               title: "¿Eliminar de biblioteca?",
@@ -143,6 +190,13 @@ function Library() {
           } else {
             await performSync();
           }
+        } else if (result.code === "FILE_IN_USE") {
+          showInfoModal(
+            "No se pudo borrar la carpeta",
+            `${result.error} Cierra qBittorrent, el reproductor u otra app que este usando archivos dentro de "${folder.name}".`,
+          );
+        } else {
+          showInfoModal("No se pudo borrar la carpeta", result.error || "La carpeta no pudo eliminarse.");
         }
       },
     });
@@ -216,7 +270,11 @@ function Library() {
       >
         <div className={styles.posterWrapper}>
           {hasPoster ? (
-            <img src={displayAnime.coverImage} alt={displayAnime?.title || folder.name} className={styles.posterImage} />
+            <img
+              src={displayAnime.coverImage}
+              alt={displayAnime?.title || folder.name}
+              className={styles.posterImage}
+            />
           ) : (
             <div className={styles.folderIcon}>
               {isTracking ? (
@@ -240,11 +298,19 @@ function Library() {
                     e.stopPropagation();
                     handleDeleteFolder(folder);
                   }}
+                  aria-label={isTracking ? "Quitar de la lista" : "Borrar del disco"}
                   title={isTracking ? "Quitar de lista" : "Borrar del disco"}
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6m4-16v6" />
-                  </svg>
+                  {isTracking ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M18 6L6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6m4-16v6" />
+                    </svg>
+                  )}
                 </button>
                 {folder.isLinked && !isTracking && (
                   <button
@@ -335,6 +401,37 @@ function Library() {
     );
   }
 
+  if (libraryScopeError) {
+    return (
+      <div className={styles.errorState}>
+        <div className={styles.errorContent}>
+          <div className={styles.errorIconLarge}>⚠️</div>
+          <h1>Error de Acceso</h1>
+          <p>{libraryScopeError}</p>
+          <div className={styles.errorActions}>
+            <Button onClick={handleSelectFolder} variant="primary">
+              Seleccionar Otra Carpeta
+            </Button>
+            <Button onClick={() => window.location.reload()} variant="secondary">
+              Reintentar
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!libraryScopeReady) {
+    return (
+      <div className={styles.loadingState}>
+        <div className={styles.loadingContent}>
+          <div className={styles.spinner}></div>
+          <p>Autorizando acceso a la biblioteca...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -369,6 +466,7 @@ function Library() {
         {renderSection("SERIES TV", groupedFolders.TV)}
         {renderSection("PELÍCULAS", groupedFolders.MOVIE)}
         {renderSection("OVAS / ESPECIALES", groupedFolders.OVA_SPECIAL)}
+        {renderSection("VINCULADO AUTOMÁTICO", groupedFolders.AUTO_LINKED)}
         {renderSection("EN SEGUIMIENTO", groupedFolders.TRACKING)}
         {renderSection("SIN VINCULAR", groupedFolders.UNLINKED)}
         {renderSection("OTROS", groupedFolders.OTHER)}
@@ -386,6 +484,8 @@ function Library() {
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
+          confirmLabel={confirmModal.confirmLabel}
+          hideCancel={confirmModal.hideCancel}
         />
       )}
     </div>

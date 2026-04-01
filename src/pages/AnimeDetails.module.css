@@ -634,7 +634,9 @@
   border: none;
   clip-path: var(--clip-sm);
   cursor: pointer;
-  transition: transform 0.2s ease, filter 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
 }
 
 .torrentBtn:hover {
@@ -670,7 +672,9 @@
 }
 
 @keyframes torrentSpin {
-  100% { transform: rotate(360deg); }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Menu */
@@ -704,7 +708,7 @@
   background: var(--px-card);
   border: 1px solid var(--px-border);
   z-index: 100;
-  min-width: 180px;
+  min-width: 240px;
 }
 
 .menuItem {

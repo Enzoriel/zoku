@@ -8,7 +8,8 @@ function ConfirmModal({
   onCancel, 
   isLoading = false, 
   confirmLabel = "CONFIRMAR",
-  variant = "primary" 
+  variant = "primary",
+  hideCancel = false,
 }) {
   return (
     <Modal
@@ -20,9 +21,11 @@ function ConfirmModal({
       hideClose={isLoading}
       footer={
         <>
-          <button className={styles.cancelBtn} onClick={onCancel} disabled={isLoading}>
-            CANCELAR
-          </button>
+          {!hideCancel && (
+            <button className={styles.cancelBtn} onClick={onCancel} disabled={isLoading}>
+              CANCELAR
+            </button>
+          )}
           <button 
             className={`${styles.confirmBtn} ${variant === "danger" ? styles.danger : ""}`} 
             onClick={onConfirm} 

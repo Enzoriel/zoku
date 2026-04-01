@@ -24,14 +24,26 @@ function titlesMatch(normalizedTitle, normalizedKey) {
   if (!normalizedTitle || !normalizedKey) return false;
   if (normalizedTitle === normalizedKey) return true;
   const blacklist = ["season", "part", "anime", "2nd", "3rd", "4th", "5th", "s2", "s3", "s4"];
-  const getBaseNameWords = (str) =>
-    str.split(" ").filter((w) => w.length > 2 && !blacklist.includes(w));
+  const getBaseNameWords = (str) => str.split(" ").filter((w) => w.length > 2 && !blacklist.includes(w));
   const wordsTitle = getBaseNameWords(normalizedTitle);
   const wordsKey = getBaseNameWords(normalizedKey);
   if (wordsTitle.length === 0 || wordsKey.length === 0) return false;
   const matches = wordsTitle.filter((w) => wordsKey.includes(w)).length;
   const totalUniqueWords = Math.max(wordsTitle.length, wordsKey.length);
   return matches / totalUniqueWords >= 0.8;
+}
+
+function buildSuggestedLinkLabel(folder) {
+  if (!folder?.files?.length) {
+    return folder?.folderName || "";
+  }
+
+  const firstFile = folder.files[0]?.name || folder.folderName || "";
+  return firstFile
+    .replace(/\.[^/.]+$/, "")
+    .replace(/\s*-\s*\d{1,4}.*$/i, "")
+    .replace(/\s+\d{1,4}.*$/i, "")
+    .trim();
 }
 
 function AnimeDetails() {
@@ -51,7 +63,7 @@ function AnimeDetails() {
   const [showAliasModal, setShowAliasModal] = useState(false);
   const [folderSearch, setFolderSearch] = useState("");
   const [contextMenu, setContextMenu] = useState(null);
-  
+
   const { toast, showToast } = useToast();
 
   const [showSearchApiModal, setShowSearchApiModal] = useState(false);
@@ -62,10 +74,10 @@ function AnimeDetails() {
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
 
-  const { 
-    playingEp, 
-    handlePlayEpisode: trackPlay, 
-    handleToggleWatched 
+  const {
+    playingEp,
+    handlePlayEpisode: trackPlay,
+    handleToggleWatched,
   } = usePlayTracking((msg, type) => showToast(msg, type));
 
   const animeId = useMemo(() => {
@@ -97,6 +109,17 @@ function AnimeDetails() {
     });
     return folderObj || { files: [] };
   }, [mainAnime, data?.localFiles, folderName]);
+
+  const suggestedFolder = useMemo(() => {
+    if (!mainAnime?.malId || mainAnime?.folderName) return null;
+
+    return (
+      Object.values(data?.localFiles || {}).find((folder) => {
+        if (!folder?.isSuggested || folder?.isLinked) return false;
+        return String(folder.suggestedMalId || folder.resolvedMalId) === String(mainAnime.malId);
+      }) || null
+    );
+  }, [mainAnime, data?.localFiles]);
 
   const unlinkedFolders = useMemo(() => {
     return Object.entries(data.localFiles || {})
@@ -142,9 +165,15 @@ function AnimeDetails() {
   const getAnimeByIdRef = useRef(getAnimeById);
   const setMyAnimesRef = useRef(setMyAnimes);
   const settingsRef = useRef(data.settings);
-  useEffect(() => { getAnimeByIdRef.current = getAnimeById; }, [getAnimeById]);
-  useEffect(() => { setMyAnimesRef.current = setMyAnimes; }, [setMyAnimes]);
-  useEffect(() => { settingsRef.current = data.settings; }, [data.settings]);
+  useEffect(() => {
+    getAnimeByIdRef.current = getAnimeById;
+  }, [getAnimeById]);
+  useEffect(() => {
+    setMyAnimesRef.current = setMyAnimes;
+  }, [setMyAnimes]);
+  useEffect(() => {
+    settingsRef.current = data.settings;
+  }, [data.settings]);
 
   const autoRefreshMetadata = useCallback(async (currentAnimeId) => {
     const stored = dataMyAnimesRef.current[currentAnimeId];
@@ -156,8 +185,18 @@ function AnimeDetails() {
     const apiData = getAnimeByIdRef.current(currentAnimeId);
     if (!apiData) return;
     // Solo actualizar campos de metadatos de la API, NUNCA sobreescribir datos del usuario
-    const { watchedEpisodes, watchHistory, userStatus, folderName, torrentAlias, 
-            addedAt, notes, completedAt, isInLibrary, ...safeApiData } = apiData;
+    const {
+      watchedEpisodes,
+      watchHistory,
+      userStatus,
+      folderName,
+      torrentAlias,
+      addedAt,
+      notes,
+      completedAt,
+      isInLibrary,
+      ...safeApiData
+    } = apiData;
     await setMyAnimesRef.current((prev) => ({
       ...prev,
       [currentAnimeId]: {
@@ -188,7 +227,6 @@ function AnimeDetails() {
       document.removeEventListener("scroll", close, true);
     };
   }, [contextMenu]);
-
 
   const handleApiSearch = async (queryToSearch) => {
     const q = typeof queryToSearch === "string" ? queryToSearch : apiSearchQuery;
@@ -323,8 +361,8 @@ function AnimeDetails() {
       else navigate(-1);
     };
     setConfirmModal({
-      title: "¿Quitar de la lista?",
-      message: "Se eliminará el progreso.",
+      title: "¿Quitar serie de tu lista de animes?",
+      message: "Se eliminará todo progreso guardado.",
       onConfirm: async () => {
         setConfirmModal(null);
         await performRemoval();
@@ -337,7 +375,7 @@ function AnimeDetails() {
       if (!animeId || !mainAnime?.isInLibrary) return;
       trackPlay(animeId, epNumber, filePath);
     },
-    [animeId, mainAnime?.isInLibrary, trackPlay]
+    [animeId, mainAnime?.isInLibrary, trackPlay],
   );
 
   const handleContextMenu = useCallback(
@@ -375,6 +413,48 @@ function AnimeDetails() {
     [animeId, setMyAnimes, setSettings, data.settings, performSync, showToast],
   );
 
+  const handleAcceptSuggestedLink = useCallback(async () => {
+    if (!animeId || !suggestedFolder?.folderName) return;
+
+    const nextSettings = {
+      ...data.settings,
+      library: {
+        ...(data.settings?.library || {}),
+        ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
+          (name) => name.toLowerCase() !== suggestedFolder.folderName.toLowerCase(),
+        ),
+      },
+    };
+
+    await setMyAnimes((prev) => ({
+      ...prev,
+      [animeId]: {
+        ...prev[animeId],
+        folderName: suggestedFolder.folderName,
+        lastUpdated: new Date().toISOString(),
+      },
+    }));
+    await setSettings(nextSettings);
+    await performSync(null, nextSettings);
+    showToast(`Carpeta "${suggestedFolder.folderName}" vinculada.`, "success");
+  }, [animeId, suggestedFolder, data.settings, setMyAnimes, setSettings, performSync, showToast]);
+
+  const handleRejectSuggestedLink = useCallback(async () => {
+    if (!suggestedFolder?.folderName) return;
+
+    const nextSettings = {
+      ...data.settings,
+      library: {
+        ...(data.settings?.library || {}),
+        ignoredSuggestions: Array.from(
+          new Set([...(data.settings?.library?.ignoredSuggestions || []), suggestedFolder.folderName]),
+        ),
+      },
+    };
+
+    await setSettings(nextSettings);
+    await performSync(null, nextSettings);
+  }, [suggestedFolder, data.settings, setSettings, performSync]);
 
   if (!mainAnime) return <div className={styles.container}>No encontrado</div>;
 
@@ -388,7 +468,7 @@ function AnimeDetails() {
   return (
     <div className={styles.container}>
       <div className={styles.contentLayout}>
-        <AnimeSidebar 
+        <AnimeSidebar
           mainAnime={mainAnime}
           onAdd={handleAddToLibraryBtnClick}
           onRemove={handleRemoveFromLibrary}
@@ -396,13 +476,8 @@ function AnimeDetails() {
           onEditAlias={() => setShowAliasModal(true)}
         />
         <main className={styles.mainContent}>
-          <AnimeHeader 
-             title={mainAnime.title}
-             type={mainAnime.type}
-             year={mainAnime.year}
-             status={mainAnime.status}
-          />
-          <EpisodeList 
+          <AnimeHeader title={mainAnime.title} type={mainAnime.type} year={mainAnime.year} status={mainAnime.status} />
+          <EpisodeList
             mainAnime={mainAnime}
             episodes={episodes}
             animeFilesData={animeFilesData}
@@ -418,8 +493,8 @@ function AnimeDetails() {
         </main>
       </div>
       {contextMenu && (
-        <div 
-          className={styles.contextMenu} 
+        <div
+          className={styles.contextMenu}
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onMouseDown={(e) => e.stopPropagation()}
         >
@@ -468,6 +543,15 @@ function AnimeDetails() {
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
+        />
+      )}
+      {!confirmModal && suggestedFolder && (
+        <ConfirmModal
+          title="Aceptar vinculacion automatica"
+          message={`Se ha vinculado esta serie con ${suggestedFolder.files?.length || 0} archivos locales con el siguiente nombre: ${buildSuggestedLinkLabel(suggestedFolder)}. ¿Aceptar vinculacion?`}
+          confirmLabel="ACEPTAR"
+          onConfirm={handleAcceptSuggestedLink}
+          onCancel={handleRejectSuggestedLink}
         />
       )}
       {showAliasModal && (

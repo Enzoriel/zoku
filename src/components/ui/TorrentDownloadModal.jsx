@@ -30,33 +30,34 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
   const allFansubs = getAllFansubs(storeData.settings).map((f) => f.name.toLowerCase());
 
   let groupedItems = [];
-  
+
   if (principalFansub) {
     const principalItems = [];
     const secondaryItems = [];
     const otherItems = [];
 
     items.forEach((item) => {
-      const f = item.fansub.toLowerCase();
-      if (f === principalFansub.toLowerCase()) {
+      const fansub = item.fansub.toLowerCase();
+      if (fansub === principalFansub.toLowerCase()) {
         principalItems.push(item);
-      } else if (allFansubs.includes(f)) {
+      } else if (allFansubs.includes(fansub)) {
         secondaryItems.push(item);
       } else {
         otherItems.push(item);
       }
     });
 
-    if (principalItems.length > 0)
-      groupedItems.push({ title: `${principalFansub}`, isPrincipal: true, items: sortItems(principalItems) });
+    if (principalItems.length > 0) {
+      groupedItems.push({ title: principalFansub, isPrincipal: true, items: sortItems(principalItems) });
+    }
 
-    const secGroups = {};
+    const secondaryGroups = {};
     secondaryItems.forEach((item) => {
-      if (!secGroups[item.fansub]) secGroups[item.fansub] = [];
-      secGroups[item.fansub].push(item);
+      if (!secondaryGroups[item.fansub]) secondaryGroups[item.fansub] = [];
+      secondaryGroups[item.fansub].push(item);
     });
-    Object.keys(secGroups).forEach((fansub) => {
-      groupedItems.push({ title: fansub, isPrincipal: false, items: sortItems(secGroups[fansub]) });
+    Object.keys(secondaryGroups).forEach((fansub) => {
+      groupedItems.push({ title: fansub, isPrincipal: false, items: sortItems(secondaryGroups[fansub]) });
     });
 
     const otherGroups = {};
@@ -80,12 +81,13 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
 
   const handleLinkAliasSilently = async () => {
     if (!malId || items.length === 0) return;
+
     try {
       const firstItem = items[0];
       const rawTitle = firstItem.title;
       const fansubMatch = rawTitle.match(/^(\[[^\]]+\])/);
       const fansubPart = fansubMatch ? fansubMatch[1] : "";
-      let titlePart = rawTitle
+      const titlePart = rawTitle
         .replace(/^\[[^\]]+\]\s*/, "")
         .replace(/\s*-\s*\d+.*$/, "")
         .replace(/\s*-\s*v\d+.*$/, "")
@@ -112,19 +114,38 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
     }
   };
 
-  const handleDownloadAction = async (url) => {
-    if (!url) return;
-    
-    // Vincular alias automáticamente antes de disparar
-    handleLinkAliasSilently();
+  const persistDownloadIntent = async () => {
+    if (!malId) return;
 
     try {
-      // Usar openUrl del plugin opener de Tauri v2
-      // El permiso 'opener:allow-open-url' ya está habilitado en default.json
+      await setMyAnimes((prev) => {
+        const current = prev[malId];
+        if (!current) return prev;
+
+        return {
+          ...prev,
+          [malId]: {
+            ...current,
+            downloadIntentAt: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+          },
+        };
+      });
+    } catch (e) {
+      console.error("Error persisting download intent:", e);
+    }
+  };
+
+  const handleDownloadAction = async (url) => {
+    if (!url) return;
+
+    await persistDownloadIntent();
+    await handleLinkAliasSilently();
+
+    try {
       await openUrl(url);
     } catch (e) {
-      console.error("[Download] Falló openUrl, intentando fallback nativo:", e);
-      // Fallback a window.location.href para magnets o window.open para URLs
+      console.error("[Download] openUrl failed, trying browser fallback:", e);
       if (url.startsWith("magnet:")) {
         window.location.href = url;
       } else {
@@ -132,20 +153,13 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
       }
     }
 
-    // Delay para asegurar que el sistema operativo reciba la instrucción antes de cerrar el modal
     setTimeout(() => {
       onClose();
     }, 800);
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      size="lg"
-      title="DESCUBRIR EN NYAA"
-      subtitle={animeTitle}
-    >
+    <Modal isOpen={isOpen} onClose={onClose} size="lg" title="DESCUBRIR EN NYAA" subtitle={animeTitle}>
       <div className={styles.content}>
         {items.length === 0 ? (
           <div className={styles.emptyState}>
@@ -155,7 +169,7 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
           <>
             {!principalFansub && (
               <div className={styles.warningBox}>
-                ⚠ Configurá un fansub principal en Ajustes para ver las opciones organizadas.
+                Configura un fansub principal en Ajustes para ver las opciones organizadas.
               </div>
             )}
 
@@ -163,15 +177,13 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
               <div key={gIdx} className={`${styles.group} ${group.isPrincipal ? styles.principalGroup : ""}`}>
                 <div className={styles.groupHeader}>
                   <span className={styles.groupTitle}>{group.title}</span>
-                  {group.isPrincipal && <span className={styles.groupBadge}>⭐ PRINCIPAL</span>}
+                  {group.isPrincipal && <span className={styles.groupBadge}>PRINCIPAL</span>}
                 </div>
 
                 <div className={styles.itemList}>
                   {group.items.map((item, idx) => (
                     <div key={idx} className={styles.item}>
-                      <div className={styles.itemTitle}>
-                        {item.title !== animeTitle && item.title}
-                      </div>
+                      <div className={styles.itemTitle}>{item.title !== animeTitle && item.title}</div>
 
                       <div className={styles.itemInfo}>
                         <span className={styles.itemRes}>{item.resolution}</span>
@@ -179,7 +191,15 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
                         <span className={styles.itemSize}>• {item.size}</span>
                         <span className={styles.itemStats}>
                           • S:
-                          <span className={item.seeders >= 10 ? styles.seedersHigh : item.seeders > 0 ? styles.seedersMed : styles.seedersLow}>
+                          <span
+                            className={
+                              item.seeders >= 10
+                                ? styles.seedersHigh
+                                : item.seeders > 0
+                                  ? styles.seedersMed
+                                  : styles.seedersLow
+                            }
+                          >
                             {item.seeders}
                           </span>{" "}
                           L:{item.leechers}
@@ -192,14 +212,14 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
                           disabled={!item.magnet}
                           onClick={() => handleDownloadAction(item.magnet)}
                         >
-                          🧲 Magnet
+                          Magnet
                         </button>
                         <button
                           className={styles.actionBtn}
                           disabled={!item.download_url}
                           onClick={() => handleDownloadAction(item.download_url)}
                         >
-                          ⬇ .torrent
+                          .torrent
                         </button>
                       </div>
                     </div>
