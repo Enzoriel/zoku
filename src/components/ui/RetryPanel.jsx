@@ -1,12 +1,6 @@
 import { useState } from "react";
 import styles from "./RetryPanel.module.css";
 
-/**
- * Panel reutilizable para errores de API con botón de reintento.
- * @param {string} message - Mensaje de error a mostrar
- * @param {function} onRetry - Callback async para reintentar la operación
- * @param {string} [compact] - Si es true, usa un diseño más compacto
- */
 function RetryPanel({ message, onRetry, compact = false }) {
   const [retrying, setRetrying] = useState(false);
 
@@ -16,15 +10,14 @@ function RetryPanel({ message, onRetry, compact = false }) {
     try {
       await onRetry?.();
     } catch {
-      // El error ya se maneja en el caller
+      // El error se maneja en el caller.
     } finally {
       setRetrying(false);
     }
   };
 
   return (
-    <div className={`${styles.panel} ${compact ? styles.compact : ""}`}>
-      {/* Icono de error */}
+    <div className={`${styles.panel} ${compact ? styles.compact : ""}`} role="alert" aria-live="assertive">
       <div className={styles.iconWrap}>
         <svg viewBox="0 0 24 24" className={styles.icon} fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -33,13 +26,11 @@ function RetryPanel({ message, onRetry, compact = false }) {
         </svg>
       </div>
 
-      {/* Mensaje */}
       <div className={styles.textBlock}>
-        <span className={styles.label}>ERROR DE CONEXIÓN</span>
+        <span className={styles.label}>ERROR DE CONEXION</span>
         <p className={styles.message}>{message || "No se pudo conectar con el servidor."}</p>
       </div>
 
-      {/* Botón de reintento */}
       <button
         className={`${styles.retryBtn} ${retrying ? styles.retrying : ""}`}
         onClick={handleRetry}

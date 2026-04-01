@@ -15,7 +15,8 @@ fn canonicalize_directory(path: &Path) -> Result<PathBuf, String> {
         return Err("La ruta de la biblioteca esta vacia.".into());
     }
 
-    let canonical = fs::canonicalize(path).map_err(|_| "No se pudo resolver la carpeta de biblioteca.".to_string())?;
+    let canonical = fs::canonicalize(path)
+        .map_err(|_| "No se pudo resolver la carpeta de biblioteca.".to_string())?;
     if !canonical.is_dir() {
         return Err("La ruta de biblioteca no es una carpeta valida.".into());
     }
@@ -28,7 +29,8 @@ fn canonicalize_existing_path(path: &Path) -> Result<PathBuf, String> {
         return Err("La ruta objetivo esta vacia.".into());
     }
 
-    fs::canonicalize(path).map_err(|_| "La ruta objetivo no existe o no se pudo resolver.".to_string())
+    fs::canonicalize(path)
+        .map_err(|_| "La ruta objetivo no existe o no se pudo resolver.".to_string())
 }
 
 fn ensure_within_root(root: &Path, target: &Path) -> Result<PathBuf, String> {
@@ -53,7 +55,11 @@ fn current_root(state: &State<'_, LibraryRootState>) -> Result<PathBuf, String> 
         .ok_or_else(|| "No hay una biblioteca autorizada configurada.".to_string())
 }
 
-fn update_fs_scope<R: Runtime>(app: &AppHandle<R>, _previous: Option<&Path>, next: Option<&Path>) -> Result<(), String> {
+fn update_fs_scope<R: Runtime>(
+    app: &AppHandle<R>,
+    _previous: Option<&Path>,
+    next: Option<&Path>,
+) -> Result<(), String> {
     let scope = app.fs_scope();
 
     if let Some(next_path) = next {
@@ -78,10 +84,9 @@ pub fn ensure_library_scope<R: Runtime>(
     };
 
     let previous_root = {
-        let guard = state
-            .0
-            .lock()
-            .map_err(|_| "No se pudo acceder al estado de seguridad de la biblioteca.".to_string())?;
+        let guard = state.0.lock().map_err(|_| {
+            "No se pudo acceder al estado de seguridad de la biblioteca.".to_string()
+        })?;
         guard.clone()
     };
 
@@ -127,7 +132,8 @@ pub async fn secure_delete_path(
 
     tokio::task::spawn_blocking(move || {
         if target.is_file() {
-            fs::remove_file(&target).map_err(|error| format!("No se pudo borrar el archivo: {error}"))?;
+            fs::remove_file(&target)
+                .map_err(|error| format!("No se pudo borrar el archivo: {error}"))?;
             return Ok(());
         }
 
@@ -136,7 +142,8 @@ pub async fn secure_delete_path(
                 return Err("Se requiere borrado recursivo para eliminar carpetas.".into());
             }
 
-            fs::remove_dir_all(&target).map_err(|error| format!("No se pudo borrar la carpeta: {error}"))?;
+            fs::remove_dir_all(&target)
+                .map_err(|error| format!("No se pudo borrar la carpeta: {error}"))?;
             return Ok(());
         }
 

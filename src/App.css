@@ -62,6 +62,8 @@
   --px-gray: #55556a;
   --px-text: #e8e8f0;
   --px-text-dim: #88889a;
+  --primary-color: var(--px-cyan);
+  --background-color: var(--px-dark);
 
   /* Typography */
   --font-pixel: "Press Start 2P", monospace;

@@ -24,7 +24,13 @@ const Layout = () => {
       <Sidebar />
       <div className={styles.main}>
         <main className={styles.content}>
-          <Suspense fallback={null}>
+          <Suspense
+            fallback={
+              <div className="spinner-container" aria-busy="true">
+                <span className="loader">CARGANDO...</span>
+              </div>
+            }
+          >
             <Outlet />
           </Suspense>
         </main>

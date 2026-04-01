@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
-import { formatRelativeDate } from "../utils/dateFormat";
+import { formatRelativeDate, getLocalDayKey } from "../utils/dateFormat";
 import styles from "./History.module.css";
 
 const MONTH_NAMES = [
@@ -22,13 +22,12 @@ const MONTH_NAMES = [
 function History() {
   const { data } = useStore();
   const navigate = useNavigate();
-  const [view, setView] = useState("days"); // "days" | "months"
+  const [view, setView] = useState("days");
 
   const historyData = useMemo(() => {
     const allEvents = [];
 
     Object.values(data.myAnimes || {}).forEach((anime) => {
-      // Episodios vistos
       (anime.watchHistory || []).forEach((entry) => {
         allEvents.push({
           type: "episode",
@@ -41,7 +40,6 @@ function History() {
         });
       });
 
-      // Completado
       if (anime.completedAt && anime.userStatus === "COMPLETED") {
         allEvents.push({
           type: "completed",
@@ -55,25 +53,23 @@ function History() {
       }
     });
 
-    // Ordenar por fecha desc
     allEvents.sort((a, b) => b.timestamp - a.timestamp);
     return allEvents;
   }, [data.myAnimes]);
 
-  // Agrupar por día
   const groupedByDay = useMemo(() => {
     const groups = {};
     historyData.forEach((event) => {
-      const key = event.date.toISOString().split("T")[0];
+      const key = getLocalDayKey(event.date);
       if (!groups[key]) groups[key] = { date: event.date, events: [] };
       groups[key].events.push(event);
     });
+
     return Object.entries(groups)
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([key, val]) => ({ key, ...val }));
+      .sort(([first], [second]) => second.localeCompare(first))
+      .map(([key, value]) => ({ key, ...value }));
   }, [historyData]);
 
-  // Agrupar por mes
   const groupedByMonth = useMemo(() => {
     const groups = {};
     historyData.forEach((event) => {
@@ -87,20 +83,19 @@ function History() {
           completedCount: 0,
         };
       }
-      groups[key].events.push(event);
-      if (event.type === "episode") groups[key].episodeCount++;
-      if (event.type === "completed") groups[key].completedCount++;
-    });
-    return Object.entries(groups)
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([key, val]) => ({ key, ...val }));
-  }, [historyData]);
 
-  const formatDayLabel = (date) => formatRelativeDate(date);
+      groups[key].events.push(event);
+      if (event.type === "episode") groups[key].episodeCount += 1;
+      if (event.type === "completed") groups[key].completedCount += 1;
+    });
+
+    return Object.entries(groups)
+      .sort(([first], [second]) => second.localeCompare(first))
+      .map(([key, value]) => ({ key, ...value }));
+  }, [historyData]);
 
   const formatTime = (date) => date.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
 
-  // Agrupar episodios del mismo anime en el mismo día
   const collapseEpisodes = (events) => {
     const result = [];
     const animeEpisodes = {};
@@ -110,6 +105,7 @@ function History() {
         result.push(event);
         return;
       }
+
       const key = event.animeId;
       if (!animeEpisodes[key]) {
         animeEpisodes[key] = { ...event, episodes: [event.episode] };
@@ -122,8 +118,8 @@ function History() {
     return result;
   };
 
-  const totalEpisodes = historyData.filter((e) => e.type === "episode").length;
-  const totalCompleted = historyData.filter((e) => e.type === "completed").length;
+  const totalEpisodes = historyData.filter((entry) => entry.type === "episode").length;
+  const totalCompleted = historyData.filter((entry) => entry.type === "completed").length;
 
   return (
     <div className={styles.page}>
@@ -131,14 +127,14 @@ function History() {
         <div className={styles.headerTop}>
           <div className={styles.headerText}>
             <h1 className={styles.pageTitle}>HISTORIAL</h1>
-            <p className={styles.pageSubtitle}>Tu actividad de visualización</p>
+            <p className={styles.pageSubtitle}>Tu actividad de visualizacion</p>
           </div>
           <div className={styles.tabs}>
             <button
               className={`${styles.tab} ${view === "days" ? styles.activeTab : ""}`}
               onClick={() => setView("days")}
             >
-              POR DÍAS
+              POR DIAS
             </button>
             <button
               className={`${styles.tab} ${view === "months" ? styles.activeTab : ""}`}
@@ -169,8 +165,8 @@ function History() {
 
       {historyData.length === 0 ? (
         <div className={styles.emptyState}>
-          <p>No hay historial de visualización todavía.</p>
-          <span>Los episodios que marques como vistos aparecerán aquí.</span>
+          <p>No hay historial de visualizacion todavia.</p>
+          <span>Los episodios que marques como vistos apareceran aqui.</span>
         </div>
       ) : view === "days" ? (
         <div className={styles.timeline}>
@@ -181,20 +177,28 @@ function History() {
                 <div className={styles.dayHeader}>
                   <div className={styles.dayDot} />
                   <div className={styles.dayMeta}>
-                    <span className={styles.dayLabel}>{formatDayLabel(date)}</span>
+                    <span className={styles.dayLabel}>{formatRelativeDate(date)}</span>
                     <span className={styles.dayFull}>
                       {date.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" }).toUpperCase()}
                     </span>
                   </div>
-                  <span className={styles.dayCount}>{events.filter((e) => e.type === "episode").length} EP</span>
+                  <span className={styles.dayCount}>{events.filter((entry) => entry.type === "episode").length} EP</span>
                 </div>
 
                 <div className={styles.dayEvents}>
-                  {collapsed.map((event, i) => (
+                  {collapsed.map((event, index) => (
                     <div
-                      key={i}
+                      key={index}
                       className={`${styles.eventRow} ${event.type === "completed" ? styles.completedRow : ""}`}
                       onClick={() => navigate(`/anime/${event.animeId}`)}
+                      onKeyDown={(keyboardEvent) => {
+                        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                          keyboardEvent.preventDefault();
+                          navigate(`/anime/${event.animeId}`);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
                     >
                       <div className={styles.eventPoster}>
                         <img src={event.coverImage} alt={event.animeTitle} loading="lazy" />
@@ -213,8 +217,8 @@ function History() {
                           <span className={styles.eventEps}>
                             {event.episodes.length} episodios ·{" "}
                             {event.episodes
-                              .sort((a, b) => a - b)
-                              .map((e) => `EP ${e}`)
+                              .sort((first, second) => first - second)
+                              .map((episode) => `EP ${episode}`)
                               .join(", ")}
                           </span>
                         ) : (
@@ -233,10 +237,10 @@ function History() {
       ) : (
         <div className={styles.monthList}>
           {groupedByMonth.map(({ key, year, month, episodeCount, completedCount, events }) => {
-            const animeSet = new Set(events.map((e) => e.animeId));
+            const animeSet = new Set(events.map((event) => event.animeId));
             const posters = [...animeSet]
               .slice(0, 5)
-              .map((id) => events.find((e) => e.animeId === id)?.coverImage)
+              .map((animeId) => events.find((event) => event.animeId === animeId)?.coverImage)
               .filter(Boolean);
 
             return (
@@ -247,13 +251,13 @@ function History() {
                     <span className={styles.monthYear}>{year}</span>
                   </div>
                   <div className={styles.monthPosters}>
-                    {posters.map((src, i) => (
+                    {posters.map((src, index) => (
                       <img
-                        key={i}
+                        key={index}
                         src={src}
-                        alt=""
+                        alt={`Poster destacado del mes ${MONTH_NAMES[month]}`}
                         className={styles.monthPoster}
-                        style={{ zIndex: posters.length - i }}
+                        style={{ zIndex: posters.length - index }}
                       />
                     ))}
                   </div>

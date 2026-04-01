@@ -1,8 +1,8 @@
 import { createContext, useState, useEffect, useCallback, useRef, useMemo, useContext } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { StoreContext } from "./StoreContext";
 import { getPrincipalFansub, getPreferredResolution } from "../utils/torrentConfig";
 import { TORRENT_REFRESH_INTERVAL_MS } from "../constants";
+import { fetchNyaaFeed } from "../services/nyaa";
 
 const CACHE_DURATION = TORRENT_REFRESH_INTERVAL_MS;
 
@@ -17,13 +17,12 @@ export function TorrentProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastFetch, setLastFetch] = useState(null);
-  const [userTriggered, setUserTriggered] = useState(false);
 
   const intervalRef = useRef(null);
   const requestIdRef = useRef(0);
 
   const fetchPrincipal = useCallback(
-    async (triggeredByUser = false) => {
+    async (force = false) => {
       if (!principalFansub || storeLoading) return;
 
       const requestId = ++requestIdRef.current;
@@ -31,23 +30,20 @@ export function TorrentProvider({ children }) {
       setError(null);
 
       try {
-        // Volvemos a una sola llamada al feed general por eficiencia, como solicitaste.
-        // Pero ahora incluimos la resolución preferida (ej: 1080p) para filtrar el feed
-        // y que aparezcan episodios de hace varios días que antes se perdían.
-        // CORREGIDO: Se incluyó preferredRes en las dependencias para que el cambio sea instantáneo.
-        const result = await invoke("fetch_nyaa", { 
-          query: preferredRes || "", 
-          fansub: principalFansub 
+        const result = await fetchNyaaFeed({
+          fansub: principalFansub,
+          query: preferredRes || "",
+          force,
+          ttlMs: CACHE_DURATION,
         });
 
         if (requestId !== requestIdRef.current) return;
-        setData(result || []);
-        setLastFetch(Date.now());
-        setUserTriggered(triggeredByUser);
-      } catch (e) {
+        setData(result.data);
+        setLastFetch(result.timestamp);
+      } catch (fetchError) {
         if (requestId !== requestIdRef.current) return;
-        console.error("[TorrentContext] Error:", e);
-        setError(typeof e === "string" ? e : "Error al obtener torrents del fansub principal.");
+        console.error("[TorrentContext] Error:", fetchError);
+        setError(typeof fetchError === "string" ? fetchError : "Error al obtener torrents del fansub principal.");
       } finally {
         if (requestId !== requestIdRef.current) return;
         setIsLoading(false);
@@ -56,7 +52,6 @@ export function TorrentProvider({ children }) {
     [principalFansub, preferredRes, storeLoading],
   );
 
-  // Fetch cuando cambia el fansub principal o la resolución
   useEffect(() => {
     if (storeLoading) return;
 
@@ -69,7 +64,6 @@ export function TorrentProvider({ children }) {
 
     fetchPrincipal(false);
 
-    // Intervalo de refresco de 10 min
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => fetchPrincipal(false), CACHE_DURATION);
 
@@ -79,7 +73,6 @@ export function TorrentProvider({ children }) {
   }, [principalFansub, preferredRes, storeLoading, fetchPrincipal]);
 
   const refresh = useCallback(() => fetchPrincipal(true), [fetchPrincipal]);
-
   const isStale = lastFetch === null || Date.now() - lastFetch > CACHE_DURATION;
 
   const value = useMemo(
@@ -88,13 +81,12 @@ export function TorrentProvider({ children }) {
       isLoading,
       error,
       lastFetch,
-      userTriggered,
       isStale,
       principalFansub,
       preferredRes,
       refresh,
     }),
-    [data, isLoading, error, lastFetch, userTriggered, isStale, principalFansub, preferredRes, refresh],
+    [data, isLoading, error, lastFetch, isStale, principalFansub, preferredRes, refresh],
   );
 
   return <TorrentContext.Provider value={value}>{children}</TorrentContext.Provider>;

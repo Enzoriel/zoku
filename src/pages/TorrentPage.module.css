@@ -228,7 +228,11 @@
 .colAction { width: 5%; text-align: center; }
 
 .titleClickable {
+  appearance: none;
+  background: transparent;
+  border: none;
   color: var(--px-text);
+  font: inherit;
   font-weight: 500;
   cursor: pointer;
   transition: color 0.15s;
@@ -237,6 +241,9 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 0;
+  text-align: left;
+  width: 100%;
 }
 
 .titleClickable:hover {

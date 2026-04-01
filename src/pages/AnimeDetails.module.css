@@ -862,9 +862,14 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  width: 100%;
   padding: 8px;
   background: var(--px-dark);
   border: 1px solid var(--px-border);
+  appearance: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -949,9 +954,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
   padding: 10px 12px;
   background: var(--px-dark);
   border: 1px solid var(--px-border);
+  appearance: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   transition:
     background 0.2s ease,

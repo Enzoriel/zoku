@@ -18,17 +18,18 @@ import { AnimeHeader } from "../components/anime/details/AnimeHeader";
 import { AnimeSidebar } from "../components/anime/details/AnimeSidebar";
 import { EpisodeList } from "../components/anime/details/EpisodeList";
 import { METADATA_REFRESH_DAYS } from "../constants";
+import { buildStoredAnimeEntry } from "../utils/animeEntry";
 import styles from "./AnimeDetails.module.css";
 
 function titlesMatch(normalizedTitle, normalizedKey) {
   if (!normalizedTitle || !normalizedKey) return false;
   if (normalizedTitle === normalizedKey) return true;
   const blacklist = ["season", "part", "anime", "2nd", "3rd", "4th", "5th", "s2", "s3", "s4"];
-  const getBaseNameWords = (str) => str.split(" ").filter((w) => w.length > 2 && !blacklist.includes(w));
+  const getBaseNameWords = (str) => str.split(" ").filter((word) => word.length > 2 && !blacklist.includes(word));
   const wordsTitle = getBaseNameWords(normalizedTitle);
   const wordsKey = getBaseNameWords(normalizedKey);
   if (wordsTitle.length === 0 || wordsKey.length === 0) return false;
-  const matches = wordsTitle.filter((w) => wordsKey.includes(w)).length;
+  const matches = wordsTitle.filter((word) => wordsKey.includes(word)).length;
   const totalUniqueWords = Math.max(wordsTitle.length, wordsKey.length);
   return matches / totalUniqueWords >= 0.8;
 }
@@ -53,7 +54,7 @@ function AnimeDetails() {
   const navigate = useNavigate();
 
   const { data, setMyAnimes, setSettings } = useStore();
-  const { getAnimeById, loading: animeLoading } = useAnime();
+  const { getAnimeById, getFreshAnimeById, loading: animeLoading } = useAnime();
   const { performSync } = useLibrary();
   const { data: torrentData, principalFansub } = useTorrent();
 
@@ -63,22 +64,19 @@ function AnimeDetails() {
   const [showAliasModal, setShowAliasModal] = useState(false);
   const [folderSearch, setFolderSearch] = useState("");
   const [contextMenu, setContextMenu] = useState(null);
-
-  const { toast, showToast } = useToast();
-
   const [showSearchApiModal, setShowSearchApiModal] = useState(false);
   const [apiSearchQuery, setApiSearchQuery] = useState("");
   const [apiSearchResults, setApiSearchResults] = useState([]);
   const [isSearchingApi, setIsSearchingApi] = useState(false);
-
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
 
+  const { toast, showToast } = useToast();
   const {
     playingEp,
     handlePlayEpisode: trackPlay,
     handleToggleWatched,
-  } = usePlayTracking((msg, type) => showToast(msg, type));
+  } = usePlayTracking((message, type) => showToast(message, type));
 
   const animeId = useMemo(() => {
     return id && id !== "null" && id !== "undefined" ? id : anime?.malId || anime?.mal_id || null;
@@ -87,26 +85,36 @@ function AnimeDetails() {
   const mainAnime = useMemo(() => {
     if (!animeId) {
       if (anime) return { ...anime, malId: null, isInLibrary: false, watchedEpisodes: [] };
-      if (folderName)
+      if (folderName) {
         return { title: folderName, isUnknown: true, episodeList: [], isInLibrary: false, watchedEpisodes: [] };
+      }
       return null;
     }
+
     const stored = data.myAnimes[animeId];
-    if (stored) return { ...stored, malId: animeId, isInLibrary: true, watchedEpisodes: stored.watchedEpisodes || [] };
-    const context = getAnimeById(animeId);
-    if (context) return { ...context, malId: animeId, isInLibrary: false, watchedEpisodes: [] };
+    if (stored) {
+      return { ...stored, malId: animeId, isInLibrary: true, watchedEpisodes: stored.watchedEpisodes || [] };
+    }
+
+    const contextAnime = getAnimeById(animeId);
+    if (contextAnime) {
+      return { ...contextAnime, malId: animeId, isInLibrary: false, watchedEpisodes: [] };
+    }
+
     return anime ? { ...anime, malId: animeId, isInLibrary: false, watchedEpisodes: [] } : null;
   }, [animeId, data.myAnimes, getAnimeById, anime, folderName]);
 
   const animeFilesData = useMemo(() => {
     if (!mainAnime) return { files: [] };
-    const folderObj = Object.values(data?.localFiles || {}).find((f) => {
-      const resolvedMalId = f.resolvedMalId || f.malId;
+
+    const folderObj = Object.values(data?.localFiles || {}).find((folder) => {
+      const resolvedMalId = folder.resolvedMalId || folder.malId;
       if (resolvedMalId && mainAnime.malId && String(resolvedMalId) === String(mainAnime.malId)) return true;
-      if (mainAnime.folderName && f.folderName === mainAnime.folderName) return true;
-      if (folderName && f.folderName === folderName) return true;
+      if (mainAnime.folderName && folder.folderName === mainAnime.folderName) return true;
+      if (folderName && folder.folderName === folderName) return true;
       return false;
     });
+
     return folderObj || { files: [] };
   }, [mainAnime, data?.localFiles, folderName]);
 
@@ -123,73 +131,69 @@ function AnimeDetails() {
 
   const unlinkedFolders = useMemo(() => {
     return Object.entries(data.localFiles || {})
-      .filter(([, f]) => !f.isLinked && !f.isTracking && f.files?.length > 0)
-      .map(([key, f]) => ({ key, ...f }));
+      .filter(([, folder]) => !folder.isLinked && !folder.isTracking && folder.files?.length > 0)
+      .map(([key, folder]) => ({ key, ...folder }));
   }, [data.localFiles]);
 
   const filteredFolders = useMemo(() => {
     if (!folderSearch.trim()) return unlinkedFolders;
-    const q = folderSearch.toLowerCase();
-    return unlinkedFolders.filter((f) => f.key.toLowerCase().includes(q));
+    const query = folderSearch.toLowerCase();
+    return unlinkedFolders.filter((folder) => folder.key.toLowerCase().includes(query));
   }, [unlinkedFolders, folderSearch]);
 
   const dataMyAnimesRef = useRef(data.myAnimes);
+  const getAnimeByIdRef = useRef(getAnimeById);
+  const getFreshAnimeByIdRef = useRef(getFreshAnimeById);
+  const setMyAnimesRef = useRef(setMyAnimes);
 
   useEffect(() => {
     dataMyAnimesRef.current = data.myAnimes;
   }, [data.myAnimes]);
 
   useEffect(() => {
-    if (animeId && !isNaN(animeId)) {
-      const stored = data.myAnimes[animeId];
-      if (stored) {
-        setAnime(stored);
-      } else {
-        const found = getAnimeById(animeId);
-        if (found) setAnime(found);
-      }
-    }
-  }, [animeId, getAnimeById, data.myAnimes]);
-
-  // Si estamos cargando el contexto inicial
-  if (animeLoading && !mainAnime) {
-    return (
-      <div className={styles.loadingContainer}>
-        <LoadingSpinner size={60} />
-      </div>
-    );
-  }
-
-  if (!mainAnime && !animeLoading) return <div className={styles.container}>No encontrado</div>;
-
-  const getAnimeByIdRef = useRef(getAnimeById);
-  const setMyAnimesRef = useRef(setMyAnimes);
-  const settingsRef = useRef(data.settings);
-  useEffect(() => {
     getAnimeByIdRef.current = getAnimeById;
   }, [getAnimeById]);
+
+  useEffect(() => {
+    getFreshAnimeByIdRef.current = getFreshAnimeById;
+  }, [getFreshAnimeById]);
+
   useEffect(() => {
     setMyAnimesRef.current = setMyAnimes;
   }, [setMyAnimes]);
+
   useEffect(() => {
-    settingsRef.current = data.settings;
-  }, [data.settings]);
+    if (animeId && !Number.isNaN(Number(animeId))) {
+      const stored = data.myAnimes[animeId];
+      if (stored) {
+        setAnime(stored);
+        return;
+      }
+
+      const found = getAnimeById(animeId);
+      if (found) {
+        setAnime(found);
+      }
+    }
+  }, [animeId, data.myAnimes, getAnimeById]);
 
   const autoRefreshMetadata = useCallback(async (currentAnimeId) => {
     const stored = dataMyAnimesRef.current[currentAnimeId];
     if (!stored) return;
+
     const lastFetch = stored.lastMetadataFetch;
     const daysSince = lastFetch ? (Date.now() - new Date(lastFetch).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
     const isMissingData = !stored.rank && !stored.studios?.length;
     if (daysSince < METADATA_REFRESH_DAYS && !isMissingData) return;
-    const apiData = getAnimeByIdRef.current(currentAnimeId);
+
+    const apiData = getFreshAnimeByIdRef.current(currentAnimeId) || getAnimeByIdRef.current(currentAnimeId);
     if (!apiData) return;
-    // Solo actualizar campos de metadatos de la API, NUNCA sobreescribir datos del usuario
+
     const {
       watchedEpisodes,
       watchHistory,
       userStatus,
-      folderName,
+      folderName: persistedFolderName,
       torrentAlias,
       addedAt,
       notes,
@@ -197,6 +201,7 @@ function AnimeDetails() {
       isInLibrary,
       ...safeApiData
     } = apiData;
+
     await setMyAnimesRef.current((prev) => ({
       ...prev,
       [currentAnimeId]: {
@@ -208,20 +213,23 @@ function AnimeDetails() {
     }));
   }, []);
 
-  const lastLoadedId = useRef(null);
   useEffect(() => {
-    if (lastLoadedId.current !== id) {
-      lastLoadedId.current = id;
+    if (!mainAnime && folderName) {
+      setAnime({ title: folderName, isUnknown: true, episodeList: [] });
     }
-    if (!mainAnime && folderName) setAnime({ title: folderName, isUnknown: true, episodeList: [] });
-    if (animeId && data.myAnimes[animeId]) autoRefreshMetadata(animeId);
-  }, [id, folderName, mainAnime, animeId, autoRefreshMetadata, data.myAnimes]);
+
+    if (animeId && data.myAnimes[animeId]) {
+      autoRefreshMetadata(animeId);
+    }
+  }, [folderName, mainAnime, animeId, autoRefreshMetadata, data.myAnimes]);
 
   useEffect(() => {
     if (!contextMenu) return;
+
     const close = () => setContextMenu(null);
     document.addEventListener("mousedown", close);
     document.addEventListener("scroll", close, true);
+
     return () => {
       document.removeEventListener("mousedown", close);
       document.removeEventListener("scroll", close, true);
@@ -229,70 +237,95 @@ function AnimeDetails() {
   }, [contextMenu]);
 
   const handleApiSearch = async (queryToSearch) => {
-    const q = typeof queryToSearch === "string" ? queryToSearch : apiSearchQuery;
-    if (!q.trim()) return;
+    const query = typeof queryToSearch === "string" ? queryToSearch : apiSearchQuery;
+    if (!query.trim()) return;
+
     setIsSearchingApi(true);
     try {
-      const res = await searchAnime(q, 1);
-      setApiSearchResults(res.data);
-    } catch (err) {
-      console.error(err);
+      const result = await searchAnime(query, 1);
+      setApiSearchResults(result.data);
+    } catch (error) {
+      console.error(error);
       showToast("Error buscando animes en API.", "warn");
     } finally {
       setIsSearchingApi(false);
     }
   };
 
+  const handleAddToLibrary = useCallback(async () => {
+    if (!mainAnime || !animeId) return;
+
+    const entry = buildStoredAnimeEntry(
+      {
+        ...mainAnime,
+        ...(data.myAnimes[animeId] || {}),
+      },
+      {
+        malId: animeId,
+        userStatus: data.myAnimes[animeId]?.userStatus || "PLAN_TO_WATCH",
+      },
+    );
+
+    const normalizedTitle = normalizeForSearch(mainAnime.title);
+    const match = Object.entries(data.localFiles).find(
+      ([key, value]) => !value.isLinked && titlesMatch(normalizedTitle, normalizeForSearch(key)),
+    );
+    const newMyAnimes = { ...data.myAnimes, [animeId]: entry };
+
+    if (match) {
+      const nextSettings = {
+        ...data.settings,
+        library: {
+          ...(data.settings?.library || {}),
+          ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
+            (name) => name.toLowerCase() !== match[0].toLowerCase(),
+          ),
+        },
+      };
+
+      entry.folderName = match[0];
+      newMyAnimes[animeId] = entry;
+      await setMyAnimes(newMyAnimes);
+      await setSettings(nextSettings);
+      await performSync(newMyAnimes, nextSettings);
+      showToast(`Vinculado con "${match[0]}"`, "success");
+      return;
+    }
+
+    await setMyAnimes(newMyAnimes);
+    showToast("Añadido a la lista.", "info");
+  }, [mainAnime, animeId, data.myAnimes, data.localFiles, data.settings, setMyAnimes, setSettings, performSync, showToast]);
+
   const handleAddToLibraryBtnClick = () => {
-    if (mainAnime?.isUnknown) {
-      const rawName = mainAnime.title || folderName || "";
-      const cleanName = rawName
-        .replace(/\[.*?\]|\(.*?\)/g, "")
-        .replace(/^[-\s]+|[-\s]+$/g, "")
-        .replace(/(-\s*\d+(v\d+)?.*)$/i, "")
-        .trim();
-      setApiSearchQuery(cleanName);
-      setShowSearchApiModal(true);
-      if (cleanName) handleApiSearch(cleanName);
-    } else {
+    if (!mainAnime?.isUnknown) {
       handleAddToLibrary();
+      return;
+    }
+
+    const rawName = mainAnime.title || folderName || "";
+    const cleanName = rawName
+      .replace(/\[.*?\]|\(.*?\)/g, "")
+      .replace(/^[-\s]+|[-\s]+$/g, "")
+      .replace(/(-\s*\d+(v\d+)?.*)$/i, "")
+      .trim();
+
+    setApiSearchQuery(cleanName);
+    setShowSearchApiModal(true);
+    if (cleanName) {
+      handleApiSearch(cleanName);
     }
   };
 
   const handleLinkAndAdd = async (apiAnime) => {
     const newMalId = apiAnime.mal_id || apiAnime.malId;
-    const animeData = {
+    const animeData = buildStoredAnimeEntry(apiAnime, {
       malId: newMalId,
       mal_id: newMalId,
-      title: apiAnime.title || apiAnime.title_english || apiAnime.title_japanese || "Unknown Title",
-      coverImage: apiAnime.images?.jpg?.large_image_url || apiAnime.images?.jpg?.image_url || apiAnime.coverImage,
-      totalEpisodes: apiAnime.episodes || apiAnime.totalEpisodes || 0,
-      type: apiAnime.type || "TV",
-      status: apiAnime.status || "Unknown",
-      year: apiAnime.year || (apiAnime.aired?.from ? new Date(apiAnime.aired.from).getFullYear() : "N/A"),
-      score: apiAnime.score || 0,
-      studios: apiAnime.studios || [],
-      genres: apiAnime.genres || [],
-      duration: apiAnime.duration || "N/A",
-      airedDate: apiAnime.aired?.string || "N/A",
-      season: apiAnime.season ? apiAnime.season.charAt(0).toUpperCase() + apiAnime.season.slice(1) : "N/A",
-      members: apiAnime.members || 0,
-      favorites: apiAnime.favorites || 0,
-      source: apiAnime.source || "N/A",
-      synopsis: apiAnime.synopsis || "Sinopsis no disponible.",
-      episodeList: apiAnime.episodeList || [],
-      watchedEpisodes: [],
-      lastEpisodeWatched: 0,
-      userStatus: "PLAN_TO_WATCH",
-      notes: "",
-      watchHistory: [],
-      addedAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-      lastMetadataFetch: new Date().toISOString(),
-      folderName: folderName,
-      isInLibrary: true,
-    };
+      folderName,
+    });
+
     await setMyAnimes({ ...data.myAnimes, [newMalId]: animeData });
+
     let nextSettings = data.settings;
     if (folderName) {
       nextSettings = {
@@ -306,63 +339,31 @@ function AnimeDetails() {
       };
       await setSettings(nextSettings);
     }
+
     setShowSearchApiModal(false);
     await performSync({ ...data.myAnimes, [newMalId]: animeData }, nextSettings);
-    showToast(`Serie vinculada con éxito.`, "success");
+    showToast("Serie vinculada con exito.", "success");
     navigate(`/anime/${newMalId}`);
   };
 
-  const handleAddToLibrary = useCallback(async () => {
-    if (!mainAnime || !animeId) return;
-    const entry = {
-      ...mainAnime,
-      ...(data.myAnimes[animeId] || {}),
-      malId: animeId,
-      addedAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-      userStatus: "PLAN_TO_WATCH",
-    };
-    const normalizedTitle = normalizeForSearch(mainAnime.title);
-    const match = Object.entries(data.localFiles).find(
-      ([k, v]) => !v.isLinked && titlesMatch(normalizedTitle, normalizeForSearch(k)),
-    );
-    const newMyAnimes = { ...data.myAnimes, [animeId]: entry };
-    if (match) {
-      const nextSettings = {
-        ...data.settings,
-        library: {
-          ...(data.settings?.library || {}),
-          ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
-            (name) => name.toLowerCase() !== match[0].toLowerCase(),
-          ),
-        },
-      };
-      entry.folderName = match[0];
-      newMyAnimes[animeId] = entry;
-      await setMyAnimes(newMyAnimes);
-      await setSettings(nextSettings);
-      await performSync(newMyAnimes, nextSettings);
-      showToast(`Vinculado con "${match[0]}"`, "success");
-    } else {
-      await setMyAnimes(newMyAnimes);
-      showToast("Añadido a la lista.", "info");
-    }
-  }, [mainAnime, animeId, data.myAnimes, data.localFiles, setMyAnimes, performSync, showToast]);
-
   const handleRemoveFromLibrary = useCallback(() => {
     if (!animeId) return;
+
     const performRemoval = async () => {
       const newMyAnimes = { ...data.myAnimes };
       delete newMyAnimes[animeId];
       await setMyAnimes(newMyAnimes);
       await performSync(newMyAnimes);
-      if (mainAnime.folderName)
+      if (mainAnime.folderName) {
         navigate(`/anime/null?folder=${encodeURIComponent(mainAnime.folderName)}`, { replace: true });
-      else navigate(-1);
+      } else {
+        navigate(-1);
+      }
     };
+
     setConfirmModal({
       title: "¿Quitar serie de tu lista de animes?",
-      message: "Se eliminará todo progreso guardado.",
+      message: "Se eliminara todo progreso guardado.",
       onConfirm: async () => {
         setConfirmModal(null);
         await performRemoval();
@@ -379,11 +380,11 @@ function AnimeDetails() {
   );
 
   const handleContextMenu = useCallback(
-    (e, epNum, isWatched) => {
-      e.preventDefault();
-      e.stopPropagation();
+    (event, epNum, isWatched) => {
+      event.preventDefault();
+      event.stopPropagation();
       if (!mainAnime?.isInLibrary) return;
-      setContextMenu({ x: e.clientX, y: e.clientY, epNum, isWatched });
+      setContextMenu({ x: event.clientX, y: event.clientY, epNum, isWatched });
     },
     [mainAnime?.isInLibrary],
   );
@@ -391,6 +392,7 @@ function AnimeDetails() {
   const handleLinkFolder = useCallback(
     async (folderKey) => {
       if (!animeId) return;
+
       const nextSettings = {
         ...data.settings,
         library: {
@@ -400,6 +402,7 @@ function AnimeDetails() {
           ),
         },
       };
+
       await setMyAnimes((prev) => ({
         ...prev,
         [animeId]: { ...prev[animeId], folderName: folderKey, lastUpdated: new Date().toISOString() },
@@ -456,14 +459,24 @@ function AnimeDetails() {
     await performSync(null, nextSettings);
   }, [suggestedFolder, data.settings, setSettings, performSync]);
 
-  if (!mainAnime) return <div className={styles.container}>No encontrado</div>;
+  if (animeLoading && !mainAnime) {
+    return (
+      <div className={styles.loadingContainer}>
+        <LoadingSpinner size={60} />
+      </div>
+    );
+  }
+
+  if (!mainAnime) {
+    return <div className={styles.container}>No encontrado</div>;
+  }
 
   const totalEps = Math.max(
     mainAnime.totalEpisodes || 0,
     mainAnime.episodeList?.length || 0,
-    animeFilesData.files.length > 0 ? Math.max(...animeFilesData.files.map((f) => f.episodeNumber || 0)) : 0,
+    animeFilesData.files.length > 0 ? Math.max(...animeFilesData.files.map((file) => file.episodeNumber || 0)) : 0,
   );
-  const episodes = Array.from({ length: totalEps || 1 }, (_, i) => i + 1);
+  const episodes = Array.from({ length: totalEps || 1 }, (_, index) => index + 1);
 
   return (
     <div className={styles.container}>
@@ -492,16 +505,17 @@ function AnimeDetails() {
           />
         </main>
       </div>
+
       {contextMenu && (
         <div
           className={styles.contextMenu}
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
         >
           <button
             className={styles.contextMenuItem}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={(event) => {
+              event.stopPropagation();
               handleToggleWatched(animeId, contextMenu.epNum, contextMenu.isWatched);
               setContextMenu(null);
             }}
@@ -513,6 +527,7 @@ function AnimeDetails() {
           </button>
         </div>
       )}
+
       <FolderLinkModal
         isOpen={showLinkFolderModal}
         onClose={() => {
@@ -524,6 +539,7 @@ function AnimeDetails() {
         filteredFolders={filteredFolders}
         onLink={handleLinkFolder}
       />
+
       <SearchApiModal
         isOpen={showSearchApiModal}
         onClose={() => {
@@ -537,6 +553,7 @@ function AnimeDetails() {
         onSelect={handleLinkAndAdd}
         isLoading={isSearchingApi}
       />
+
       {confirmModal && (
         <ConfirmModal
           title={confirmModal.title}
@@ -545,6 +562,7 @@ function AnimeDetails() {
           onCancel={() => setConfirmModal(null)}
         />
       )}
+
       {!confirmModal && suggestedFolder && (
         <ConfirmModal
           title="Aceptar vinculacion automatica"
@@ -554,6 +572,7 @@ function AnimeDetails() {
           onCancel={handleRejectSuggestedLink}
         />
       )}
+
       {showAliasModal && (
         <TorrentAliasModal
           isOpen={showAliasModal}
@@ -568,6 +587,7 @@ function AnimeDetails() {
           }}
         />
       )}
+
       <TorrentDownloadModal
         isOpen={torrentModalOpen}
         onClose={() => setTorrentModalOpen(false)}
@@ -575,6 +595,7 @@ function AnimeDetails() {
         items={torrentModalItems}
         malId={animeId}
       />
+
       {toast && (
         <div className={styles.toast} data-type={toast.type} role="alert" aria-live="polite">
           {toast.message}

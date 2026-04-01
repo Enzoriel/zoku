@@ -52,10 +52,16 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     async function loadData() {
       try {
-        const folderPath = (await getStore("folderPath")) || "";
-        const myAnimes = (await getStore("myAnimes")) || {};
-        const localFiles = (await getStore("localFiles")) || {};
-        const settings = (await getStore("settings")) || { player: "mpv" };
+        const [folderPathValue, myAnimesValue, localFilesValue, settingsValue] = await Promise.all([
+          getStore("folderPath"),
+          getStore("myAnimes"),
+          getStore("localFiles"),
+          getStore("settings"),
+        ]);
+        const folderPath = folderPathValue || "";
+        const myAnimes = myAnimesValue || {};
+        const localFiles = localFilesValue || {};
+        const settings = settingsValue || { player: "mpv" };
         const loadedData = { folderPath, myAnimes, localFiles, settings };
         await ensureLibraryScope(folderPath);
         storeStateRef.current = loadedData;
@@ -141,6 +147,11 @@ export function StoreProvider({ children }) {
     });
   }, [processQueue]);
 
+  const retryLibraryScope = useCallback(async () => {
+    setLibraryScopeReady(false);
+    return ensureLibraryScope(storeStateRef.current.folderPath || "");
+  }, [ensureLibraryScope]);
+
   const value = useMemo(
     () => ({
       data,
@@ -152,8 +163,9 @@ export function StoreProvider({ children }) {
       setLocalFiles,
       setSettings,
       clearAllData,
+      retryLibraryScope,
     }),
-    [data, loading, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setLocalFiles, setSettings, clearAllData],
+    [data, loading, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setLocalFiles, setSettings, clearAllData, retryLibraryScope],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

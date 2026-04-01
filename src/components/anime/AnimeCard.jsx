@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { memo } from "react";
 import { calculateUserStatus } from "../../utils/animeStatus";
+import { buildStoredAnimeEntry } from "../../utils/animeEntry";
 import styles from "./AnimeCard.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
@@ -32,6 +33,7 @@ function AnimeCard({
   const isInLibrary = !!inLibraryData;
   const displayAnime = isInLibrary ? { ...anime, ...inLibraryData } : anime;
   const isPlaying = playback?.playingEp?.animeId === animeId;
+  const userStatus = isInLibrary ? calculateUserStatus(displayAnime) : null;
 
   const handleClick = () => {
     navigate(`/anime/${animeId}`);
@@ -51,20 +53,7 @@ function AnimeCard({
   const handleAddToLibrary = async (e) => {
     e.stopPropagation();
 
-    const animeData = {
-      malId: animeId,
-      title: anime.title || anime.title_english || "Unknown Title",
-      coverImage: anime.images?.jpg?.large_image_url || anime.coverImage,
-      totalEpisodes: anime.episodes || anime.totalEpisodes || 0,
-      episodeList: anime.episodeList || [],
-      watchedEpisodes: [],
-      lastEpisodeWatched: 0,
-      userStatus: "PLAN_TO_WATCH",
-      notes: "",
-      watchHistory: [],
-      addedAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-    };
+    const animeData = buildStoredAnimeEntry(anime);
 
     await setMyAnimes((prev) => ({ ...prev, [animeId]: animeData }));
     if (onAdd) onAdd(animeData);
@@ -100,16 +89,16 @@ function AnimeCard({
         <div className={styles.topBadges}>
           {type && displayAnime.type && <span className={styles.typeBadge}>{displayAnime.type}</span>}
           {isInLibrary && (
-            <span className={styles.statusBadge} data-status={calculateUserStatus(displayAnime)}>
-              {calculateUserStatus(displayAnime) === "PLAN_TO_WATCH"
+            <span className={styles.statusBadge} data-status={userStatus}>
+              {userStatus === "PLAN_TO_WATCH"
                 ? "PENDIENTE"
-                : calculateUserStatus(displayAnime) === "WATCHING"
+                : userStatus === "WATCHING"
                   ? "VIENDO"
-                  : calculateUserStatus(displayAnime) === "COMPLETED"
+                  : userStatus === "COMPLETED"
                     ? "COMPLETADO"
-                    : calculateUserStatus(displayAnime) === "PAUSED"
+                    : userStatus === "PAUSED"
                       ? "PAUSADO"
-                      : calculateUserStatus(displayAnime) === "DROPPED"
+                      : userStatus === "DROPPED"
                         ? "ABANDONADO"
                         : "EN LISTA"}
             </span>

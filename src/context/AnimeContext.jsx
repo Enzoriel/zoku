@@ -16,25 +16,22 @@ export function AnimeProvider({ children }) {
   const [error, setError] = useState(null);
   const isFetching = useRef(false);
 
-  const fetchSeasonal = async () => {
+  const fetchSeasonal = useCallback(async () => {
     if (isFetching.current) return;
     isFetching.current = true;
     setError(null);
     try {
       const data = await getFullSeasonAnime();
-      if (data === null) {
-        throw new Error("AniList unavailable");
-      }
       setSeasonalAnime(data || []);
       lastFetchRef.current = Date.now();
-    } catch (e) {
-      console.error("Failed to fetch seasonal anime:", e);
-      setError("No se pudo sincronizar con AniList. Revisa tu conexión.");
+    } catch (fetchError) {
+      console.error("Failed to fetch seasonal anime:", fetchError);
+      setError("No se pudo sincronizar con AniList. Revisa tu conexion.");
     } finally {
       isFetching.current = false;
       setLoading(false);
     }
-  };
+  }, []);
 
   const shouldRefresh = () => !lastFetchRef.current || Date.now() - lastFetchRef.current > CACHE_DURATION;
 
@@ -46,7 +43,9 @@ export function AnimeProvider({ children }) {
 
     getCurrentWindow()
       .listen("tauri://focus", () => {
-        if (shouldRefresh()) fetchSeasonal();
+        if (shouldRefresh()) {
+          fetchSeasonal();
+        }
       })
       .then((fn) => {
         if (mounted) {
@@ -60,26 +59,32 @@ export function AnimeProvider({ children }) {
       mounted = false;
       unlisten?.();
     };
-  }, []);
+  }, [fetchSeasonal]);
 
-  const getAnimeById = useCallback(
+  const getFreshAnimeById = useCallback(
     (id) => {
-      const parsed = parseInt(id);
+      const parsed = parseInt(id, 10);
       return (
-        storeData.myAnimes[id] ||
-        storeData.myAnimes[parsed] ||
-        seasonalAnime.find((a) => a.anilistId === parsed || a.mal_id === parsed) ||
-        searchAnimes.find((a) => a.anilistId === parsed || a.mal_id === parsed) ||
+        seasonalAnime.find((anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed) ||
+        searchAnimes.find((anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed) ||
         null
       );
     },
-    [seasonalAnime, searchAnimes, storeData.myAnimes],
+    [seasonalAnime, searchAnimes],
+  );
+
+  const getAnimeById = useCallback(
+    (id) => {
+      const parsed = parseInt(id, 10);
+      return storeData.myAnimes[id] || storeData.myAnimes[parsed] || getFreshAnimeById(id) || null;
+    },
+    [getFreshAnimeById, storeData.myAnimes],
   );
 
   const retryFetch = useCallback(async () => {
     setLoading(true);
     await fetchSeasonal();
-  }, []);
+  }, [fetchSeasonal]);
 
   const value = useMemo(
     () => ({
@@ -89,9 +94,10 @@ export function AnimeProvider({ children }) {
       loading,
       error,
       getAnimeById,
+      getFreshAnimeById,
       retryFetch,
     }),
-    [seasonalAnime, searchAnimes, loading, error, getAnimeById, retryFetch],
+    [seasonalAnime, searchAnimes, loading, error, getAnimeById, getFreshAnimeById, retryFetch],
   );
 
   return <AnimeContext.Provider value={value}>{children}</AnimeContext.Provider>;

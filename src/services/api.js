@@ -1,47 +1,66 @@
 import { invoke } from "@tauri-apps/api/core";
 
 const MIN_INTERVAL = 170;
-const FETCH_TIMEOUT = 9000; // 9 segundos
+const FETCH_TIMEOUT = 9000;
 
 let lastRequestTime = 0;
 let queuePromise = Promise.resolve();
+
+function normalizeAniListError(error) {
+  const message = typeof error === "string" ? error : error?.message || "AniList unavailable";
+  const lowered = message.toLowerCase();
+
+  if (lowered.includes("timeout")) {
+    return new Error("AniList tardo demasiado en responder.");
+  }
+
+  if (lowered.includes("429")) {
+    return new Error("AniList limito temporalmente las peticiones. Intenta de nuevo en unos segundos.");
+  }
+
+  if (lowered.includes("503") || lowered.includes("502") || lowered.includes("500")) {
+    return new Error("AniList no esta disponible en este momento.");
+  }
+
+  return new Error(message);
+}
 
 async function queryAniList(query, variables = {}) {
   const execute = async () => {
     const now = Date.now();
     const timeSinceLast = now - lastRequestTime;
     if (timeSinceLast < MIN_INTERVAL) {
-      await new Promise(r => setTimeout(r, MIN_INTERVAL - timeSinceLast));
+      await new Promise((resolve) => setTimeout(resolve, MIN_INTERVAL - timeSinceLast));
     }
     lastRequestTime = Date.now();
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout de conexión con AniList")), FETCH_TIMEOUT)
-    );
+    let timeoutId;
+    try {
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Timeout de conexion con AniList")), FETCH_TIMEOUT);
+      });
 
-    return Promise.race([
-      invoke("query_anilist", { query, variables }),
-      timeoutPromise
-    ]);
+      const result = await Promise.race([invoke("query_anilist", { query, variables }), timeoutPromise]);
+
+      if (!result) {
+        throw new Error("AniList no devolvio datos.");
+      }
+
+      if (result.errors?.length) {
+        throw new Error(result.errors.map((entry) => entry.message).join(" | "));
+      }
+
+      return result.data;
+    } catch (error) {
+      throw normalizeAniListError(error);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   };
 
   const task = queuePromise.then(() => execute());
   queuePromise = task.catch(() => {});
-
-  try {
-    const result = await task;
-
-    if (!result) return null;
-    if (result.errors) {
-      console.error("[AniList] GraphQL Errors:", result.errors);
-      return null;
-    }
-
-    return result.data;
-  } catch (error) {
-    console.error("[AniList] Fetch Error:", error);
-    return null;
-  }
+  return task;
 }
 
 function mapMedia(media) {
@@ -60,15 +79,15 @@ function mapMedia(media) {
     : "No description available.";
 
   const statusMap = {
-    RELEASING: "En emisión",
+    RELEASING: "En emision",
     FINISHED: "Finalizado",
-    NOT_YET_RELEASED: "Próximamente",
+    NOT_YET_RELEASED: "Proximamente",
     CANCELLED: "Cancelado",
     HIATUS: "En pausa",
   };
 
   const demoTags = ["Shounen", "Seinen", "Shoujo", "Josei"];
-  const demographic = media.tags?.find((t) => demoTags.includes(t.name))?.name || "Desconocido";
+  const demographic = media.tags?.find((tag) => demoTags.includes(tag.name))?.name || "Desconocido";
 
   let normalizedType = media.format || "TV";
   if (normalizedType === "TV_SHORT") normalizedType = "TV";
@@ -78,7 +97,6 @@ function mapMedia(media) {
     episodesCount = media.nextAiringEpisode.episode - 1;
   }
 
-  // Formatear fecha de estreno
   const airedDate = media.startDate?.year
     ? `${media.startDate.day || "?"}/${media.startDate.month || "?"}/${media.startDate.year}`
     : "N/A";
@@ -99,7 +117,7 @@ function mapMedia(media) {
     bannerImage: media.bannerImage,
     synopsis: cleanDescription,
     score: media.averageScore ? media.averageScore / 10 : 0,
-    rank: media.rankings?.find((r) => r.allTime && r.type === "RATED")?.rank || media.rankings?.[0]?.rank || null,
+    rank: media.rankings?.find((ranking) => ranking.allTime && ranking.type === "RATED")?.rank || media.rankings?.[0]?.rank || null,
     popularity: media.popularity,
     rating: media.isAdult ? "R18+" : "TV-14",
     type: normalizedType,
@@ -110,18 +128,18 @@ function mapMedia(media) {
     year: media.seasonYear || media.startDate?.year || "N/A",
     season: media.season || "N/A",
     get episodeList() {
-      return Array.from({ length: episodesCount || 0 }, (_, i) => ({
-        mal_id: i + 1,
-        title: `Episodio ${i + 1}`,
+      return Array.from({ length: episodesCount || 0 }, (_, index) => ({
+        mal_id: index + 1,
+        title: `Episodio ${index + 1}`,
         aired: null,
       }));
     },
     duration: media.duration ? `${media.duration} min` : "24 min",
-    genres: media.genres ? media.genres.map((g, idx) => ({ mal_id: idx, name: g })) : [],
+    genres: media.genres ? media.genres.map((genre, index) => ({ mal_id: index, name: genre })) : [],
     demographics: [{ name: demographic }],
-    studios: media.studios?.nodes?.map((s) => ({ name: s.name })) || [],
+    studios: media.studios?.nodes?.map((studio) => ({ name: studio.name })) || [],
     source: media.source || "UNKNOWN",
-    airedDate: airedDate,
+    airedDate,
     aired: {
       from: media.startDate?.year ? `${media.startDate.year}-${media.startDate.month}-${media.startDate.day}` : null,
       string: airedDate,
@@ -227,14 +245,9 @@ export async function getFullSeasonAnime() {
 
   while (hasNextPage && page <= 2) {
     const result = await queryAniList(query, { page, season, seasonYear: year });
-    if (!result) {
-      if (page === 1) return null;
-      break;
-    }
-
     allAnimes = [...allAnimes, ...result.Page.media.map(mapMedia)];
     hasNextPage = result.Page.pageInfo.hasNextPage;
-    page++;
+    page += 1;
   }
 
   return allAnimes;
@@ -258,27 +271,27 @@ export async function searchAnime(queryText, page = 1) {
   `;
 
   const result = await queryAniList(query, { search: queryText, page });
-  if (!result) return { data: [], pagination: {} };
 
   return {
     data: result.Page.media.map(mapMedia),
     pagination: {
       total: result.Page.pageInfo.total,
+      current_page: result.Page.pageInfo.currentPage,
       last_visible_page: result.Page.pageInfo.lastPage,
       has_next_page: result.Page.pageInfo.hasNextPage,
     },
   };
 }
 
-// Trae múltiples animes por ID en una sola request GraphQL usando aliases
 export async function getAnimeDetailsBatch(ids) {
   if (!ids || ids.length === 0) return [];
 
   const chunkSize = 50;
   let allResults = [];
+  let firstError = null;
 
-  for (let i = 0; i < ids.length; i += chunkSize) {
-    const chunkIds = ids.slice(i, i + chunkSize);
+  for (let index = 0; index < ids.length; index += chunkSize) {
+    const chunkIds = ids.slice(index, index + chunkSize);
     const query = `
       query ($ids: [Int]) {
         Page (perPage: 50) {
@@ -291,12 +304,19 @@ export async function getAnimeDetailsBatch(ids) {
 
     try {
       const result = await queryAniList(query, { ids: chunkIds });
-      if (result && result.Page && result.Page.media) {
+      if (result?.Page?.media) {
         allResults = allResults.concat(result.Page.media.map(mapMedia).filter(Boolean));
       }
-    } catch (err) {
-      console.warn(`Error fetching batch from ${i} to ${i + chunkSize}:`, err);
+    } catch (error) {
+      if (!firstError) {
+        firstError = error;
+      }
+      console.warn(`Error fetching batch from ${index} to ${index + chunkSize}:`, error);
     }
+  }
+
+  if (allResults.length === 0 && firstError) {
+    throw firstError;
   }
 
   return allResults;

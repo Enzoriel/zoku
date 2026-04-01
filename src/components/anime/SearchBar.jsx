@@ -5,8 +5,8 @@ const SearchBar = ({ onSearch, isLoading }) => {
   const [query, setQuery] = useState("");
   const inputRef = useRef(null);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = (event) => {
+    event.preventDefault();
     if (query.trim()) {
       onSearch(query);
     }
@@ -28,10 +28,16 @@ const SearchBar = ({ onSearch, isLoading }) => {
             className={styles.searchInput}
             placeholder="BUSCAR ANIME EN LA RED..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
           />
           {query && (
-            <button type="button" className={styles.clearButton} onClick={handleClear}>
+            <button
+              type="button"
+              className={styles.clearButton}
+              onClick={handleClear}
+              aria-label="Limpiar busqueda"
+              title="Limpiar busqueda"
+            >
               ×
             </button>
           )}

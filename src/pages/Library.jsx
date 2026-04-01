@@ -8,7 +8,7 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 import styles from "./Library.module.css";
 
 function Library() {
-  const { data, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setSettings } = useStore();
+  const { data, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setSettings, retryLibraryScope } = useStore();
   const { performSync, syncing } = useLibrary();
   const [viewMode, setViewMode] = useState("grid");
   const [confirmModal, setConfirmModal] = useState(null);
@@ -412,7 +412,7 @@ function Library() {
             <Button onClick={handleSelectFolder} variant="primary">
               Seleccionar Otra Carpeta
             </Button>
-            <Button onClick={() => window.location.reload()} variant="secondary">
+            <Button onClick={retryLibraryScope} variant="secondary">
               Reintentar
             </Button>
           </div>

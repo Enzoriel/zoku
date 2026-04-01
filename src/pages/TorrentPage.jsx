@@ -1,18 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import { useStore } from "../hooks/useStore";
 import { useTorrent } from "../context/TorrentContext";
 import { useToast } from "../hooks/useToast";
 import { hasConfiguredFansubs, getAllFansubs, getPrincipalFansub, getPreferredResolution } from "../utils/torrentConfig";
+import { fetchNyaaFeed } from "../services/nyaa";
 import FansubOnboardingModal from "../components/ui/FansubOnboardingModal";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import styles from "./TorrentPage.module.css";
-
-// Simple in-memory cache
-const resultCache = new Map();
-const CACHE_DURATION = 10 * 60 * 1000;
 
 function TorrentPage() {
   const location = useLocation();
@@ -25,21 +21,19 @@ function TorrentPage() {
     refresh: contextRefresh,
   } = useTorrent();
 
-  // Fansub settings
   const hasConfig = hasConfiguredFansubs(storeData.settings);
   const allFansubs = getAllFansubs(storeData.settings);
   const principalFansub = getPrincipalFansub(storeData.settings);
   const preferredRes = useMemo(() => getPreferredResolution(storeData.settings), [storeData.settings]);
 
-  // States
   const [activeTab, setActiveTab] = useState(location.state?.activeTab || "general");
   const [searchInput, setSearchInput] = useState(location.state?.searchInput || "");
   const [activeQuery, setActiveQuery] = useState(() => {
     if (location.state?.activeQuery) return location.state.activeQuery;
     if (location.state?.animeTitle) {
-      const ep = location.state?.epNumber;
-      const q = ep ? `${location.state.animeTitle} ${ep}` : location.state.animeTitle;
-      return q.toLowerCase().includes(preferredRes.toLowerCase()) ? q : `${q} ${preferredRes}`;
+      const episode = location.state?.epNumber;
+      const baseQuery = episode ? `${location.state.animeTitle} ${episode}` : location.state.animeTitle;
+      return baseQuery.toLowerCase().includes(preferredRes.toLowerCase()) ? baseQuery : `${baseQuery} ${preferredRes}`;
     }
     return "";
   });
@@ -48,16 +42,15 @@ function TorrentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastFetchTime, setLastFetchTime] = useState(null);
-
   const [modalOpen, setModalOpen] = useState(false);
   const [modalItems, setModalItems] = useState([]);
   const [modalTitle, setModalTitle] = useState("");
+
   const { toast, showToast } = useToast();
   const requestIdRef = useRef(0);
 
   const targetAnimeId = location.state?.malId;
   const targetAnimeTitle = location.state?.animeTitle;
-
   const showSearchOptions = activeTab !== "general" && searchInput.trim() !== "";
   const isContextBackedTab = activeTab === principalFansub && activeQuery === "";
 
@@ -66,37 +59,20 @@ function TorrentPage() {
     setIsLoading(true);
     setError(null);
 
-    const isSearch = query !== "";
-    const fansubParam = tab === "general" ? "" : tab;
-    const cacheKey = `${tab}:${query}`;
-
-    // Use cache if not forcing and not a search, or if recent
-    if (!force && !isSearch && resultCache.has(cacheKey)) {
-      const cached = resultCache.get(cacheKey);
-      if (Date.now() - cached.timestamp < CACHE_DURATION) {
-        if (requestId !== requestIdRef.current) return;
-        setItems(cached.data);
-        setLastFetchTime(cached.timestamp);
-        setIsLoading(false);
-        return;
-      }
-    }
-
     try {
-      const result = await invoke("fetch_nyaa", { query, fansub: fansubParam });
+      const result = await fetchNyaaFeed({
+        fansub: tab === "general" ? "" : tab,
+        query,
+        force,
+      });
+
       if (requestId !== requestIdRef.current) return;
-      setItems(result || []);
-      const now = Date.now();
-      setLastFetchTime(now);
-      
-      // Save to cache
-      if (!isSearch) {
-        resultCache.set(cacheKey, { data: result || [], timestamp: now });
-      }
-    } catch (e) {
+      setItems(result.data);
+      setLastFetchTime(result.timestamp);
+    } catch (fetchError) {
       if (requestId !== requestIdRef.current) return;
-      console.error("[TorrentPage] Fetch error:", e);
-      setError(typeof e === "string" ? e : "Error de conexión con Nyaa.");
+      console.error("[TorrentPage] Fetch error:", fetchError);
+      setError(typeof fetchError === "string" ? fetchError : "Error de conexion con Nyaa.");
       setItems([]);
     } finally {
       if (requestId !== requestIdRef.current) return;
@@ -104,7 +80,6 @@ function TorrentPage() {
     }
   }, []);
 
-  // Fetch when tab or query changes
   useEffect(() => {
     if (!hasConfig) return;
 
@@ -120,13 +95,13 @@ function TorrentPage() {
   }, [
     activeTab,
     activeQuery,
-    hasConfig,
-    fetchTorrents,
-    isContextBackedTab,
-    contextItems,
     contextError,
+    contextItems,
     contextLastFetch,
     contextLoading,
+    fetchTorrents,
+    hasConfig,
+    isContextBackedTab,
   ]);
 
   const handleTabClick = (tab) => {
@@ -136,11 +111,9 @@ function TorrentPage() {
     setActiveQuery("");
   };
 
-  const handleSearchKeyDown = (e) => {
-    if (e.key === "Enter") {
-      if (!showSearchOptions) {
-        setActiveQuery(searchInput.trim());
-      }
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Enter" && !showSearchOptions) {
+      setActiveQuery(searchInput.trim());
     }
   };
 
@@ -161,13 +134,12 @@ function TorrentPage() {
     fetchTorrents(activeTab, activeQuery, true);
   };
 
-
   const handleOpenLink = async (url) => {
     if (!url) return;
     try {
       await open(url);
-    } catch (e) {
-      console.error("Error opening link:", e);
+    } catch (openError) {
+      console.error("Error opening link:", openError);
     }
   };
 
@@ -179,20 +151,19 @@ function TorrentPage() {
 
   const formattedTime = useMemo(() => {
     if (!lastFetchTime) return "Nunca";
-    const d = new Date(lastFetchTime);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const date = new Date(lastFetchTime);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }, [lastFetchTime]);
 
   const formatDate = (dateString) => {
     try {
-      const d = new Date(dateString);
-      return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const date = new Date(dateString);
+      return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     } catch {
       return dateString;
     }
   };
 
-  // Guard: Required Onboarding
   if (!hasConfig) {
     return <FansubOnboardingModal onComplete={() => {}} />;
   }
@@ -214,13 +185,13 @@ function TorrentPage() {
         >
           General
         </button>
-        {allFansubs.map((f) => (
+        {allFansubs.map((fansub) => (
           <button
-            key={f.name}
-            className={`${styles.tabBtn} ${activeTab === f.name ? styles.tabActive : ""}`}
-            onClick={() => handleTabClick(f.name)}
+            key={fansub.name}
+            className={`${styles.tabBtn} ${activeTab === fansub.name ? styles.tabActive : ""}`}
+            onClick={() => handleTabClick(fansub.name)}
           >
-            {f.name} {f.principal && <span className={styles.starIcon}>⭐</span>}
+            {fansub.name} {fansub.principal && <span className={styles.starIcon}>⭐</span>}
           </button>
         ))}
       </div>
@@ -236,7 +207,7 @@ function TorrentPage() {
             className={styles.searchInput}
             placeholder={activeTab === "general" ? "Buscar en todo Nyaa..." : `Buscar en ${activeTab}...`}
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(event) => setSearchInput(event.target.value)}
             onKeyDown={handleSearchKeyDown}
           />
           {!showSearchOptions && (
@@ -260,13 +231,13 @@ function TorrentPage() {
 
       <div className={styles.resultsContainer}>
         {isLoading ? (
-          <div className={styles.skeletonContainer}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className={styles.skeletonRow} />
+          <div className={styles.skeletonContainer} aria-busy="true">
+            {[1, 2, 3, 4, 5].map((item) => (
+              <div key={item} className={styles.skeletonRow} />
             ))}
           </div>
         ) : error ? (
-          <div className={styles.errorState}>
+          <div className={styles.errorState} role="alert" aria-live="assertive">
             <p>{error}</p>
             <button className={styles.retryBtn} onClick={handleRefresh}>
               REINTENTAR
@@ -281,7 +252,7 @@ function TorrentPage() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th className={styles.colTitle}>Título</th>
+                  <th className={styles.colTitle}>Titulo</th>
                   <th className={styles.colFansub}>Fansub</th>
                   <th className={styles.colSize}>Tamaño</th>
                   <th className={styles.colSeeders}>S / L</th>
@@ -290,31 +261,41 @@ function TorrentPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, idx) => (
-                  <tr key={idx} className={styles.tableRow}>
+                {items.map((item, index) => (
+                  <tr key={index} className={styles.tableRow}>
                     <td className={styles.colTitle}>
-                      <span
+                      <button
+                        type="button"
                         className={styles.titleClickable}
                         title={item.title}
                         onClick={() => handleOpenLink(item.view_url)}
                       >
                         {item.title}
-                      </span>
+                      </button>
                     </td>
                     <td className={styles.colFansub}>
                       <span className={styles.badge}>{item.fansub}</span>
                     </td>
                     <td className={styles.colSize}>{item.size}</td>
                     <td className={styles.colSeeders}>
-                      <span className={item.seeders >= 10 ? styles.seedersHigh : item.seeders > 0 ? styles.seedersMed : styles.seedersLow}>
+                      <span
+                        className={
+                          item.seeders >= 10 ? styles.seedersHigh : item.seeders > 0 ? styles.seedersMed : styles.seedersLow
+                        }
+                      >
                         {item.seeders}
                       </span>{" "}
                       / <span className={styles.leechers}>{item.leechers}</span>
                     </td>
                     <td className={styles.colDate}>{formatDate(item.date)}</td>
                     <td className={styles.colAction}>
-                      <button className={styles.downloadBtn} onClick={() => handleDownloadClick(item)}>
-                        ⬇
+                      <button
+                        className={styles.downloadBtn}
+                        onClick={() => handleDownloadClick(item)}
+                        aria-label={`Descargar ${item.title}`}
+                        title="Descargar torrent"
+                      >
+                        ↓
                       </button>
                     </td>
                   </tr>
@@ -335,7 +316,7 @@ function TorrentPage() {
       />
 
       {toast && (
-        <div className={styles.toast} data-type={toast.type}>
+        <div className={styles.toast} data-type={toast.type} role="alert" aria-live="polite">
           {toast.message}
         </div>
       )}

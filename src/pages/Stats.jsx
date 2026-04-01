@@ -1,7 +1,5 @@
-import React from "react";
-
-const Stats = () => {
-  return <div>Stats</div>;
-};
+function Stats() {
+  return <div>Estadisticas proximamente.</div>;
+}
 
 export default Stats;
