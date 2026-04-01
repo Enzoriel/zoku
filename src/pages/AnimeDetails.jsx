@@ -8,7 +8,7 @@ import { useToast } from "../hooks/useToast";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import { searchAnime } from "../services/api";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
-import { normalizeForSearch } from "../services/fileSystem";
+import { findBestAnimeFolderMatch } from "../services/fileSystem";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import TorrentAliasModal from "../components/ui/TorrentAliasModal";
 import FolderLinkModal from "../components/ui/FolderLinkModal";
@@ -19,20 +19,11 @@ import { AnimeSidebar } from "../components/anime/details/AnimeSidebar";
 import { EpisodeList } from "../components/anime/details/EpisodeList";
 import { METADATA_REFRESH_DAYS } from "../constants";
 import { buildStoredAnimeEntry } from "../utils/animeEntry";
+import { getReleasedEpisodeCount, isAnimeActivelyAiring, isAiringMetadataStale } from "../utils/airingStatus";
 import styles from "./AnimeDetails.module.css";
 
-function titlesMatch(normalizedTitle, normalizedKey) {
-  if (!normalizedTitle || !normalizedKey) return false;
-  if (normalizedTitle === normalizedKey) return true;
-  const blacklist = ["season", "part", "anime", "2nd", "3rd", "4th", "5th", "s2", "s3", "s4"];
-  const getBaseNameWords = (str) => str.split(" ").filter((word) => word.length > 2 && !blacklist.includes(word));
-  const wordsTitle = getBaseNameWords(normalizedTitle);
-  const wordsKey = getBaseNameWords(normalizedKey);
-  if (wordsTitle.length === 0 || wordsKey.length === 0) return false;
-  const matches = wordsTitle.filter((word) => wordsKey.includes(word)).length;
-  const totalUniqueWords = Math.max(wordsTitle.length, wordsKey.length);
-  return matches / totalUniqueWords >= 0.8;
-}
+const AIRING_METADATA_REFRESH_MS = 6 * 60 * 60 * 1000;
+const NON_SEASON_METADATA_REFRESH_MS = 24 * 60 * 60 * 1000;
 
 function buildSuggestedLinkLabel(folder) {
   if (!folder?.files?.length) {
@@ -53,8 +44,8 @@ function AnimeDetails() {
   const folderName = searchParams.get("folder");
   const navigate = useNavigate();
 
-  const { data, setMyAnimes, setSettings } = useStore();
-  const { getAnimeById, getFreshAnimeById, loading: animeLoading } = useAnime();
+  const { data, setMyAnimes, setSettings, libraryScopeReady } = useStore();
+  const { getAnimeById, getFreshAnimeById, refreshAnimeById, loading: animeLoading } = useAnime();
   const { performSync } = useLibrary();
   const { data: torrentData, principalFansub } = useTorrent();
 
@@ -108,10 +99,9 @@ function AnimeDetails() {
     if (!mainAnime) return { files: [] };
 
     const folderObj = Object.values(data?.localFiles || {}).find((folder) => {
-      const resolvedMalId = folder.resolvedMalId || folder.malId;
-      if (resolvedMalId && mainAnime.malId && String(resolvedMalId) === String(mainAnime.malId)) return true;
       if (mainAnime.folderName && folder.folderName === mainAnime.folderName) return true;
       if (folderName && folder.folderName === folderName) return true;
+      if (folder.isLinked && folder.malId && mainAnime.malId && String(folder.malId) === String(mainAnime.malId)) return true;
       return false;
     });
 
@@ -144,6 +134,7 @@ function AnimeDetails() {
   const dataMyAnimesRef = useRef(data.myAnimes);
   const getAnimeByIdRef = useRef(getAnimeById);
   const getFreshAnimeByIdRef = useRef(getFreshAnimeById);
+  const refreshAnimeByIdRef = useRef(refreshAnimeById);
   const setMyAnimesRef = useRef(setMyAnimes);
 
   useEffect(() => {
@@ -157,6 +148,10 @@ function AnimeDetails() {
   useEffect(() => {
     getFreshAnimeByIdRef.current = getFreshAnimeById;
   }, [getFreshAnimeById]);
+
+  useEffect(() => {
+    refreshAnimeByIdRef.current = refreshAnimeById;
+  }, [refreshAnimeById]);
 
   useEffect(() => {
     setMyAnimesRef.current = setMyAnimes;
@@ -182,11 +177,46 @@ function AnimeDetails() {
     if (!stored) return;
 
     const lastFetch = stored.lastMetadataFetch;
-    const daysSince = lastFetch ? (Date.now() - new Date(lastFetch).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+    const now = Date.now();
+    const lastFetchAt = lastFetch ? new Date(lastFetch).getTime() : 0;
+    const ageMs = lastFetchAt > 0 ? now - lastFetchAt : Infinity;
+    const daysSince = ageMs / (1000 * 60 * 60 * 24);
     const isMissingData = !stored.rank && !stored.studios?.length;
-    if (daysSince < METADATA_REFRESH_DAYS && !isMissingData) return;
+    const isAiring = isAnimeActivelyAiring(stored);
+    const hasFreshContext = Boolean(getFreshAnimeByIdRef.current(currentAnimeId));
+    const staleAiringData = isAiringMetadataStale(stored, now);
+    const needsScheduledRefresh = isAiring
+      ? ageMs >= AIRING_METADATA_REFRESH_MS
+      : daysSince >= METADATA_REFRESH_DAYS;
+    const needsOffSeasonRetry = !hasFreshContext && ageMs >= NON_SEASON_METADATA_REFRESH_MS;
 
-    const apiData = getFreshAnimeByIdRef.current(currentAnimeId) || getAnimeByIdRef.current(currentAnimeId);
+    if (!isMissingData && !staleAiringData && !needsScheduledRefresh && !needsOffSeasonRetry) {
+      return;
+    }
+
+    let apiData = getFreshAnimeByIdRef.current(currentAnimeId);
+    const shouldQueryApi =
+      isMissingData ||
+      staleAiringData ||
+      needsScheduledRefresh ||
+      needsOffSeasonRetry ||
+      (!hasFreshContext && isAiring);
+
+    if (shouldQueryApi) {
+      const refreshedData = await refreshAnimeByIdRef.current(currentAnimeId, {
+        force: true,
+        anilistId: stored.anilistId,
+      });
+      if (refreshedData) {
+        apiData = refreshedData;
+      }
+    }
+    if (!apiData) {
+      apiData = getFreshAnimeByIdRef.current(currentAnimeId);
+    }
+    if (!apiData) {
+      apiData = getAnimeByIdRef.current(currentAnimeId);
+    }
     if (!apiData) return;
 
     const {
@@ -222,6 +252,12 @@ function AnimeDetails() {
       autoRefreshMetadata(animeId);
     }
   }, [folderName, mainAnime, animeId, autoRefreshMetadata, data.myAnimes]);
+
+  useEffect(() => {
+    if (!data.folderPath || !libraryScopeReady) return;
+    if (!animeId && !folderName) return;
+    performSync();
+  }, [animeId, folderName, data.folderPath, libraryScopeReady, performSync]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -266,35 +302,14 @@ function AnimeDetails() {
       },
     );
 
-    const normalizedTitle = normalizeForSearch(mainAnime.title);
-    const match = Object.entries(data.localFiles).find(
-      ([key, value]) => !value.isLinked && titlesMatch(normalizedTitle, normalizeForSearch(key)),
-    );
     const newMyAnimes = { ...data.myAnimes, [animeId]: entry };
 
-    if (match) {
-      const nextSettings = {
-        ...data.settings,
-        library: {
-          ...(data.settings?.library || {}),
-          ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
-            (name) => name.toLowerCase() !== match[0].toLowerCase(),
-          ),
-        },
-      };
-
-      entry.folderName = match[0];
-      newMyAnimes[animeId] = entry;
-      await setMyAnimes(newMyAnimes);
-      await setSettings(nextSettings);
-      await performSync(newMyAnimes, nextSettings);
-      showToast(`Vinculado con "${match[0]}"`, "success");
-      return;
-    }
-
     await setMyAnimes(newMyAnimes);
-    showToast("Añadido a la lista.", "info");
-  }, [mainAnime, animeId, data.myAnimes, data.localFiles, data.settings, setMyAnimes, setSettings, performSync, showToast]);
+    await performSync(newMyAnimes);
+
+    const match = findBestAnimeFolderMatch(entry, data.localFiles, { onlyWithFiles: true });
+    showToast(match ? "Anadido a la lista. Se detecto una carpeta sugerida." : "Anadido a la lista.", "info");
+  }, [mainAnime, animeId, data.myAnimes, data.localFiles, setMyAnimes, performSync, showToast]);
 
   const handleAddToLibraryBtnClick = () => {
     if (!mainAnime?.isUnknown) {
@@ -473,6 +488,7 @@ function AnimeDetails() {
 
   const totalEps = Math.max(
     mainAnime.totalEpisodes || 0,
+    getReleasedEpisodeCount(mainAnime),
     mainAnime.episodeList?.length || 0,
     animeFilesData.files.length > 0 ? Math.max(...animeFilesData.files.map((file) => file.episodeNumber || 0)) : 0,
   );
@@ -606,3 +622,4 @@ function AnimeDetails() {
 }
 
 export default AnimeDetails;
+

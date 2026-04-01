@@ -8,7 +8,8 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 import styles from "./Library.module.css";
 
 function Library() {
-  const { data, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setSettings, retryLibraryScope } = useStore();
+  const { data, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setSettings, retryLibraryScope } =
+    useStore();
   const { performSync, syncing } = useLibrary();
   const [viewMode, setViewMode] = useState("grid");
   const [confirmModal, setConfirmModal] = useState(null);
@@ -21,6 +22,40 @@ function Library() {
       confirmLabel: "ENTENDIDO",
       hideCancel: true,
       onConfirm: () => setConfirmModal(null),
+    });
+  };
+
+  const normalizeTrackedPath = (path) => String(path || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+
+  const getRemainingRootFiles = (localFilesSnapshot, filesToCheck) => {
+    const targetPaths = new Set((filesToCheck || []).map((file) => normalizeTrackedPath(file.path)).filter(Boolean));
+    if (targetPaths.size === 0) return [];
+
+    return Object.values(localFilesSnapshot || {})
+      .flatMap((folder) => folder.files || [])
+      .filter((file) => targetPaths.has(normalizeTrackedPath(file.path)));
+  };
+
+  const hasRemainingPhysicalFolder = (localFilesSnapshot, physicalPath) => {
+    const normalizedTarget = normalizeTrackedPath(physicalPath);
+    if (!normalizedTarget) return false;
+
+    return Object.values(localFilesSnapshot || {}).some(
+      (folder) => normalizeTrackedPath(folder.physicalPath) === normalizedTarget,
+    );
+  };
+
+  const promptRemoveFromLibrary = (malId) => {
+    setConfirmModal({
+      title: "Eliminar de biblioteca",
+      message: "Quieres eliminar tambien este anime de tu lista de seguimiento?",
+      onConfirm: async () => {
+        const newMyAnimes = { ...data.myAnimes };
+        delete newMyAnimes[malId];
+        await setMyAnimes(newMyAnimes);
+        setConfirmModal(null);
+        await performSync(newMyAnimes);
+      },
     });
   };
 
@@ -49,7 +84,6 @@ function Library() {
         type: folderData.resolvedAnimeData?.type || folderData.animeData?.type || "UNKNOWN",
       }))
       .sort((a, b) => {
-        // isTracking al final dentro de su grupo
         if (a.isTracking && !b.isTracking) return 1;
         if (!a.isTracking && b.isTracking) return -1;
         return a.name.localeCompare(b.name);
@@ -63,7 +97,7 @@ function Library() {
       OVA_SPECIAL: [],
       AUTO_LINKED: [],
       UNLINKED: [],
-      TRACKING: [], // en lista, sin carpeta física
+      TRACKING: [],
       OTHER: [],
     };
 
@@ -93,8 +127,8 @@ function Library() {
   const handleDeleteFolder = (folder) => {
     if (folder.isTracking) {
       setConfirmModal({
-        title: "¿Quitar de seguimiento?",
-        message: `"${folder.animeData?.title || folder.name}" se eliminará de tu lista. No hay archivos que borrar.`,
+        title: "Quitar de seguimiento",
+        message: `"${folder.animeData?.title || folder.name}" se eliminara de tu lista. No hay archivos que borrar.`,
         onConfirm: async () => {
           setConfirmModal(null);
           const newMyAnimes = { ...data.myAnimes };
@@ -106,7 +140,6 @@ function Library() {
       return;
     }
 
-    // Carpetas virtuales: archivos sueltos en raíz agrupados por título
     if (folder.isRootFile) {
       const fileCount = folder.files?.length || 0;
       if (fileCount === 0) {
@@ -114,48 +147,49 @@ function Library() {
         return;
       }
 
-      const fileNames = folder.files.map((f) => f.name).join("\n• ");
+      const fileNames = folder.files.map((file) => file.name).join("\n- ");
       setConfirmModal({
-        title: "¿Borrar archivos?",
-        message: `Se eliminarán ${fileCount} archivo(s) del disco:\n\n• ${fileNames}`,
+        title: "Borrar archivos",
+        message: `Se eliminaran ${fileCount} archivo(s) del disco:\n\n- ${fileNames}`,
         onConfirm: async () => {
           setConfirmModal(null);
           const result = await deleteVirtualFolderFiles(folder.files, data.folderPath);
-          if (result.failed > 0) {
-            const lockedFile = result.errors.find((item) => item.code === "FILE_IN_USE");
-            if (lockedFile) {
-              showInfoModal("No se pudo completar el borrado", `${lockedFile.error}`);
-            } else {
-              showInfoModal(
-                "No se pudo completar el borrado",
-                result.errors[0]?.error || "Uno o mas archivos no pudieron eliminarse.",
-              );
-            }
+          const nextLocalFiles = await performSync();
+          if (nextLocalFiles === null) {
+            showInfoModal(
+              "No se pudo verificar el borrado",
+              "No se pudo reescanear la biblioteca despues del intento de borrado.",
+            );
+            return;
           }
 
-          if (result.deleted > 0 && result.failed === 0) {
-            if (folder.malId) {
-              setConfirmModal({
-                title: "¿Eliminar de biblioteca?",
-                message: "¿Quieres eliminar también este anime de tu lista de seguimiento?",
-                onConfirm: async () => {
-                  const newMyAnimes = { ...data.myAnimes };
-                  delete newMyAnimes[folder.malId];
-                  await setMyAnimes(newMyAnimes);
-                  setConfirmModal(null);
-                  await performSync(newMyAnimes);
-                },
-              });
-            } else {
-              await performSync();
-            }
+          const remainingFiles = getRemainingRootFiles(nextLocalFiles, folder.files);
+          if (remainingFiles.length > 0) {
+            const lockedFile = result.errors.find((item) => item.code === "FILE_IN_USE");
+            const remainingNames = remainingFiles.map((file) => file.name).join("\n- ");
+            showInfoModal(
+              "No se pudo completar el borrado",
+              lockedFile?.error || `Uno o mas archivos siguen en uso o no pudieron eliminarse:\n\n- ${remainingNames}`,
+            );
+            return;
+          }
+
+          if (result.failed > 0 && result.deleted === 0) {
+            showInfoModal(
+              "No se pudo completar el borrado",
+              result.errors[0]?.error || "Uno o mas archivos no pudieron eliminarse.",
+            );
+            return;
+          }
+
+          if (folder.malId) {
+            promptRemoveFromLibrary(folder.malId);
           }
         },
       });
       return;
     }
 
-    // Carpetas físicas reales
     if (!folder.physicalPath) {
       setConfirmModal({
         title: "No hay archivos para borrar",
@@ -169,48 +203,53 @@ function Library() {
     }
 
     setConfirmModal({
-      title: "¿Borrar carpeta?",
-      message: `"${folder.name}" y todos sus archivos serán eliminados permanentemente del disco.`,
+      title: "Borrar carpeta",
+      message: `"${folder.name}" y todos sus archivos se eliminaran permanentemente del disco.`,
       onConfirm: async () => {
         setConfirmModal(null);
         const result = await deleteFolderFromDisk(folder.physicalPath, data.folderPath);
-        if (result.ok) {
-          if (folder.malId) {
-            setConfirmModal({
-              title: "¿Eliminar de biblioteca?",
-              message: "¿Quieres eliminar también este anime de tu lista de seguimiento?",
-              onConfirm: async () => {
-                const newMyAnimes = { ...data.myAnimes };
-                delete newMyAnimes[folder.malId];
-                await setMyAnimes(newMyAnimes);
-                setConfirmModal(null);
-                await performSync(newMyAnimes);
-              },
-            });
-          } else {
-            await performSync();
-          }
-        } else if (result.code === "FILE_IN_USE") {
+        const nextLocalFiles = await performSync();
+        if (nextLocalFiles === null) {
+          showInfoModal(
+            "No se pudo verificar el borrado",
+            "No se pudo reescanear la biblioteca despues del intento de borrado.",
+          );
+          return;
+        }
+
+        const folderStillExists = hasRemainingPhysicalFolder(nextLocalFiles, folder.physicalPath);
+        if (folderStillExists) {
           showInfoModal(
             "No se pudo borrar la carpeta",
-            `${result.error} Cierra qBittorrent, el reproductor u otra app que este usando archivos dentro de "${folder.name}".`,
+            result.code === "FILE_IN_USE"
+              ? `${result.error} Cierra qBittorrent, el reproductor u otra app que este usando archivos dentro de "${folder.name}".`
+              : result.error || `La carpeta "${folder.name}" sigue existiendo en disco.`,
           );
-        } else {
+          return;
+        }
+
+        if (!result.ok && result.code && result.code !== "FILE_IN_USE") {
           showInfoModal("No se pudo borrar la carpeta", result.error || "La carpeta no pudo eliminarse.");
+          return;
+        }
+
+        if (folder.malId) {
+          promptRemoveFromLibrary(folder.malId);
         }
       },
     });
   };
 
-  const handleUnlink = (e, folder) => {
-    e.stopPropagation();
+  const handleUnlink = (event, folder) => {
+    event.stopPropagation();
     if (!folder.malId) return;
 
     setConfirmModal({
-      title: "¿Desvincular carpeta?",
-      message: `"${folder.name}" dejará de estar vinculada. El anime permanece en tu lista sin archivos asociados.`,
+      title: "Desvincular carpeta",
+      message: `"${folder.name}" dejara de estar vinculada. El anime permanece en tu lista sin archivos asociados.`,
       onConfirm: async () => {
         setConfirmModal(null);
+        const ignoredSuggestions = Array.from(new Set([...(data.settings?.library?.ignoredSuggestions || []), folder.name]));
         const newMyAnimes = {
           ...data.myAnimes,
           [folder.malId]: {
@@ -219,35 +258,27 @@ function Library() {
             lastUpdated: new Date().toISOString(),
           },
         };
+        const nextSettings = {
+          ...data.settings,
+          library: {
+            ...(data.settings?.library || {}),
+            ignoredSuggestions,
+          },
+        };
+
         await setMyAnimes(newMyAnimes);
-        await setSettings({
-          ...data.settings,
-          library: {
-            ...(data.settings?.library || {}),
-            ignoredSuggestions: Array.from(
-              new Set([...(data.settings?.library?.ignoredSuggestions || []), folder.name]),
-            ),
-          },
-        });
-        await performSync(newMyAnimes, {
-          ...data.settings,
-          library: {
-            ...(data.settings?.library || {}),
-            ignoredSuggestions: Array.from(
-              new Set([...(data.settings?.library?.ignoredSuggestions || []), folder.name]),
-            ),
-          },
-        });
+        await setSettings(nextSettings);
+        await performSync(newMyAnimes, nextSettings);
       },
     });
   };
 
   const handleNavigateToAnime = (folder) => {
     if (folder.isTracking) {
-      // Anime sin carpeta: entrar por ID
       navigate(`/anime/${folder.malId}`);
       return;
     }
+
     const resolvedMalId = folder.resolvedMalId || folder.malId;
     if (resolvedMalId) {
       navigate(`/anime/${resolvedMalId}?folder=${encodeURIComponent(folder.name)}`);
@@ -278,7 +309,6 @@ function Library() {
           ) : (
             <div className={styles.folderIcon}>
               {isTracking ? (
-                // Icono de "en lista" para tracking
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z" />
                 </svg>
@@ -294,8 +324,8 @@ function Library() {
               <div className={styles.cardActions}>
                 <button
                   className={styles.actionBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={(event) => {
+                    event.stopPropagation();
                     handleDeleteFolder(folder);
                   }}
                   aria-label={isTracking ? "Quitar de la lista" : "Borrar del disco"}
@@ -315,7 +345,7 @@ function Library() {
                 {folder.isLinked && !isTracking && (
                   <button
                     className={styles.actionBtn}
-                    onClick={(e) => handleUnlink(e, folder)}
+                    onClick={(event) => handleUnlink(event, folder)}
                     title="Desvincular carpeta"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -335,9 +365,7 @@ function Library() {
             <h3 className={styles.cardTitle}>
               {folder.isLinked || isTracking || folder.isSuggested ? displayAnime?.title || folder.name : folder.name}
             </h3>
-            {!isTracking && folder.files.length > 0 && (
-              <span className={styles.epCount}>{folder.files.length} EPS</span>
-            )}
+            {!isTracking && folder.files.length > 0 && <span className={styles.epCount}>{folder.files.length} EPS</span>}
           </div>
           <div className={styles.cardMeta}>
             {isTracking ? (
@@ -356,15 +384,15 @@ function Library() {
           <div className={styles.listActions}>
             <button
               className={styles.listActionBtn}
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 handleDeleteFolder(folder);
               }}
             >
               {isTracking ? "QUITAR" : "BORRAR"}
             </button>
             {folder.isLinked && !isTracking && (
-              <button className={styles.listActionBtn} onClick={(e) => handleUnlink(e, folder)}>
+              <button className={styles.listActionBtn} onClick={(event) => handleUnlink(event, folder)}>
                 DESVINCULAR
               </button>
             )}
@@ -392,10 +420,10 @@ function Library() {
     return (
       <div className={styles.emptyState}>
         <div className={styles.emptyContent}>
-          <div className={styles.folderIconLarge}>📁</div>
+          <div className={styles.folderIconLarge}>Biblioteca</div>
           <h1>Biblioteca Digital</h1>
-          <p>Organiza tus carpetas físicas vinculándolas con la base de datos global.</p>
-          <Button onClick={handleSelectFolder}>Seleccionar Directorio Raíz</Button>
+          <p>Organiza tus carpetas fisicas vinculandolas con la base de datos global.</p>
+          <Button onClick={handleSelectFolder}>Seleccionar Directorio Raiz</Button>
         </div>
       </div>
     );
@@ -405,7 +433,7 @@ function Library() {
     return (
       <div className={styles.errorState}>
         <div className={styles.errorContent}>
-          <div className={styles.errorIconLarge}>⚠️</div>
+          <div className={styles.errorIconLarge}>ERROR</div>
           <h1>Error de Acceso</h1>
           <p>{libraryScopeError}</p>
           <div className={styles.errorActions}>
@@ -464,16 +492,16 @@ function Library() {
 
       <main className={styles.main}>
         {renderSection("SERIES TV", groupedFolders.TV)}
-        {renderSection("PELÍCULAS", groupedFolders.MOVIE)}
+        {renderSection("PELICULAS", groupedFolders.MOVIE)}
         {renderSection("OVAS / ESPECIALES", groupedFolders.OVA_SPECIAL)}
-        {renderSection("VINCULADO AUTOMÁTICO", groupedFolders.AUTO_LINKED)}
+        {renderSection("VINCULADO AUTOMATICO", groupedFolders.AUTO_LINKED)}
         {renderSection("EN SEGUIMIENTO", groupedFolders.TRACKING)}
         {renderSection("SIN VINCULAR", groupedFolders.UNLINKED)}
         {renderSection("OTROS", groupedFolders.OTHER)}
 
         {processedFolders.length === 0 && (
           <div className={styles.noContent}>
-            <p>No se encontraron archivos multimedia en esta ubicación.</p>
+            <p>No se encontraron archivos multimedia en esta ubicacion.</p>
           </div>
         )}
       </main>

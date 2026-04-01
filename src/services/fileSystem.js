@@ -1,6 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { readDir } from "@tauri-apps/plugin-fs";
 import { Command } from "@tauri-apps/plugin-shell";
 import { extractEpisodeNumber, detectConstantNumbers } from "../utils/fileParsing";
 
@@ -11,6 +10,9 @@ const PLAYER_PROCESS_NAMES = {
   "mpc-be": "mpc-be64",
   potplayer: "PotPlayerMini64",
 };
+
+const DOWNLOAD_ACTIVITY_GRACE_MS = 10 * 1000;
+const DIRECT_DOWNLOAD_ACTIVITY_WINDOW_MS = 25 * 1000;
 
 function normalizeComparablePath(path) {
   if (!path) return "";
@@ -62,8 +64,177 @@ export function normalizeForSearch(text) {
     .trim();
 }
 
+function isFileInUseMessage(message) {
+  const lowered = String(message || "").toLowerCase();
+  return (
+    lowered.includes("used by another process") ||
+    lowered.includes("being used by another process") ||
+    lowered.includes("file in use") ||
+    lowered.includes("sharing violation") ||
+    lowered.includes("resource busy") ||
+    lowered.includes("ebusy") ||
+    lowered.includes("siendo usado por otra aplicacion") ||
+    lowered.includes("esta siendo usado por otra aplicacion") ||
+    lowered.includes("os error 32") ||
+    lowered.includes("os error 145") ||
+    /acceso.*denegado/.test(lowered) ||
+    /permiso.*denegado/.test(lowered) ||
+    lowered.includes("directory is not empty")
+  );
+}
+
 function isCompletedAnime(anime) {
   return anime?.userStatus === "COMPLETED";
+}
+
+function parseTimestamp(value) {
+  const timestamp = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function isDirectDownloadActivity(file, intentAt, now = Date.now()) {
+  const modifiedAtMs = Number(file?.modifiedAtMs || 0);
+  if (!intentAt || !modifiedAtMs) return false;
+
+  return modifiedAtMs >= intentAt - DOWNLOAD_ACTIVITY_GRACE_MS && now - modifiedAtMs <= DIRECT_DOWNLOAD_ACTIVITY_WINDOW_MS;
+}
+
+export function folderHasActiveDownload(folder, downloadIntentAt, now = Date.now()) {
+  const intentAt = parseTimestamp(downloadIntentAt);
+  if (!folder?.files?.length || !intentAt) return false;
+
+  return folder.files.some((file) => file.isDownloading || isDirectDownloadActivity(file, intentAt, now));
+}
+
+export function folderHasTempDownloadFile(folder) {
+  return Boolean(folder?.files?.some((file) => file.isDownloading));
+}
+
+function markFolderDownloadActivity(folder, anime, now = Date.now()) {
+  const intentAt = parseTimestamp(anime?.downloadIntentAt);
+  if (!folder?.files?.length || !intentAt) return;
+  if (folderHasTempDownloadFile(folder)) return;
+  if (anime?.downloadTrackingMode === "temp") return;
+
+  const directCandidates = folder.files.filter((file) => isDirectDownloadActivity(file, intentAt, now));
+  if (directCandidates.length === 0) return;
+
+  const latestModifiedAt = Math.max(...directCandidates.map((file) => Number(file.modifiedAtMs || 0)));
+  folder.files = folder.files.map((file) => ({
+    ...file,
+    isDownloading: file.isDownloading || Number(file.modifiedAtMs || 0) === latestModifiedAt,
+  }));
+}
+
+function toUniqueSearchKeys(values) {
+  return Array.from(
+    new Set(
+      (values || [])
+        .map((value) => normalizeForSearch(value))
+        .filter(Boolean),
+    ),
+  );
+}
+
+function extractSeasonNumber(text) {
+  if (!text) return null;
+
+  const normalized = String(text).toLowerCase();
+  const patterns = [
+    /\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i,
+    /\bseason\s+(\d{1,2})\b/i,
+    /\bs(\d{1,2})\b/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match) {
+      const value = Number.parseInt(match[1], 10);
+      if (Number.isFinite(value)) return value;
+    }
+  }
+
+  return null;
+}
+
+function isSeasonCompatible(folder, anime) {
+  const animeSeason = extractSeasonNumber(anime?.title) ?? extractSeasonNumber(anime?.title_english);
+  if (!animeSeason) {
+    return true;
+  }
+
+  const folderSeasons = [
+    extractSeasonNumber(folder?.folderName),
+    extractSeasonNumber(folder?.files?.[0]?.name),
+  ].filter(Number.isFinite);
+
+  if (folderSeasons.length === 0) {
+    return false;
+  }
+
+  return folderSeasons.includes(animeSeason);
+}
+
+function buildFolderSearchKeys(folder) {
+  return toUniqueSearchKeys([
+    folder?.folderName,
+    extractBaseTitle(folder?.folderName),
+    folder?.files?.[0]?.name ? extractBaseTitle(folder.files[0].name) : "",
+  ]);
+}
+
+function buildAnimeSearchKeys(anime) {
+  return toUniqueSearchKeys([
+    anime?.title,
+    anime?.title_english,
+    anime?.torrentAlias ? extractBaseTitle(anime.torrentAlias) : "",
+  ]);
+}
+
+export function findBestAnimeFolderMatch(anime, localFiles, options = {}) {
+  const folders = Object.entries(localFiles || {}).filter(([, folder]) => {
+    if (folder?.isLinked) return false;
+    if (folder?.isTracking) return false;
+    if (options.onlyWithFiles && (!folder?.files || folder.files.length === 0)) return false;
+    if (!isSeasonCompatible(folder, anime)) return false;
+    return true;
+  });
+
+  const animeKeys = buildAnimeSearchKeys(anime);
+  if (animeKeys.length === 0) return null;
+
+  return (
+    folders.find(([, folder]) => {
+      const folderKeys = buildFolderSearchKeys(folder);
+      return folderKeys.some((folderKey) => animeKeys.some((animeKey) => keysMatch(folderKey, animeKey)));
+    }) || null
+  );
+}
+
+function tokenizeSearchKey(value) {
+  return String(value || "")
+    .split(" ")
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 3);
+}
+
+function keysMatch(folderKey, animeKey) {
+  if (!folderKey || !animeKey) return false;
+  if (folderKey === animeKey) return true;
+
+  const shorterLength = Math.min(folderKey.length, animeKey.length);
+  if (shorterLength >= 10 && (folderKey.includes(animeKey) || animeKey.includes(folderKey))) {
+    return true;
+  }
+
+  const folderTokens = tokenizeSearchKey(folderKey);
+  const animeTokens = tokenizeSearchKey(animeKey);
+  if (folderTokens.length === 0 || animeTokens.length === 0) return false;
+
+  const sharedTokens = animeTokens.filter((token) => folderTokens.includes(token)).length;
+  const overlapRatio = sharedTokens / Math.max(folderTokens.length, animeTokens.length);
+
+  return sharedTokens >= 2 && overlapRatio >= 0.75;
 }
 
 export function extractBaseTitle(fileName) {
@@ -137,12 +308,7 @@ export async function deleteFolderFromDisk(folderPath, basePath) {
   } catch (error) {
     console.error("[FS] Error al borrar carpeta:", error);
     const message = String(error);
-    const isLocked =
-      /used by another process/i.test(message) ||
-      /being used by another process/i.test(message) ||
-      /os error 32/i.test(message) ||
-      /acceso.*denegado/i.test(message) ||
-      /permiso denegado/i.test(message);
+    const isLocked = isFileInUseMessage(message);
 
     return {
       ok: false,
@@ -189,12 +355,7 @@ export async function deleteVirtualFolderFiles(files, basePath) {
       console.error(`[FS] Error al borrar archivo: ${filePath}`, error);
       failed++;
       const message = String(error);
-      const isLocked =
-        /used by another process/i.test(message) ||
-        /being used by another process/i.test(message) ||
-        /os error 32/i.test(message) ||
-        /acceso.*denegado/i.test(message) ||
-        /permiso denegado/i.test(message);
+      const isLocked = isFileInUseMessage(message);
 
       errors.push({
         code: isLocked ? "FILE_IN_USE" : "DELETE_FAILED",
@@ -224,35 +385,21 @@ export async function openFile(filePath) {
   }
 }
 
-async function getVideosInFolder(folderPath) {
-  try {
-    const entries = await readDir(folderPath);
-    const videoExtensions = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
-    const dlExtensions = [".!qb", ".part", ".bc!"];
+function getVideosInFolder(directory) {
+  const dlExtensions = [".!qb", ".part", ".bc!"];
+  const constantNumbers = detectConstantNumbers(directory.files.map((entry) => entry.name));
 
-    const fileEntries = entries.filter((e) => !e.isDirectory);
-
-    const videoFiles = fileEntries.filter((e) => {
-      const nameL = e.name.toLowerCase();
-      return videoExtensions.some((ext) => nameL.endsWith(ext)) || dlExtensions.some((ext) => nameL.endsWith(ext));
-    });
-
-    const constantNumbers = detectConstantNumbers(videoFiles.map((e) => e.name));
-
-    return videoFiles.map((e) => {
-      const nameL = e.name.toLowerCase();
-      const isDownloading = dlExtensions.some((ext) => nameL.endsWith(ext));
-      return {
-        name: e.name,
-        path: `${folderPath}/${e.name}`.replace(/\/+/g, "/"),
-        episodeNumber: extractEpisodeNumber(e.name, constantNumbers.map(String)),
-        isDownloading,
-      };
-    });
-  } catch (error) {
-    console.error(`[FS] Error leyendo carpeta ${folderPath}:`, error);
-    return [];
-  }
+  return directory.files.map((entry) => {
+    const nameL = entry.name.toLowerCase();
+    const isDownloading = dlExtensions.some((ext) => nameL.endsWith(ext));
+    return {
+      name: entry.name,
+      path: entry.path.replace(/\\/g, "/"),
+      episodeNumber: extractEpisodeNumber(entry.name, constantNumbers.map(String)),
+      isDownloading,
+      modifiedAtMs: entry.modifiedAtMs || null,
+    };
+  });
 }
 
 export async function scanLibrary(basePath, myAnimes, settings = {}) {
@@ -263,24 +410,13 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
   const ignoredSuggestions = new Set((settings?.library?.ignoredSuggestions || []).map((name) => name.toLowerCase()));
 
   try {
-    const rootEntries = await readDir(basePath);
-    const dirEntries = rootEntries.filter((e) => e.isDirectory);
-    const fileEntries = rootEntries.filter((e) => e.isFile);
+    const scanResult = await invoke("scan_library_entries");
 
-    // Leer todas las subcarpetas en paralelo
-    const subFilesResults = await Promise.all(
-      dirEntries.map(async (entry) => {
-        const fullPath = `${basePath}/${entry.name}`.replace(/\/+/g, "/");
-        const files = await getVideosInFolder(fullPath);
-        return { entry, fullPath, files };
-      }),
-    );
-
-    subFilesResults.forEach(({ entry, fullPath, files }) => {
-      virtualLibrary[entry.name] = {
-        files,
-        folderName: entry.name,
-        physicalPath: fullPath,
+    scanResult.directories.forEach((directory) => {
+      virtualLibrary[directory.name] = {
+        files: getVideosInFolder(directory),
+        folderName: directory.name,
+        physicalPath: directory.path.replace(/\\/g, "/"),
         isRootFile: false,
         isLinked: false,
         isSuggested: false,
@@ -296,8 +432,8 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
     // Archivos en raíz
     const videoExts = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
     const dlExts = [".!qb", ".part", ".bc!"];
-    fileEntries.forEach((entry) => {
-      const fullPath = `${basePath}/${entry.name}`.replace(/\/+/g, "/");
+    scanResult.rootFiles.forEach((entry) => {
+      const fullPath = entry.path.replace(/\\/g, "/");
       const nameL = entry.name.toLowerCase();
       const isVideo = videoExts.some((ext) => nameL.endsWith(ext));
       const isDl = dlExts.some((ext) => nameL.endsWith(ext));
@@ -324,6 +460,7 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
           path: fullPath,
           episodeNumber: extractEpisodeNumber(entry.name, []),
           isDownloading: isDl,
+          modifiedAtMs: entry.modifiedAtMs || null,
         });
       }
     });
@@ -340,26 +477,23 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
         folder.animeData = matchedAnime;
         folder.resolvedMalId = matchedAnime.malId;
         folder.resolvedAnimeData = matchedAnime;
+        markFolderDownloadActivity(folder, matchedAnime);
       }
     });
 
     // Auto-Linker heurístico: solo sugiere coincidencias en memoria.
-    const unlinkedAnimes = animeList.filter((a) => !a.folderName);
+    const unlinkedAnimes = animeList
+      .filter((a) => !a.folderName)
+      .sort((first, second) => {
+        const firstIntent = first?.downloadIntentAt ? new Date(first.downloadIntentAt).getTime() : 0;
+        const secondIntent = second?.downloadIntentAt ? new Date(second.downloadIntentAt).getTime() : 0;
+        return secondIntent - firstIntent;
+      });
     Object.values(virtualLibrary).forEach((folder) => {
       if (!folder.isLinked && folder.folderName && !ignoredSuggestions.has(folder.folderName.toLowerCase())) {
-        const cleanKey = normalizeForSearch(folder.folderName);
-        const match = unlinkedAnimes.find((a) => {
-          const tr = normalizeForSearch(a.title);
-          const te = normalizeForSearch(a.title_english) || "";
-          // Coincidencia amplia bidireccional
-          const isMatch =
-            cleanKey === tr ||
-            cleanKey === te ||
-            (cleanKey.length > 3 && tr.includes(cleanKey)) ||
-            (tr.length > 3 && cleanKey.includes(tr)) ||
-            (te && cleanKey.length > 3 && te.includes(cleanKey)) ||
-            (te && te.length > 3 && cleanKey.includes(te));
-          return isMatch;
+        const match = unlinkedAnimes.find((anime) => {
+          const bestMatch = findBestAnimeFolderMatch(anime, { [folder.folderName]: folder }, { onlyWithFiles: true });
+          return bestMatch && bestMatch[0] === folder.folderName;
         });
 
         if (match) {

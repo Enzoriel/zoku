@@ -1,5 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useLibrary } from "../../context/LibraryContext";
 import { useStore } from "../../hooks/useStore";
+import { extractAliasFromTitle } from "../../utils/torrentMatch";
 import { getPrincipalFansub, getAllFansubs } from "../../utils/torrentConfig";
 import Modal from "./Modal";
 import styles from "./TorrentDownloadModal.module.css";
@@ -25,6 +27,7 @@ function sortItems(items) {
 
 function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }) {
   const { data: storeData, setMyAnimes } = useStore();
+  const { performSync } = useLibrary();
 
   const principalFansub = getPrincipalFansub(storeData.settings);
   const allFansubs = getAllFansubs(storeData.settings).map((f) => f.name.toLowerCase());
@@ -79,23 +82,12 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
     });
   }
 
-  const handleLinkAliasSilently = async () => {
-    if (!malId || items.length === 0) return;
+  const handleLinkAliasSilently = async (selectedItem) => {
+    if (!malId || !selectedItem?.title) return;
 
     try {
-      const firstItem = items[0];
-      const rawTitle = firstItem.title;
-      const fansubMatch = rawTitle.match(/^(\[[^\]]+\])/);
-      const fansubPart = fansubMatch ? fansubMatch[1] : "";
-      const titlePart = rawTitle
-        .replace(/^\[[^\]]+\]\s*/, "")
-        .replace(/\s*-\s*\d+.*$/, "")
-        .replace(/\s*-\s*v\d+.*$/, "")
-        .replace(/\s+\d+.*$/, "")
-        .replace(/[\[\(].*$/, "")
-        .trim();
-
-      const cleanAlias = fansubPart ? `${fansubPart} ${titlePart}` : titlePart;
+      const cleanAlias = extractAliasFromTitle(selectedItem.title);
+      if (!cleanAlias) return;
 
       await setMyAnimes((prev) => {
         const updated = { ...prev };
@@ -127,6 +119,7 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
           [malId]: {
             ...current,
             downloadIntentAt: new Date().toISOString(),
+            downloadTrackingMode: null,
             lastUpdated: new Date().toISOString(),
           },
         };
@@ -136,11 +129,12 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
     }
   };
 
-  const handleDownloadAction = async (url) => {
+  const handleDownloadAction = async (url, selectedItem) => {
     if (!url) return;
 
     await persistDownloadIntent();
-    await handleLinkAliasSilently();
+    await handleLinkAliasSilently(selectedItem);
+    await performSync();
 
     try {
       await openUrl(url);
@@ -152,6 +146,10 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
         window.open(url, "_blank");
       }
     }
+
+    setTimeout(() => {
+      void performSync();
+    }, 1500);
 
     setTimeout(() => {
       onClose();
@@ -210,14 +208,14 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
                         <button
                           className={styles.actionBtn}
                           disabled={!item.magnet}
-                          onClick={() => handleDownloadAction(item.magnet)}
+                          onClick={() => handleDownloadAction(item.magnet, item)}
                         >
                           Magnet
                         </button>
                         <button
                           className={styles.actionBtn}
                           disabled={!item.download_url}
-                          onClick={() => handleDownloadAction(item.download_url)}
+                          onClick={() => handleDownloadAction(item.download_url, item)}
                         >
                           .torrent
                         </button>

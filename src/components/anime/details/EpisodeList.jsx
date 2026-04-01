@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { findTorrentMatches } from "../../../utils/torrentMatch";
 import { extractEpisodeNumber } from "../../../utils/fileParsing";
+import { getReleasedEpisodeCount, isAnimeActivelyAiring } from "../../../utils/airingStatus";
+import { findTorrentMatches } from "../../../utils/torrentMatch";
 import styles from "../../../pages/AnimeDetails.module.css";
 
 export function EpisodeList({
@@ -16,9 +17,10 @@ export function EpisodeList({
   setTorrentModalOpen,
   folderName,
 }) {
-  const progressPct = useMemo(() => 
-    episodes.length > 0 ? (mainAnime?.watchedEpisodes?.length / episodes.length) * 100 : 0
-  , [mainAnime?.watchedEpisodes, episodes.length]);
+  const progressPct = useMemo(
+    () => (episodes.length > 0 ? (mainAnime?.watchedEpisodes?.length / episodes.length) * 100 : 0),
+    [mainAnime?.watchedEpisodes, episodes.length],
+  );
 
   const torrentMatchesByEpisode = useMemo(() => {
     const matchesMap = {};
@@ -29,7 +31,7 @@ export function EpisodeList({
           mainAnime.title_english,
           epNum,
           torrentData,
-          mainAnime.torrentAlias
+          mainAnime.torrentAlias,
         );
       });
     }
@@ -38,35 +40,37 @@ export function EpisodeList({
 
   const getEpisodeStatus = (epNum) => {
     const isWatched = mainAnime?.watchedEpisodes?.includes(epNum);
-    const localFile = animeFilesData.files.find((f) => {
-      const n = f.episodeNumber ?? extractEpisodeNumber(f.name, [
-        mainAnime?.title, 
-        mainAnime?.title_english,
-        folderName
-      ]);
-      return n !== null && n === epNum;
+    const localFile = animeFilesData.files.find((file) => {
+      const detectedEpisode =
+        file.episodeNumber ??
+        extractEpisodeNumber(file.name, [mainAnime?.title, mainAnime?.title_english, folderName]);
+      return detectedEpisode !== null && detectedEpisode === epNum;
     });
-    
+
     if (isWatched) return { label: "VISTO", type: "tagWatched", file: localFile };
     if (localFile?.isDownloading) return { label: "DESCARGANDO", type: "tagDownloading", file: localFile };
     if (localFile) return { label: "DESCARGADO", type: "tagDownloaded", file: localFile };
-    
-    const st = mainAnime?.status;
-    if (st === "Finalizado" || st === "Finished Airing" || st === "FINISHED")
-      return { label: "EMITIDO", type: "tagAired", file: null };
-    if (st === "Próximamente" || st === "NOT_YET_RELEASED" || st === "Not yet aired")
-      return { label: "PRÓXIMO", type: "tagNotAired", file: null };
-    
-    if (mainAnime?.nextAiringEpisode) {
-      const nextEp = mainAnime.nextAiringEpisode.episode;
-      if (epNum < nextEp) return { label: "EMITIDO", type: "tagAired", file: null };
-      return { label: "PRÓXIMO", type: "tagNotAired", file: null };
-    }
-    const airedEstimate = mainAnime?.episodes || mainAnime?.episodeList?.length || 0;
-    if (airedEstimate > 0 && epNum <= airedEstimate) return { label: "EMITIDO", type: "tagAired", file: null };
-    return { label: "PRÓXIMO", type: "tagNotAired", file: null };
-  };
 
+    const status = mainAnime?.status;
+    if (status === "Finalizado" || status === "Finished Airing" || status === "FINISHED") {
+      return { label: "EMITIDO", type: "tagAired", file: null };
+    }
+    if (
+      status === "Proximamente" ||
+      status === "PrÃ³ximamente" ||
+      status === "Próximamente" ||
+      status === "NOT_YET_RELEASED" ||
+      status === "Not yet aired"
+    ) {
+      return { label: "PROXIMO", type: "tagNotAired", file: null };
+    }
+
+    const releasedEpisodes = getReleasedEpisodeCount(mainAnime);
+    if ((mainAnime?.nextAiringEpisode || isAnimeActivelyAiring(mainAnime) || releasedEpisodes > 0) && epNum <= releasedEpisodes) {
+      return { label: "EMITIDO", type: "tagAired", file: null };
+    }
+    return { label: "PROXIMO", type: "tagNotAired", file: null };
+  };
 
   return (
     <section className={styles.episodesSection}>
@@ -85,19 +89,22 @@ export function EpisodeList({
           const isPlaying = playingEp?.animeId === (mainAnime.malId || mainAnime.mal_id) && playingEp?.epNumber === epNum;
           const isPlayable = !!status.file && status.type !== "tagDownloading";
           const matches = torrentMatchesByEpisode[epNum] || [];
-          const hasPrincipalMatch = matches.some((m) => m.fansub === principalFansub);
+          const hasPrincipalMatch = matches.some((match) => match.fansub === principalFansub);
 
           return (
             <div
               key={epNum}
               className={`${styles.episodeCard} ${isPlaying ? styles.episodeCardPlaying : ""} ${isPlayable ? styles.episodeCardPlayable : ""}`}
               onClick={() => isPlayable && handlePlayEpisode(epNum, status.file.path)}
-              onContextMenu={(e) => handleContextMenu(e, epNum, status.type === "tagWatched")}
+              onContextMenu={(event) => handleContextMenu(event, epNum, status.type === "tagWatched")}
             >
               {isPlayable && !isPlaying && (
                 <span className={styles.epPlayIcon}>
                   <svg width="40" height="50" viewBox="0 0 70 90" className={styles.playPixel}>
-                    <polygon points="0,0 12,0 12,6 18,6 18,12 24,12 24,18 30,18 30,24 36,24 36,30 42,30 42,36 48,36 48,42 42,42 42,48 36,48 36,54 30,54 30,60 24,60 24,66 18,66 18,72 12,72 12,78 0,78" className={styles.pixelFill} />
+                    <polygon
+                      points="0,0 12,0 12,6 18,6 18,12 24,12 24,18 30,18 30,24 36,24 36,30 42,30 42,36 48,36 48,42 42,42 42,48 36,48 36,54 30,54 30,60 24,60 24,66 18,66 18,72 12,72 12,78 0,78"
+                      className={styles.pixelFill}
+                    />
                   </svg>
                   <span className={styles.playText}>REPRODUCIR</span>
                 </span>
@@ -114,13 +121,13 @@ export function EpisodeList({
               {principalFansub && !isPlayable && !isPlaying && matches.length > 0 && (
                 <button
                   className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setTorrentModalItems(matches);
                     setTorrentModalOpen(true);
                   }}
                 >
-                  ⬇ {hasPrincipalMatch ? "Disponible" : "Alternativa"}
+                  {hasPrincipalMatch ? "⬇ Disponible" : "⬇ Alternativa"}
                 </button>
               )}
             </div>

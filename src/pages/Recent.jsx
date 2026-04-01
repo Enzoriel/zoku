@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
 import { useRecentAnime } from "../hooks/useRecentAnime";
+import { extractBaseTitle } from "../services/fileSystem";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import { findTorrentMatches } from "../utils/torrentMatch";
 import { useTorrent } from "../context/TorrentContext";
@@ -12,6 +13,7 @@ import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import TorrentSearchModal from "../components/ui/TorrentSearchModal";
 import RetryPanel from "../components/ui/RetryPanel";
 import { usePlayTracking } from "../hooks/usePlayTracking";
+import { getReleasedEpisodeCount } from "../utils/airingStatus";
 import styles from "./Recent.module.css";
 
 const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"];
@@ -65,12 +67,13 @@ function Recent() {
         const animeId = anime.malId || anime.mal_id;
         const stored = myAnimeMap[animeId] || myAnimeMap[Number(animeId)] || myAnimeMap[String(animeId)];
         const watchedEps = stored?.watchedEpisodes || [];
-        const localFolder = Object.values(data.localFiles || {}).find(
-          (folder) => String(folder.resolvedMalId || folder.malId) === String(animeId),
-        );
+        const localFolder = Object.values(data.localFiles || {}).find((folder) => {
+          if (stored?.folderName && folder.folderName === stored.folderName) return true;
+          return folder.isLinked && String(folder.malId) === String(animeId);
+        });
         const localFiles = localFolder?.files || [];
         const nextAiring = anime.nextAiringEpisode;
-        const lastAiredEp = nextAiring ? nextAiring.episode - 1 : anime.episodes || 0;
+        const lastAiredEp = getReleasedEpisodeCount(anime);
 
         return {
           ...anime,
@@ -353,7 +356,7 @@ function Recent() {
                               onClick={(event) => {
                                 event.stopPropagation();
                                 const stored = myAnimeMap[anime.malId || anime.mal_id];
-                                const query = stored?.torrentAlias || anime.title;
+                                const query = extractBaseTitle(stored?.torrentAlias || anime.title);
 
                                 setSearchModalItem({
                                   title: query,

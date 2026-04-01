@@ -21,19 +21,24 @@ export function StoreProvider({ children }) {
   const writeQueue = useRef([]);
   const isWriting = useRef(false);
 
+  const normalizeLibraryPath = useCallback((path) => {
+    if (!path) return "";
+    return String(path).replace(/\\/g, "/").replace(/\/+$/, "");
+  }, []);
+
   const ensureLibraryScope = useCallback(async (folderPath) => {
     try {
-      await invoke("ensure_library_scope", { path: folderPath || "" });
+      const result = await invoke("ensure_library_scope", { path: folderPath || "" });
       setLibraryScopeError(null);
       setLibraryScopeReady(true);
-      return true;
+      return normalizeLibraryPath(result?.rootPath || folderPath || "");
     } catch (error) {
       console.error("[Store] Error asegurando scope de biblioteca:", error);
       setLibraryScopeError("No se pudo autorizar la carpeta de biblioteca actual.");
       setLibraryScopeReady(false);
-      return false;
+      return null;
     }
-  }, []);
+  }, [normalizeLibraryPath]);
 
   const processQueue = useCallback(async () => {
     if (isWriting.current || writeQueue.current.length === 0) return;
@@ -62,8 +67,8 @@ export function StoreProvider({ children }) {
         const myAnimes = myAnimesValue || {};
         const localFiles = localFilesValue || {};
         const settings = settingsValue || { player: "mpv" };
-        const loadedData = { folderPath, myAnimes, localFiles, settings };
-        await ensureLibraryScope(folderPath);
+        const canonicalFolderPath = (await ensureLibraryScope(folderPath)) ?? normalizeLibraryPath(folderPath);
+        const loadedData = { folderPath: canonicalFolderPath, myAnimes, localFiles, settings };
         storeStateRef.current = loadedData;
         setData(loadedData);
       } catch (error) {
@@ -104,18 +109,22 @@ export function StoreProvider({ children }) {
       const previousLocalFiles = storeStateRef.current.localFiles || {};
       setLibraryScopeReady(false);
       setLibraryScopeError(null);
-      const nextPath = await updateStore("folderPath", path);
+      const requestedPath = normalizeLibraryPath(path);
+      const nextPath = await updateStore("folderPath", requestedPath);
       await updateStore("localFiles", {});
-      const scopeOk = await ensureLibraryScope(nextPath);
-      if (!scopeOk) {
+      const canonicalPath = await ensureLibraryScope(nextPath);
+      if (!canonicalPath) {
         await updateStore("folderPath", previousPath);
         await updateStore("localFiles", previousLocalFiles);
         await ensureLibraryScope(previousPath);
         throw new Error("No se pudo autorizar la carpeta seleccionada.");
       }
-      return nextPath;
+      if (canonicalPath !== nextPath) {
+        await updateStore("folderPath", canonicalPath);
+      }
+      return canonicalPath;
     },
-    [ensureLibraryScope, updateStore],
+    [ensureLibraryScope, normalizeLibraryPath, updateStore],
   );
   const setMyAnimes = useCallback((action) => updateStore("myAnimes", action), [updateStore]);
   const setLocalFiles = useCallback((files) => updateStore("localFiles", files), [updateStore]);
@@ -149,8 +158,12 @@ export function StoreProvider({ children }) {
 
   const retryLibraryScope = useCallback(async () => {
     setLibraryScopeReady(false);
-    return ensureLibraryScope(storeStateRef.current.folderPath || "");
-  }, [ensureLibraryScope]);
+    const canonicalPath = await ensureLibraryScope(storeStateRef.current.folderPath || "");
+    if (canonicalPath && canonicalPath !== storeStateRef.current.folderPath) {
+      await updateStore("folderPath", canonicalPath);
+    }
+    return canonicalPath;
+  }, [ensureLibraryScope, updateStore]);
 
   const value = useMemo(
     () => ({

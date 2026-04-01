@@ -1,12 +1,18 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { watch } from "@tauri-apps/plugin-fs";
-import { scanLibrary } from "../services/fileSystem";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { folderHasActiveDownload, folderHasTempDownloadFile, scanLibrary } from "../services/fileSystem";
 import { useStore } from "../hooks/useStore";
 
 const LibraryContext = createContext(null);
 
 const DEBOUNCE_MS = 800;
 const DOWNLOAD_INTENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const ACTIVE_DOWNLOAD_POLL_MS = 10 * 1000;
+
+function normalizeLibraryPath(path) {
+  if (!path) return "";
+  return String(path).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
 
 export function LibraryProvider({ children }) {
   const { data, setLocalFiles, setMyAnimes, libraryScopeReady } = useStore();
@@ -19,11 +25,12 @@ export function LibraryProvider({ children }) {
 
   const unwatchRef = useRef(null);
   const debounceRef = useRef(null);
+  const activeDownloadPollRef = useRef(null);
 
   const performSync = useCallback(
     async (myAnimesOverride = null, settingsOverride = null) => {
       const currentData = dataRef.current;
-      if (!currentData.folderPath || !libraryScopeReady) return;
+      if (!currentData.folderPath || !libraryScopeReady) return null;
 
       setSyncing(true);
       try {
@@ -65,11 +72,31 @@ export function LibraryProvider({ children }) {
           let hasAutoLinkedChanges = false;
           const normalizedMyAnimes = Object.fromEntries(
             Object.entries(myAnimesToUse).map(([id, anime]) => {
-              const matchingFolder = autoLinkCandidates.find((folder) => String(folder.suggestedMalId) === String(id));
+              const candidateFolders = autoLinkCandidates.filter((folder) => String(folder.suggestedMalId) === String(id));
+              const downloadingCandidate =
+                candidateFolders.find((folder) => folder.files?.some((file) => file.isDownloading)) || null;
+              const matchingFolder =
+                downloadingCandidate || (candidateFolders.length === 1 ? candidateFolders[0] : null);
               const intentAt = anime?.downloadIntentAt ? new Date(anime.downloadIntentAt).getTime() : 0;
               const hasRecentDownloadIntent = intentAt > 0 && now - intentAt <= DOWNLOAD_INTENT_WINDOW_MS;
+              const currentLinkedFolder = anime?.folderName
+                ? Object.values(localFiles).find((folder) => folder.folderName === anime.folderName) || null
+                : null;
+              const currentFolderIsDownloading = folderHasActiveDownload(currentLinkedFolder, anime?.downloadIntentAt, now);
+              const shouldRebindToDownloadingFolder =
+                hasRecentDownloadIntent &&
+                downloadingCandidate &&
+                downloadingCandidate.folderName !== anime?.folderName &&
+                !currentFolderIsDownloading;
+              const shouldKeepIntent =
+                matchingFolder && hasRecentDownloadIntent && folderHasActiveDownload(matchingFolder, anime?.downloadIntentAt, now);
+              const nextTrackingMode = matchingFolder
+                ? folderHasTempDownloadFile(matchingFolder)
+                  ? "temp"
+                  : "direct"
+                : anime?.downloadTrackingMode || null;
 
-              if (!matchingFolder || !hasRecentDownloadIntent || anime?.folderName) {
+              if (!matchingFolder || !hasRecentDownloadIntent || (anime?.folderName && !shouldRebindToDownloadingFolder)) {
                 return [id, anime];
               }
 
@@ -79,7 +106,8 @@ export function LibraryProvider({ children }) {
                 {
                   ...anime,
                   folderName: matchingFolder.folderName,
-                  downloadIntentAt: null,
+                  downloadIntentAt: shouldKeepIntent ? anime.downloadIntentAt : null,
+                  downloadTrackingMode: shouldKeepIntent ? nextTrackingMode : null,
                   lastUpdated: new Date().toISOString(),
                 },
               ];
@@ -93,11 +121,79 @@ export function LibraryProvider({ children }) {
           }
         }
 
+        const intentsToClear = Object.entries(myAnimesToUse).filter(([, anime]) => {
+          if (!anime?.downloadIntentAt || !anime?.folderName) return false;
+          const linkedFolder = Object.values(localFiles).find((folder) => folder.folderName === anime.folderName);
+          if (!linkedFolder) return false;
+          if (anime.downloadTrackingMode === "temp") {
+            return !folderHasTempDownloadFile(linkedFolder);
+          }
+          return !folderHasActiveDownload(linkedFolder, anime.downloadIntentAt, Date.now());
+        });
+
+        if (intentsToClear.length > 0) {
+          const normalizedMyAnimes = Object.fromEntries(
+            Object.entries(myAnimesToUse).map(([id, anime]) => {
+              if (!intentsToClear.some(([targetId]) => String(targetId) === String(id))) {
+                return [id, anime];
+              }
+
+              return [
+                id,
+                {
+                  ...anime,
+                  downloadIntentAt: null,
+                  downloadTrackingMode: null,
+                  lastUpdated: new Date().toISOString(),
+                },
+              ];
+            }),
+          );
+
+          await setMyAnimes(normalizedMyAnimes);
+          myAnimesToUse = normalizedMyAnimes;
+          localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
+        }
+
+        const trackingModeUpdates = Object.entries(myAnimesToUse).filter(([, anime]) => {
+          if (!anime?.downloadIntentAt || !anime?.folderName) return false;
+          const linkedFolder = Object.values(localFiles).find((folder) => folder.folderName === anime.folderName);
+          if (!linkedFolder) return false;
+          const inferredMode = folderHasTempDownloadFile(linkedFolder) ? "temp" : "direct";
+          return inferredMode !== (anime.downloadTrackingMode || null);
+        });
+
+        if (trackingModeUpdates.length > 0) {
+          const normalizedMyAnimes = Object.fromEntries(
+            Object.entries(myAnimesToUse).map(([id, anime]) => {
+              const target = trackingModeUpdates.find(([targetId]) => String(targetId) === String(id));
+              if (!target) {
+                return [id, anime];
+              }
+
+              const linkedFolder = Object.values(localFiles).find((folder) => folder.folderName === anime.folderName);
+              return [
+                id,
+                {
+                  ...anime,
+                  downloadTrackingMode: linkedFolder && folderHasTempDownloadFile(linkedFolder) ? "temp" : "direct",
+                  lastUpdated: new Date().toISOString(),
+                },
+              ];
+            }),
+          );
+
+          await setMyAnimes(normalizedMyAnimes);
+          myAnimesToUse = normalizedMyAnimes;
+        }
+
         if (dataRef.current.folderPath === currentData.folderPath) {
           await setLocalFiles(localFiles);
         }
+        return localFiles;
       } catch (error) {
         console.error("[Library] Error sincronizando:", error);
+        return null;
       } finally {
         setSyncing(false);
       }
@@ -126,6 +222,10 @@ export function LibraryProvider({ children }) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
+    if (activeDownloadPollRef.current) {
+      clearInterval(activeDownloadPollRef.current);
+      activeDownloadPollRef.current = null;
+    }
   }, []);
 
   const startWatcher = useCallback(
@@ -134,45 +234,17 @@ export function LibraryProvider({ children }) {
       stopWatcher();
 
       try {
-        const unwatch = await watch(
-          folderPath,
-          (event) => {
-            const relevantKinds = ["create", "remove", "modify", "rename"];
+        const unlisten = await getCurrentWindow().listen("library-changed", (event) => {
+          const activeFolder = dataRef.current.folderPath;
+          const rootPath = event.payload?.rootPath;
+          if (!activeFolder || !libraryScopeReady) return;
+          if (rootPath && normalizeLibraryPath(rootPath) !== normalizeLibraryPath(activeFolder)) return;
+          debouncedSync();
+        });
 
-            // event.type puede ser un string o un objeto en Tauri
-            const typeStr = typeof event.type === "string"
-              ? event.type
-              : JSON.stringify(event.type || {});
-
-            const kind = typeStr.toLowerCase();
-            const isRelevant = relevantKinds.some((k) => kind.includes(k));
-            if (!isRelevant) return;
-
-            const paths = Array.isArray(event.paths) ? event.paths : [];
-            const shouldSync = paths.length === 0 || paths.some((p) => {
-              const pLow = p.toLowerCase();
-              return (
-                pLow.endsWith(".mkv") ||
-                pLow.endsWith(".mp4") ||
-                pLow.endsWith(".avi") ||
-                pLow.endsWith(".webm") ||
-                pLow.endsWith(".mov") ||
-                pLow.endsWith(".!qb") ||
-                pLow.endsWith(".part") ||
-                pLow.endsWith(".bc!") ||
-                !pLow.includes(".")
-              );
-            });
-            if (!shouldSync) return;
-
-            debouncedSync();
-          },
-          { recursive: true },
-        );
-
-        unwatchRef.current = unwatch;
-      } catch (err) {
-        console.error("[Library] Watcher nativo falló:", err);
+        unwatchRef.current = unlisten;
+      } catch (error) {
+        console.error("[Library] Watcher backend fallo:", error);
       }
     },
     [libraryScopeReady, stopWatcher, debouncedSync],
@@ -191,6 +263,35 @@ export function LibraryProvider({ children }) {
   useEffect(() => {
     return () => stopWatcher();
   }, [stopWatcher]);
+
+  useEffect(() => {
+    const hasActiveDownloadIntent = Object.values(data.myAnimes || {}).some((anime) => {
+      if (!anime?.downloadIntentAt) return false;
+      const intentAt = new Date(anime.downloadIntentAt).getTime();
+      return intentAt > 0 && Date.now() - intentAt <= DOWNLOAD_INTENT_WINDOW_MS;
+    });
+
+    if (!data.folderPath || !libraryScopeReady || !hasActiveDownloadIntent) {
+      if (activeDownloadPollRef.current) {
+        clearInterval(activeDownloadPollRef.current);
+        activeDownloadPollRef.current = null;
+      }
+      return;
+    }
+
+    if (activeDownloadPollRef.current) return;
+
+    activeDownloadPollRef.current = setInterval(() => {
+      performSyncRef.current();
+    }, ACTIVE_DOWNLOAD_POLL_MS);
+
+    return () => {
+      if (activeDownloadPollRef.current) {
+        clearInterval(activeDownloadPollRef.current);
+        activeDownloadPollRef.current = null;
+      }
+    };
+  }, [data.myAnimes, data.folderPath, libraryScopeReady]);
 
   const value = useMemo(() => ({ performSync, syncing }), [performSync, syncing]);
 

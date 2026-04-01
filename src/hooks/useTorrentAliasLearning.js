@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useStore } from "./useStore";
 import { useTorrent } from "../context/TorrentContext";
 import { findTorrentMatches, extractAliasFromTitle } from "../utils/torrentMatch";
+import { getReleasedEpisodeCount } from "../utils/airingStatus";
 
 /**
  * Hook que observa los animes en emisión y los torrents recientes
@@ -30,8 +31,7 @@ export function useTorrentAliasLearning(allAiringAnime) {
       
       // Solo aprendemos si está en la biblioteca y no tiene alias configurado
       if (stored && !stored.torrentAlias) {
-        const nextAiring = anime.nextAiringEpisode;
-        const lastAiredEp = nextAiring ? nextAiring.episode - 1 : anime.episodes || 0;
+        const lastAiredEp = getReleasedEpisodeCount(anime);
         
         if (lastAiredEp > 0) {
           const titleRomaji = anime.title;

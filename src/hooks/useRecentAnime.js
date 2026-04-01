@@ -3,6 +3,7 @@ import { getAnimeDetailsBatch } from "../services/api";
 
 const RECENT_DAYS = 14;
 const RECENT_MS = RECENT_DAYS * 24 * 60 * 60 * 1000;
+const EXTRA_CACHE_MS = 60 * 60 * 1000;
 const recentAnimeCache = new Map();
 
 function isRecentlyRelevantAnime(anime, now) {
@@ -48,10 +49,18 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
       .filter((id) => !seasonalIds.has(id));
   }, [myAnimes, seasonalIds]);
 
-  const fetchExtra = useCallback(async (ids, signalObj = { active: true }) => {
+  const storedFallback = useMemo(() => {
+    return missingIds
+      .map((id) => myAnimes?.[id] || myAnimes?.[String(id)] || null)
+      .filter(Boolean)
+      .filter((anime) => isRecentlyRelevantAnime(anime, Date.now()));
+  }, [missingIds, myAnimes]);
+
+  const fetchExtra = useCallback(async (ids, signalObj = { active: true }, options = {}) => {
     const cacheKey = ids.join(",");
     const cachedEntry = recentAnimeCache.get(cacheKey);
-    if (cachedEntry?.data) {
+    const isFresh = cachedEntry?.timestamp && Date.now() - cachedEntry.timestamp < EXTRA_CACHE_MS;
+    if (!options.force && cachedEntry?.data && isFresh) {
       setExtraAnime(cachedEntry.data);
       setLoadingExtra(false);
       setErrorExtra(null);
@@ -61,7 +70,7 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
     setLoadingExtra(true);
     setErrorExtra(null);
     try {
-      const pendingPromise = cachedEntry?.promise || getAnimeDetailsBatch(ids);
+      const pendingPromise = !options.force && cachedEntry?.promise ? cachedEntry.promise : getAnimeDetailsBatch(ids);
       recentAnimeCache.set(cacheKey, { promise: pendingPromise });
       const results = await pendingPromise;
       const now = Date.now();
@@ -75,7 +84,7 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
         }
       }
 
-      recentAnimeCache.set(cacheKey, { data: filteredResults });
+      recentAnimeCache.set(cacheKey, { data: filteredResults, timestamp: Date.now() });
       setExtraAnime(filteredResults);
       return filteredResults;
     } catch (e) {
@@ -94,13 +103,14 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
       return;
     }
 
+    setExtraAnime(storedFallback);
     const signalObj = { active: true };
     fetchExtra(missingIds, signalObj);
 
     return () => {
       signalObj.active = false;
     };
-  }, [missingIds.join(","), fetchExtra]);
+  }, [storedFallback, missingIds.join(","), fetchExtra]);
 
   const allAiringAnime = useMemo(() => {
     const combined = [...seasonalAnime];
@@ -117,7 +127,7 @@ export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
 
   const retryExtra = useCallback(() => {
     if (missingIds.length > 0) {
-      return fetchExtra(missingIds);
+      return fetchExtra(missingIds, { active: true }, { force: true });
     }
   }, [missingIds, fetchExtra]);
 

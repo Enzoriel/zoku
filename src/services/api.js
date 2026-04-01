@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getReleasedEpisodeCount } from "../utils/airingStatus";
 
 const MIN_INTERVAL = 170;
 const FETCH_TIMEOUT = 9000;
@@ -92,10 +93,13 @@ function mapMedia(media) {
   let normalizedType = media.format || "TV";
   if (normalizedType === "TV_SHORT") normalizedType = "TV";
 
-  let episodesCount = media.episodes || 0;
-  if (!episodesCount && media.nextAiringEpisode) {
-    episodesCount = media.nextAiringEpisode.episode - 1;
-  }
+  const totalEpisodes = media.episodes || 0;
+  const releasedEpisodes = getReleasedEpisodeCount({
+    status: statusMap[media.status] || media.status || "UNKNOWN",
+    episodes: 0,
+    totalEpisodes,
+    nextAiringEpisode: media.nextAiringEpisode,
+  });
 
   const airedDate = media.startDate?.year
     ? `${media.startDate.day || "?"}/${media.startDate.month || "?"}/${media.startDate.year}`
@@ -123,12 +127,12 @@ function mapMedia(media) {
     type: normalizedType,
     format: normalizedType,
     status: statusMap[media.status] || media.status || "UNKNOWN",
-    episodes: episodesCount,
-    totalEpisodes: episodesCount,
+    episodes: releasedEpisodes,
+    totalEpisodes,
     year: media.seasonYear || media.startDate?.year || "N/A",
     season: media.season || "N/A",
     get episodeList() {
-      return Array.from({ length: episodesCount || 0 }, (_, index) => ({
+      return Array.from({ length: totalEpisodes || releasedEpisodes || 0 }, (_, index) => ({
         mal_id: index + 1,
         title: `Episodio ${index + 1}`,
         aired: null,
@@ -281,6 +285,40 @@ export async function searchAnime(queryText, page = 1) {
       has_next_page: result.Page.pageInfo.hasNextPage,
     },
   };
+}
+
+async function getAnimeDetailsByQuery(identifier, fieldName) {
+  if (!identifier) return null;
+
+  const query = `
+    query ($id: Int) {
+      Media (${fieldName}: $id, type: ANIME) {
+        ${MEDIA_FIELDS}
+      }
+    }
+  `;
+
+  const result = await queryAniList(query, { id: Number(identifier) });
+  return result?.Media ? mapMedia(result.Media) : null;
+}
+
+export async function getAnimeDetails(id, options = {}) {
+  if (!id && !options.anilistId) return null;
+
+  const malId = Number(id);
+  if (Number.isFinite(malId) && malId > 0) {
+    const byMalId = await getAnimeDetailsByQuery(malId, "idMal");
+    if (byMalId) {
+      return byMalId;
+    }
+  }
+
+  const anilistId = Number(options.anilistId);
+  if (Number.isFinite(anilistId) && anilistId > 0) {
+    return getAnimeDetailsByQuery(anilistId, "id");
+  }
+
+  return null;
 }
 
 export async function getAnimeDetailsBatch(ids) {

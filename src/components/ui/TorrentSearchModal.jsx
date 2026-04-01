@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../../hooks/useStore";
+import { extractBaseTitle } from "../../services/fileSystem";
 import { getAllFansubs, getPrincipalFansub } from "../../utils/torrentConfig";
 import Modal from "./Modal";
 import styles from "./FansubOnboardingModal.module.css";
@@ -12,7 +13,8 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
   const allFansubs = getAllFansubs(storeData.settings);
 
   const handleSelectFansub = (fansubName) => {
-    const query = `${animeTitle} ${epNumber}`;
+    const cleanTitle = extractBaseTitle(animeTitle || "");
+    const query = `${cleanTitle || animeTitle} ${epNumber}`;
     navigate("/torrents", {
       state: {
         activeTab: fansubName,

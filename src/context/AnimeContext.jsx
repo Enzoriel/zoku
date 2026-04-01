@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { getFullSeasonAnime } from "../services/api";
+import { getAnimeDetails, getFullSeasonAnime } from "../services/api";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../hooks/useStore";
 
@@ -11,10 +11,12 @@ export function AnimeProvider({ children }) {
   const { data: storeData } = useStore();
   const [seasonalAnime, setSeasonalAnime] = useState([]);
   const [searchAnimes, setSearchAnimes] = useState([]);
+  const [extraAnimeById, setExtraAnimeById] = useState({});
   const lastFetchRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const isFetching = useRef(false);
+  const detailRequestsRef = useRef(new Map());
 
   const fetchSeasonal = useCallback(async () => {
     if (isFetching.current) return;
@@ -67,10 +69,11 @@ export function AnimeProvider({ children }) {
       return (
         seasonalAnime.find((anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed) ||
         searchAnimes.find((anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed) ||
+        extraAnimeById[parsed] ||
         null
       );
     },
-    [seasonalAnime, searchAnimes],
+    [seasonalAnime, searchAnimes, extraAnimeById],
   );
 
   const getAnimeById = useCallback(
@@ -86,6 +89,29 @@ export function AnimeProvider({ children }) {
     await fetchSeasonal();
   }, [fetchSeasonal]);
 
+  const refreshAnimeById = useCallback(async (id, options = {}) => {
+    const parsed = Number.parseInt(id, 10);
+    if (!Number.isFinite(parsed)) return null;
+
+    if (!options.force && detailRequestsRef.current.has(parsed)) {
+      return detailRequestsRef.current.get(parsed);
+    }
+
+    const request = getAnimeDetails(parsed, options)
+      .then((anime) => {
+        if (anime) {
+          setExtraAnimeById((prev) => ({ ...prev, [parsed]: anime }));
+        }
+        return anime;
+      })
+      .finally(() => {
+        detailRequestsRef.current.delete(parsed);
+      });
+
+    detailRequestsRef.current.set(parsed, request);
+    return request;
+  }, []);
+
   const value = useMemo(
     () => ({
       seasonalAnime,
@@ -95,9 +121,10 @@ export function AnimeProvider({ children }) {
       error,
       getAnimeById,
       getFreshAnimeById,
+      refreshAnimeById,
       retryFetch,
     }),
-    [seasonalAnime, searchAnimes, loading, error, getAnimeById, getFreshAnimeById, retryFetch],
+    [seasonalAnime, searchAnimes, loading, error, getAnimeById, getFreshAnimeById, refreshAnimeById, retryFetch],
   );
 
   return <AnimeContext.Provider value={value}>{children}</AnimeContext.Provider>;
