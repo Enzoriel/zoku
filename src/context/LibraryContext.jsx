@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect, us
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { folderHasActiveDownload, folderHasTempDownloadFile, scanLibrary } from "../services/fileSystem";
 import { useStore } from "../hooks/useStore";
+import { clearLinkingMetadata, syncAnimeSuggestion } from "../utils/linkingState";
 
 const LibraryContext = createContext(null);
 
@@ -63,62 +64,37 @@ export function LibraryProvider({ children }) {
           localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
         }
 
-        const autoLinkCandidates = Object.values(localFiles).filter(
-          (folder) => !folder.isLinked && folder.isSuggested && folder.suggestedMalId,
+        const suggestionMap = new Map(
+          Object.values(localFiles)
+            .filter((folder) => !folder.isLinked && folder.isSuggested && folder.suggestedMalId)
+            .map((folder) => [String(folder.suggestedMalId), folder.folderName]),
         );
 
-        if (autoLinkCandidates.length > 0) {
-          const now = Date.now();
-          let hasAutoLinkedChanges = false;
-          const normalizedMyAnimes = Object.fromEntries(
-            Object.entries(myAnimesToUse).map(([id, anime]) => {
-              const candidateFolders = autoLinkCandidates.filter((folder) => String(folder.suggestedMalId) === String(id));
-              const downloadingCandidate =
-                candidateFolders.find((folder) => folder.files?.some((file) => file.isDownloading)) || null;
-              const matchingFolder =
-                downloadingCandidate || (candidateFolders.length === 1 ? candidateFolders[0] : null);
-              const intentAt = anime?.downloadIntentAt ? new Date(anime.downloadIntentAt).getTime() : 0;
-              const hasRecentDownloadIntent = intentAt > 0 && now - intentAt <= DOWNLOAD_INTENT_WINDOW_MS;
-              const currentLinkedFolder = anime?.folderName
-                ? Object.values(localFiles).find((folder) => folder.folderName === anime.folderName) || null
-                : null;
-              const currentFolderIsDownloading = folderHasActiveDownload(currentLinkedFolder, anime?.downloadIntentAt, now);
-              const shouldRebindToDownloadingFolder =
-                hasRecentDownloadIntent &&
-                downloadingCandidate &&
-                downloadingCandidate.folderName !== anime?.folderName &&
-                !currentFolderIsDownloading;
-              const shouldKeepIntent =
-                matchingFolder && hasRecentDownloadIntent && folderHasActiveDownload(matchingFolder, anime?.downloadIntentAt, now);
-              const nextTrackingMode = matchingFolder
-                ? folderHasTempDownloadFile(matchingFolder)
-                  ? "temp"
-                  : "direct"
-                : anime?.downloadTrackingMode || null;
+        const suggestionUpdates = Object.entries(myAnimesToUse).reduce((acc, [id, anime]) => {
+          const nextSuggestionName = suggestionMap.get(String(id)) || null;
+          const normalizedAnime = anime?.folderName ? clearLinkingMetadata(anime) : syncAnimeSuggestion(anime, nextSuggestionName);
+          const currentSuggestionName = anime?.linkSuggestion?.folderName || null;
 
-              if (!matchingFolder || !hasRecentDownloadIntent || (anime?.folderName && !shouldRebindToDownloadingFolder)) {
-                return [id, anime];
-              }
-
-              hasAutoLinkedChanges = true;
-              return [
-                id,
-                {
-                  ...anime,
-                  folderName: matchingFolder.folderName,
-                  downloadIntentAt: shouldKeepIntent ? anime.downloadIntentAt : null,
-                  downloadTrackingMode: shouldKeepIntent ? nextTrackingMode : null,
-                  lastUpdated: new Date().toISOString(),
-                },
-              ];
-            }),
-          );
-
-          if (hasAutoLinkedChanges) {
-            await setMyAnimes(normalizedMyAnimes);
-            myAnimesToUse = normalizedMyAnimes;
-            localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
+          if (
+            normalizedAnime.folderName !== anime.folderName ||
+            (normalizedAnime.linkSuggestion?.folderName || null) !== currentSuggestionName ||
+            normalizedAnime.rejectedSuggestion !== anime.rejectedSuggestion
+          ) {
+            acc[id] = normalizedAnime;
           }
+
+          return acc;
+        }, {});
+
+        if (Object.keys(suggestionUpdates).length > 0) {
+          const normalizedMyAnimes = {
+            ...myAnimesToUse,
+            ...suggestionUpdates,
+          };
+
+          await setMyAnimes(normalizedMyAnimes);
+          myAnimesToUse = normalizedMyAnimes;
+          localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
         }
 
         const intentsToClear = Object.entries(myAnimesToUse).filter(([, anime]) => {

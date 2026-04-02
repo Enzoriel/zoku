@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "../../../pages/AnimeDetails.module.css";
 
-export function AnimeSidebar({ mainAnime, onAdd, onRemove, onLinkFolder, onEditAlias }) {
+export function AnimeSidebar({ mainAnime, libraryNotice, onAdd, onRemove, onLinkFolder, onEditAlias }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -89,6 +89,16 @@ export function AnimeSidebar({ mainAnime, onAdd, onRemove, onLinkFolder, onEditA
           </div>
         )}
       </div>
+      {libraryNotice && (
+        <div className={`${styles.libraryNotice} ${styles[`libraryNotice${libraryNotice.tone === "warn" ? "Warn" : "Info"}`]}`}>
+          <p>{libraryNotice.message}</p>
+          {libraryNotice.actionLabel && (
+            <button className={`${styles.actionBtn} ${styles.secondaryBtn}`} style={{ width: "100%" }} onClick={onLinkFolder}>
+              {libraryNotice.actionLabel}
+            </button>
+          )}
+        </div>
+      )}
       <div className={styles.tagsList}>
         {mainAnime.genres?.map((g) => (
           <span key={g.mal_id || g.name} className={styles.tag}>

@@ -144,6 +144,7 @@ function mapMedia(media) {
     studios: media.studios?.nodes?.map((studio) => ({ name: studio.name })) || [],
     source: media.source || "UNKNOWN",
     airedDate,
+    startDate: media.startDate || null,
     aired: {
       from: media.startDate?.year ? `${media.startDate.year}-${media.startDate.month}-${media.startDate.day}` : null,
       string: airedDate,

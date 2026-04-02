@@ -2,13 +2,14 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useLibrary } from "../context/LibraryContext";
-import { selectFolder, deleteFolderFromDisk, deleteVirtualFolderFiles } from "../services/fileSystem";
+import { deleteFolderFromDisk, deleteVirtualFolderFiles } from "../services/fileSystem";
+import { unlinkAnimeFolder } from "../utils/linkingState";
 import Button from "../components/ui/Button";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import styles from "./Library.module.css";
 
 function Library() {
-  const { data, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setSettings, retryLibraryScope } =
+  const { data, libraryScopeReady, libraryScopeError, setMyAnimes, retryLibraryScope } =
     useStore();
   const { performSync, syncing } = useLibrary();
   const [viewMode, setViewMode] = useState("grid");
@@ -57,17 +58,6 @@ function Library() {
         await performSync(newMyAnimes);
       },
     });
-  };
-
-  const handleSelectFolder = async () => {
-    const path = await selectFolder();
-    if (!path) return;
-
-    try {
-      await setFolderPath(path);
-    } catch (error) {
-      console.error("[Library] No se pudo autorizar la carpeta seleccionada:", error);
-    }
   };
 
   useEffect(() => {
@@ -249,26 +239,13 @@ function Library() {
       message: `"${folder.name}" dejara de estar vinculada. El anime permanece en tu lista sin archivos asociados.`,
       onConfirm: async () => {
         setConfirmModal(null);
-        const ignoredSuggestions = Array.from(new Set([...(data.settings?.library?.ignoredSuggestions || []), folder.name]));
         const newMyAnimes = {
           ...data.myAnimes,
-          [folder.malId]: {
-            ...data.myAnimes[folder.malId],
-            folderName: null,
-            lastUpdated: new Date().toISOString(),
-          },
-        };
-        const nextSettings = {
-          ...data.settings,
-          library: {
-            ...(data.settings?.library || {}),
-            ignoredSuggestions,
-          },
+          [folder.malId]: unlinkAnimeFolder(data.myAnimes[folder.malId]),
         };
 
         await setMyAnimes(newMyAnimes);
-        await setSettings(nextSettings);
-        await performSync(newMyAnimes, nextSettings);
+        await performSync(newMyAnimes);
       },
     });
   };
@@ -423,7 +400,7 @@ function Library() {
           <div className={styles.folderIconLarge}>Biblioteca</div>
           <h1>Biblioteca Digital</h1>
           <p>Organiza tus carpetas fisicas vinculandolas con la base de datos global.</p>
-          <Button onClick={handleSelectFolder}>Seleccionar Directorio Raiz</Button>
+          <p>Selecciona el directorio raiz desde Configuracion para comenzar.</p>
         </div>
       </div>
     );
@@ -437,9 +414,6 @@ function Library() {
           <h1>Error de Acceso</h1>
           <p>{libraryScopeError}</p>
           <div className={styles.errorActions}>
-            <Button onClick={handleSelectFolder} variant="primary">
-              Seleccionar Otra Carpeta
-            </Button>
             <Button onClick={retryLibraryScope} variant="secondary">
               Reintentar
             </Button>
@@ -480,14 +454,7 @@ function Library() {
           </p>
         </div>
 
-        <div className={styles.headerActions}>
-          <Button onClick={() => performSync()} disabled={syncing} variant="primary">
-            {syncing ? "Actualizando..." : "Refrescar"}
-          </Button>
-          <Button onClick={handleSelectFolder} variant="secondary">
-            Cambiar ruta
-          </Button>
-        </div>
+        <div className={styles.headerActions}>{syncing ? <span className={styles.path}>Actualizando...</span> : null}</div>
       </header>
 
       <main className={styles.main}>

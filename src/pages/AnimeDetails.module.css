@@ -201,6 +201,30 @@
   background: var(--px-border);
 }
 
+.libraryNotice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--px-card);
+  border: 1px solid var(--px-border);
+}
+
+.libraryNotice p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--px-text);
+}
+
+.libraryNoticeInfo {
+  border-color: var(--px-cyan-dim);
+}
+
+.libraryNoticeWarn {
+  border-color: var(--px-yellow-dim);
+}
+
 /* Main Content */
 .mainContent {
   display: flex;

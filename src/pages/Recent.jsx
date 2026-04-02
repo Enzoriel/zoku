@@ -5,7 +5,6 @@ import { useAnime } from "../context/AnimeContext";
 import { useRecentAnime } from "../hooks/useRecentAnime";
 import { extractBaseTitle } from "../services/fileSystem";
 import { extractEpisodeNumber } from "../utils/fileParsing";
-import { findTorrentMatches } from "../utils/torrentMatch";
 import { useTorrent } from "../context/TorrentContext";
 import { useToast } from "../hooks/useToast";
 import { formatRelativeDate, getLocalDayKey } from "../utils/dateFormat";
@@ -13,7 +12,8 @@ import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import TorrentSearchModal from "../components/ui/TorrentSearchModal";
 import RetryPanel from "../components/ui/RetryPanel";
 import { usePlayTracking } from "../hooks/usePlayTracking";
-import { getReleasedEpisodeCount } from "../utils/airingStatus";
+import { getEpisodeTorrentAvailability } from "../utils/torrentAvailability";
+import { buildRecentEpisodeOccurrences } from "../utils/recentEpisodes";
 import styles from "./Recent.module.css";
 
 const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"];
@@ -69,53 +69,24 @@ function Recent() {
         const watchedEps = stored?.watchedEpisodes || [];
         const localFolder = Object.values(data.localFiles || {}).find((folder) => {
           if (stored?.folderName && folder.folderName === stored.folderName) return true;
-          return folder.isLinked && String(folder.malId) === String(animeId);
+          return false;
         });
         const localFiles = localFolder?.files || [];
-        const nextAiring = anime.nextAiringEpisode;
-        const lastAiredEp = getReleasedEpisodeCount(anime);
 
         return {
           ...anime,
           storedData: stored,
           watchedEps,
           localFiles,
-          lastAiredEp,
-          nextAiring,
         };
       });
   }, [allAiringAnime, myAnimeMap, data.localFiles]);
 
   const groupedByDay = useMemo(() => {
     const groups = {};
-    const now = Date.now();
-    const twoWeeks = 14 * 24 * 60 * 60 * 1000;
-    const secondsInWeek = 7 * 24 * 60 * 60;
 
     myAiringAnime.forEach((anime) => {
-      if (!anime.lastAiredEp) return;
-
-      let referenceAiringAt = null;
-      let referenceEpisode = null;
-      let minEpisode = anime.lastAiredEp;
-
-      if (anime.nextAiring) {
-        referenceAiringAt = anime.nextAiring.airingAt;
-        referenceEpisode = anime.nextAiring.episode;
-        minEpisode = Math.max(1, anime.lastAiredEp - 3);
-      } else if (anime.endDate?.year) {
-        const endDate = new Date(anime.endDate.year, (anime.endDate.month || 1) - 1, anime.endDate.day || 1);
-        referenceAiringAt = Math.floor(endDate.getTime() / 1000);
-        referenceEpisode = anime.episodes;
-        minEpisode = anime.lastAiredEp;
-      } else {
-        return;
-      }
-
-      for (let episode = anime.lastAiredEp; episode >= minEpisode; episode -= 1) {
-        const airedAt = (referenceAiringAt - (referenceEpisode - episode) * secondsInWeek) * 1000;
-        if (airedAt > now + 3600000 || airedAt < now - twoWeeks) continue;
-
+      buildRecentEpisodeOccurrences(anime).forEach(({ ep: episode, airedAt, isEstimated }) => {
         const date = new Date(airedAt);
         const dayKey = getLocalDayKey(date);
         if (!groups[dayKey]) groups[dayKey] = { date, episodes: [] };
@@ -133,9 +104,9 @@ function Recent() {
           isWatched: anime.watchedEps.includes(episode),
           localFile: localFile || null,
           airedAt,
-          isEstimated: !!anime.nextAiring && episode !== anime.lastAiredEp,
+          isEstimated,
         });
-      }
+      });
     });
 
     return Object.entries(groups)
@@ -155,17 +126,18 @@ function Recent() {
       episodes.forEach(({ anime, ep }) => {
         const stored = myAnimeMap[anime.malId] || myAnimeMap[anime.mal_id];
         const key = `${anime.malId || anime.mal_id}-${ep}`;
-        matchesMap[key] = findTorrentMatches(
+        matchesMap[key] = getEpisodeTorrentAvailability(
           anime.title,
           anime.title_english || null,
           ep,
           torrentData,
+          principalFansub,
           stored?.torrentAlias,
         );
       });
     });
     return matchesMap;
-  }, [groupedByDay, torrentData, myAnimeMap]);
+  }, [groupedByDay, torrentData, myAnimeMap, principalFansub]);
 
   const scheduleByDay = useMemo(() => {
     const groups = Array.from({ length: 7 }, () => []);
@@ -321,10 +293,15 @@ function Recent() {
                       </div>
                       <div className={styles.episodeActions} onClick={(event) => event.stopPropagation()}>
                         {(() => {
-                          if (!principalFansub || localFile || isWatched) return null;
+                          if (localFile || isWatched) return null;
                           const keyForEpisode = `${anime.malId || anime.mal_id}-${ep}`;
-                          const matches = torrentMatchesMap[keyForEpisode] || [];
-                          const hasPrincipalMatch = matches.some((match) => match.fansub === principalFansub);
+                          const availability = torrentMatchesMap[keyForEpisode] || {
+                            matches: [],
+                            hasPrincipalMatch: false,
+                            status: "missing",
+                          };
+                          const matches = availability.matches;
+                          const hasPrincipalMatch = availability.hasPrincipalMatch;
 
                           if (torrentLoading) return <div className={styles.torrentSpinner}></div>;
                           if (matches.length > 0) {
@@ -332,9 +309,11 @@ function Recent() {
                               <button
                                 className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
                                 title={
-                                  hasPrincipalMatch
+                                  principalFansub && hasPrincipalMatch
                                     ? `Descargar en ${principalFansub}`
-                                    : `No disponible en ${principalFansub}. Hay alternativas de otros grupos.`
+                                    : principalFansub
+                                      ? `No disponible en ${principalFansub}. Hay alternativas de otros grupos.`
+                                      : "Se encontraron torrents disponibles."
                                 }
                                 onClick={(event) => {
                                   event.stopPropagation();
@@ -344,7 +323,7 @@ function Recent() {
                                   setTorrentModalOpen(true);
                                 }}
                               >
-                                {hasPrincipalMatch ? "↓ Disponible" : "↓ Alternativa"}
+                                {principalFansub ? (hasPrincipalMatch ? "DISPONIBLE" : "ALTERNATIVA") : "DISPONIBLE"}
                               </button>
                             );
                           }
@@ -504,3 +483,4 @@ function Recent() {
 }
 
 export default Recent;
+

@@ -95,7 +95,9 @@ const MATCH_SCORE_THRESHOLD = 0.75; // Aumentamos ligeramente de 0.72
 export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeNumber, torrentItems, torrentAlias = null) {
   if (!torrentItems?.length || !episodeNumber) return [];
 
-  const titlesToMatch = [torrentAlias, animeTitleRomaji, animeTitleEnglish].filter(Boolean);
+  const titlesToMatch = Array.from(
+    new Set([torrentAlias, torrentAlias ? extractAliasFromTitle(torrentAlias) : null, animeTitleRomaji, animeTitleEnglish].filter(Boolean)),
+  );
   if (titlesToMatch.length === 0) return [];
 
   return torrentItems

@@ -191,7 +191,26 @@ function buildAnimeSearchKeys(anime) {
   ]);
 }
 
-export function findBestAnimeFolderMatch(anime, localFiles, options = {}) {
+function getKeyMatchScore(folderKey, animeKey) {
+  if (!folderKey || !animeKey) return 0;
+  if (folderKey === animeKey) return 1;
+
+  const shorterLength = Math.min(folderKey.length, animeKey.length);
+  if (shorterLength >= 10 && (folderKey.includes(animeKey) || animeKey.includes(folderKey))) {
+    return 0.96;
+  }
+
+  const folderTokens = tokenizeSearchKey(folderKey);
+  const animeTokens = tokenizeSearchKey(animeKey);
+  if (folderTokens.length === 0 || animeTokens.length === 0) return 0;
+
+  const sharedTokens = animeTokens.filter((token) => folderTokens.includes(token)).length;
+  const overlapRatio = sharedTokens / Math.max(folderTokens.length, animeTokens.length);
+
+  return sharedTokens >= 2 && overlapRatio >= 0.75 ? overlapRatio : 0;
+}
+
+export function findAnimeFolderCandidates(anime, localFiles, options = {}) {
   const folders = Object.entries(localFiles || {}).filter(([, folder]) => {
     if (folder?.isLinked) return false;
     if (folder?.isTracking) return false;
@@ -201,14 +220,27 @@ export function findBestAnimeFolderMatch(anime, localFiles, options = {}) {
   });
 
   const animeKeys = buildAnimeSearchKeys(anime);
-  if (animeKeys.length === 0) return null;
+  if (animeKeys.length === 0) return [];
 
-  return (
-    folders.find(([, folder]) => {
+  return folders
+    .map(([folderName, folder]) => {
       const folderKeys = buildFolderSearchKeys(folder);
-      return folderKeys.some((folderKey) => animeKeys.some((animeKey) => keysMatch(folderKey, animeKey)));
-    }) || null
-  );
+      const score = Math.max(
+        ...folderKeys.map((folderKey) => Math.max(...animeKeys.map((animeKey) => getKeyMatchScore(folderKey, animeKey)))),
+      );
+
+      return score > 0 ? [folderName, folder, score] : null;
+    })
+    .filter(Boolean)
+    .sort((first, second) => {
+      if (second[2] !== first[2]) return second[2] - first[2];
+      return (second[1]?.files?.length || 0) - (first[1]?.files?.length || 0);
+    });
+}
+
+export function findBestAnimeFolderMatch(anime, localFiles, options = {}) {
+  const [bestMatch] = findAnimeFolderCandidates(anime, localFiles, options);
+  return bestMatch ? [bestMatch[0], bestMatch[1]] : null;
 }
 
 function tokenizeSearchKey(value) {
@@ -219,22 +251,7 @@ function tokenizeSearchKey(value) {
 }
 
 function keysMatch(folderKey, animeKey) {
-  if (!folderKey || !animeKey) return false;
-  if (folderKey === animeKey) return true;
-
-  const shorterLength = Math.min(folderKey.length, animeKey.length);
-  if (shorterLength >= 10 && (folderKey.includes(animeKey) || animeKey.includes(folderKey))) {
-    return true;
-  }
-
-  const folderTokens = tokenizeSearchKey(folderKey);
-  const animeTokens = tokenizeSearchKey(animeKey);
-  if (folderTokens.length === 0 || animeTokens.length === 0) return false;
-
-  const sharedTokens = animeTokens.filter((token) => folderTokens.includes(token)).length;
-  const overlapRatio = sharedTokens / Math.max(folderTokens.length, animeTokens.length);
-
-  return sharedTokens >= 2 && overlapRatio >= 0.75;
+  return getKeyMatchScore(folderKey, animeKey) > 0;
 }
 
 export function extractBaseTitle(fileName) {
@@ -407,7 +424,7 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
 
   const virtualLibrary = {};
   const animeList = Object.values(myAnimes || {});
-  const ignoredSuggestions = new Set((settings?.library?.ignoredSuggestions || []).map((name) => name.toLowerCase()));
+  void settings;
 
   try {
     const scanResult = await invoke("scan_library_entries");
@@ -489,21 +506,29 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
         const secondIntent = second?.downloadIntentAt ? new Date(second.downloadIntentAt).getTime() : 0;
         return secondIntent - firstIntent;
       });
-    Object.values(virtualLibrary).forEach((folder) => {
-      if (!folder.isLinked && folder.folderName && !ignoredSuggestions.has(folder.folderName.toLowerCase())) {
-        const match = unlinkedAnimes.find((anime) => {
-          const bestMatch = findBestAnimeFolderMatch(anime, { [folder.folderName]: folder }, { onlyWithFiles: true });
-          return bestMatch && bestMatch[0] === folder.folderName;
-        });
+    const uniqueSuggestions = new Map();
 
-        if (match) {
-          folder.isSuggested = true;
-          folder.suggestedMalId = match.malId;
-          folder.suggestedAnimeData = match;
-          folder.resolvedMalId = match.malId;
-          folder.resolvedAnimeData = match;
-        }
+    unlinkedAnimes.forEach((anime) => {
+      const candidates = findAnimeFolderCandidates(anime, virtualLibrary, { onlyWithFiles: true }).filter(
+        ([folderName]) => String(anime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderName.toLowerCase(),
+      );
+
+      if (candidates.length === 1) {
+        uniqueSuggestions.set(String(anime.malId), candidates[0][0]);
       }
+    });
+
+    Object.values(virtualLibrary).forEach((folder) => {
+      if (folder.isLinked || !folder.folderName) return;
+
+      const match = unlinkedAnimes.find((anime) => uniqueSuggestions.get(String(anime.malId)) === folder.folderName);
+      if (!match) return;
+
+      folder.isSuggested = true;
+      folder.suggestedMalId = match.malId;
+      folder.suggestedAnimeData = match;
+      folder.resolvedMalId = match.malId;
+      folder.resolvedAnimeData = match;
     });
 
     // Animes en la biblioteca sin carpeta física

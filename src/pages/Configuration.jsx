@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import FansubOnboardingModal from "../components/ui/FansubOnboardingModal";
+import { selectFolder } from "../services/fileSystem";
 import { getPreferredResolution } from "../utils/torrentConfig";
 import styles from "./Configuration.module.css";
 
 const KNOWN_PLAYERS = ["mpv", "vlc", "mpc-hc", "mpc-be", "potplayer"];
 
 const Configuration = () => {
-  const { data, setSettings, clearAllData } = useStore();
+  const { data, setSettings, setFolderPath, clearAllData } = useStore();
   const navigate = useNavigate();
   const [player, setPlayer] = useState("mpv");
   const [customPlayer, setCustomPlayer] = useState("");
@@ -36,6 +37,25 @@ const Configuration = () => {
 
   const handleSaveTrigger = () => {
     setShowSaveModal(true);
+  };
+
+  const handleChangeLibraryPath = async () => {
+    const path = await selectFolder();
+    if (!path) return;
+
+    try {
+      await setFolderPath(path);
+      setInfoModal({
+        title: "Directorio actualizado",
+        message: "La biblioteca comenzara a resincronizarse automaticamente con la nueva ruta.",
+      });
+    } catch (error) {
+      console.error("Error changing library path:", error);
+      setInfoModal({
+        title: "No se pudo cambiar la ruta",
+        message: "Intenta seleccionar otra carpeta o reintenta en unos segundos.",
+      });
+    }
   };
 
   const handleSaveExecute = async () => {
@@ -83,6 +103,22 @@ const Configuration = () => {
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Configuracion</h1>
+
+      <section className={styles.section}>
+        <h2>Biblioteca</h2>
+        <div className={styles.settingItem}>
+          <label>Directorio raiz actual:</label>
+          <div className={styles.hint} style={{ marginBottom: "16px" }}>
+            {data.folderPath || "No hay un directorio activo configurado."}
+          </div>
+          <button className={styles.secondaryButton} onClick={handleChangeLibraryPath}>
+            {data.folderPath ? "CAMBIAR DIRECTORIO RAIZ" : "SELECCIONAR DIRECTORIO RAIZ"}
+          </button>
+          <p className={styles.hint}>
+            La pagina Biblioteca se actualiza automaticamente cuando cambias esta ruta o cuando detecta cambios en disco.
+          </p>
+        </div>
+      </section>
 
       <section className={styles.section}>
         <h2>Reproductor de Video</h2>

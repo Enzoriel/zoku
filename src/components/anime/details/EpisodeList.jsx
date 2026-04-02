@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { extractEpisodeNumber } from "../../../utils/fileParsing";
 import { getReleasedEpisodeCount, isAnimeActivelyAiring } from "../../../utils/airingStatus";
-import { findTorrentMatches } from "../../../utils/torrentMatch";
+import { getEpisodeTorrentAvailability } from "../../../utils/torrentAvailability";
 import styles from "../../../pages/AnimeDetails.module.css";
 
 export function EpisodeList({
@@ -26,17 +26,18 @@ export function EpisodeList({
     const matchesMap = {};
     if (mainAnime && torrentData && torrentData.length > 0) {
       episodes.forEach((epNum) => {
-        matchesMap[epNum] = findTorrentMatches(
+        matchesMap[epNum] = getEpisodeTorrentAvailability(
           mainAnime.title,
           mainAnime.title_english,
           epNum,
           torrentData,
+          principalFansub,
           mainAnime.torrentAlias,
         );
       });
     }
     return matchesMap;
-  }, [mainAnime, torrentData, episodes]);
+  }, [mainAnime, torrentData, episodes, principalFansub]);
 
   const getEpisodeStatus = (epNum) => {
     const isWatched = mainAnime?.watchedEpisodes?.includes(epNum);
@@ -88,8 +89,9 @@ export function EpisodeList({
           const status = getEpisodeStatus(epNum);
           const isPlaying = playingEp?.animeId === (mainAnime.malId || mainAnime.mal_id) && playingEp?.epNumber === epNum;
           const isPlayable = !!status.file && status.type !== "tagDownloading";
-          const matches = torrentMatchesByEpisode[epNum] || [];
-          const hasPrincipalMatch = matches.some((match) => match.fansub === principalFansub);
+          const availability = torrentMatchesByEpisode[epNum] || { matches: [], hasPrincipalMatch: false };
+          const matches = availability.matches;
+          const hasPrincipalMatch = availability.hasPrincipalMatch;
 
           return (
             <div

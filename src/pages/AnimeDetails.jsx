@@ -8,7 +8,7 @@ import { useToast } from "../hooks/useToast";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import { searchAnime } from "../services/api";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
-import { findBestAnimeFolderMatch } from "../services/fileSystem";
+import { findAnimeFolderCandidates } from "../services/fileSystem";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import TorrentAliasModal from "../components/ui/TorrentAliasModal";
 import FolderLinkModal from "../components/ui/FolderLinkModal";
@@ -20,6 +20,7 @@ import { EpisodeList } from "../components/anime/details/EpisodeList";
 import { METADATA_REFRESH_DAYS } from "../constants";
 import { buildStoredAnimeEntry } from "../utils/animeEntry";
 import { getReleasedEpisodeCount, isAnimeActivelyAiring, isAiringMetadataStale } from "../utils/airingStatus";
+import { acceptSuggestedFolder, rejectSuggestedFolder } from "../utils/linkingState";
 import styles from "./AnimeDetails.module.css";
 
 const AIRING_METADATA_REFRESH_MS = 6 * 60 * 60 * 1000;
@@ -44,7 +45,7 @@ function AnimeDetails() {
   const folderName = searchParams.get("folder");
   const navigate = useNavigate();
 
-  const { data, setMyAnimes, setSettings, libraryScopeReady } = useStore();
+  const { data, setMyAnimes, libraryScopeReady } = useStore();
   const { getAnimeById, getFreshAnimeById, refreshAnimeById, loading: animeLoading } = useAnime();
   const { performSync } = useLibrary();
   const { data: torrentData, principalFansub } = useTorrent();
@@ -95,27 +96,35 @@ function AnimeDetails() {
     return anime ? { ...anime, malId: animeId, isInLibrary: false, watchedEpisodes: [] } : null;
   }, [animeId, data.myAnimes, getAnimeById, anime, folderName]);
 
-  const animeFilesData = useMemo(() => {
-    if (!mainAnime) return { files: [] };
-
-    const folderObj = Object.values(data?.localFiles || {}).find((folder) => {
-      if (mainAnime.folderName && folder.folderName === mainAnime.folderName) return true;
-      if (folderName && folder.folderName === folderName) return true;
-      if (folder.isLinked && folder.malId && mainAnime.malId && String(folder.malId) === String(mainAnime.malId)) return true;
-      return false;
-    });
-
-    return folderObj || { files: [] };
-  }, [mainAnime, data?.localFiles, folderName]);
-
-  const suggestedFolder = useMemo(() => {
-    if (!mainAnime?.malId || mainAnime?.folderName) return null;
+  const linkedFolder = useMemo(() => {
+    if (!mainAnime) return null;
 
     return (
       Object.values(data?.localFiles || {}).find((folder) => {
-        if (!folder?.isSuggested || folder?.isLinked) return false;
-        return String(folder.suggestedMalId || folder.resolvedMalId) === String(mainAnime.malId);
+        if (mainAnime.folderName && folder.folderName === mainAnime.folderName) return true;
+        if (!mainAnime.isInLibrary && folderName && folder.folderName === folderName) return true;
+        if (!mainAnime.isInLibrary && folder.isLinked && folder.malId && mainAnime.malId) {
+          return String(folder.malId) === String(mainAnime.malId);
+        }
+        return false;
       }) || null
+    );
+  }, [mainAnime, data?.localFiles, folderName]);
+
+  const animeFilesData = useMemo(() => linkedFolder || { files: [] }, [linkedFolder]);
+
+  const candidateFolders = useMemo(() => {
+    if (!mainAnime?.malId || !mainAnime?.isInLibrary || mainAnime?.folderName) return [];
+
+    return findAnimeFolderCandidates(mainAnime, data?.localFiles || {}, { onlyWithFiles: true })
+      .filter(([folderKey]) => String(mainAnime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderKey.toLowerCase())
+      .map(([key, folder]) => ({ key, ...folder }));
+  }, [mainAnime, data?.localFiles]);
+
+  const suggestedFolder = useMemo(() => {
+    if (!mainAnime?.linkSuggestion?.folderName) return null;
+    return (
+      Object.values(data?.localFiles || {}).find((folder) => folder.folderName === mainAnime.linkSuggestion.folderName) || null
     );
   }, [mainAnime, data?.localFiles]);
 
@@ -130,6 +139,52 @@ function AnimeDetails() {
     const query = folderSearch.toLowerCase();
     return unlinkedFolders.filter((folder) => folder.key.toLowerCase().includes(query));
   }, [unlinkedFolders, folderSearch]);
+
+  const libraryNotice = useMemo(() => {
+    if (!mainAnime?.isInLibrary) return null;
+
+    if (mainAnime.folderName && !linkedFolder) {
+      return {
+        tone: "warn",
+        message: "La carpeta vinculada ya no existe. Revisa la vinculacion manualmente.",
+        actionLabel: "Vincular manualmente",
+      };
+    }
+
+    if (candidateFolders.length > 1) {
+      return {
+        tone: "warn",
+        message: "Se encontraron varias carpetas posibles. Debes elegir una manualmente.",
+        actionLabel: "Elegir carpeta",
+      };
+    }
+
+    if (suggestedFolder) {
+      return {
+        tone: "info",
+        message: `Se detecto una carpeta sugerida: ${buildSuggestedLinkLabel(suggestedFolder)}.`,
+        actionLabel: "Revisar sugerencia",
+      };
+    }
+
+    if (mainAnime.rejectedSuggestion?.folderName && !mainAnime.folderName) {
+      return {
+        tone: "info",
+        message: "La sugerencia anterior fue descartada. La serie sigue en seguimiento sin archivos asociados.",
+        actionLabel: "Vincular manualmente",
+      };
+    }
+
+    if (!mainAnime.folderName) {
+      return {
+        tone: "info",
+        message: "No se encontraron archivos locales vinculados para esta serie.",
+        actionLabel: "Vincular carpeta",
+      };
+    }
+
+    return null;
+  }, [mainAnime, linkedFolder, candidateFolders, suggestedFolder]);
 
   const dataMyAnimesRef = useRef(data.myAnimes);
   const getAnimeByIdRef = useRef(getAnimeById);
@@ -307,8 +362,18 @@ function AnimeDetails() {
     await setMyAnimes(newMyAnimes);
     await performSync(newMyAnimes);
 
-    const match = findBestAnimeFolderMatch(entry, data.localFiles, { onlyWithFiles: true });
-    showToast(match ? "Anadido a la lista. Se detecto una carpeta sugerida." : "Anadido a la lista.", "info");
+    const candidates = findAnimeFolderCandidates(entry, data.localFiles, { onlyWithFiles: true });
+    if (candidates.length === 0) {
+      showToast("Serie anadida a seguimiento. No se encontraron archivos locales para vincular.", "info");
+      return;
+    }
+
+    if (candidates.length === 1) {
+      showToast("Serie anadida a seguimiento. Se detecto una carpeta sugerida.", "info");
+      return;
+    }
+
+    showToast("Se encontraron varias carpetas posibles. Vinculala manualmente desde Detalles.", "warn");
   }, [mainAnime, animeId, data.myAnimes, data.localFiles, setMyAnimes, performSync, showToast]);
 
   const handleAddToLibraryBtnClick = () => {
@@ -341,22 +406,8 @@ function AnimeDetails() {
 
     await setMyAnimes({ ...data.myAnimes, [newMalId]: animeData });
 
-    let nextSettings = data.settings;
-    if (folderName) {
-      nextSettings = {
-        ...data.settings,
-        library: {
-          ...(data.settings?.library || {}),
-          ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
-            (name) => name.toLowerCase() !== folderName.toLowerCase(),
-          ),
-        },
-      };
-      await setSettings(nextSettings);
-    }
-
     setShowSearchApiModal(false);
-    await performSync({ ...data.myAnimes, [newMalId]: animeData }, nextSettings);
+    await performSync({ ...data.myAnimes, [newMalId]: animeData });
     showToast("Serie vinculada con exito.", "success");
     navigate(`/anime/${newMalId}`);
   };
@@ -408,71 +459,38 @@ function AnimeDetails() {
     async (folderKey) => {
       if (!animeId) return;
 
-      const nextSettings = {
-        ...data.settings,
-        library: {
-          ...(data.settings?.library || {}),
-          ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
-            (name) => name.toLowerCase() !== folderKey.toLowerCase(),
-          ),
-        },
-      };
-
       await setMyAnimes((prev) => ({
         ...prev,
-        [animeId]: { ...prev[animeId], folderName: folderKey, lastUpdated: new Date().toISOString() },
+        [animeId]: acceptSuggestedFolder(prev[animeId], folderKey),
       }));
-      await setSettings(nextSettings);
       setShowLinkFolderModal(false);
       setFolderSearch("");
-      await performSync(null, nextSettings);
+      await performSync();
       showToast(`Carpeta "${folderKey}" vinculada.`, "success");
     },
-    [animeId, setMyAnimes, setSettings, data.settings, performSync, showToast],
+    [animeId, setMyAnimes, performSync, showToast],
   );
 
   const handleAcceptSuggestedLink = useCallback(async () => {
     if (!animeId || !suggestedFolder?.folderName) return;
 
-    const nextSettings = {
-      ...data.settings,
-      library: {
-        ...(data.settings?.library || {}),
-        ignoredSuggestions: (data.settings?.library?.ignoredSuggestions || []).filter(
-          (name) => name.toLowerCase() !== suggestedFolder.folderName.toLowerCase(),
-        ),
-      },
-    };
-
     await setMyAnimes((prev) => ({
       ...prev,
-      [animeId]: {
-        ...prev[animeId],
-        folderName: suggestedFolder.folderName,
-        lastUpdated: new Date().toISOString(),
-      },
+      [animeId]: acceptSuggestedFolder(prev[animeId], suggestedFolder.folderName),
     }));
-    await setSettings(nextSettings);
-    await performSync(null, nextSettings);
+    await performSync();
     showToast(`Carpeta "${suggestedFolder.folderName}" vinculada.`, "success");
-  }, [animeId, suggestedFolder, data.settings, setMyAnimes, setSettings, performSync, showToast]);
+  }, [animeId, suggestedFolder, setMyAnimes, performSync, showToast]);
 
   const handleRejectSuggestedLink = useCallback(async () => {
     if (!suggestedFolder?.folderName) return;
-
-    const nextSettings = {
-      ...data.settings,
-      library: {
-        ...(data.settings?.library || {}),
-        ignoredSuggestions: Array.from(
-          new Set([...(data.settings?.library?.ignoredSuggestions || []), suggestedFolder.folderName]),
-        ),
-      },
-    };
-
-    await setSettings(nextSettings);
-    await performSync(null, nextSettings);
-  }, [suggestedFolder, data.settings, setSettings, performSync]);
+    await setMyAnimes((prev) => ({
+      ...prev,
+      [animeId]: rejectSuggestedFolder(prev[animeId], suggestedFolder.folderName),
+    }));
+    await performSync();
+    showToast("La sugerencia fue descartada. La serie seguira en seguimiento.", "info");
+  }, [animeId, suggestedFolder, setMyAnimes, performSync, showToast]);
 
   if (animeLoading && !mainAnime) {
     return (
@@ -499,6 +517,7 @@ function AnimeDetails() {
       <div className={styles.contentLayout}>
         <AnimeSidebar
           mainAnime={mainAnime}
+          libraryNotice={libraryNotice}
           onAdd={handleAddToLibraryBtnClick}
           onRemove={handleRemoveFromLibrary}
           onLinkFolder={() => setShowLinkFolderModal(true)}
