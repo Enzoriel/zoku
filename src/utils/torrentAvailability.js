@@ -7,9 +7,18 @@ export function getEpisodeTorrentAvailability(
   torrentItems,
   principalFansub,
   torrentAlias = null,
+  torrentSearchTerm = null,
   torrentTitle = null,
 ) {
-  const matches = findTorrentMatches(animeTitle, animeTitleEnglish, episodeNumber, torrentItems, torrentAlias, torrentTitle);
+  const matches = findTorrentMatches(
+    animeTitle,
+    animeTitleEnglish,
+    episodeNumber,
+    torrentItems,
+    torrentAlias,
+    torrentSearchTerm,
+    torrentTitle,
+  );
   const hasPrincipalMatch = principalFansub ? matches.some((match) => match.fansub === principalFansub) : false;
 
   return {

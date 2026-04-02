@@ -2,6 +2,10 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { Command } from "@tauri-apps/plugin-shell";
 import { extractEpisodeNumber, detectConstantNumbers } from "../utils/fileParsing";
+import {
+  extractBaseTitle as deriveBaseTitle,
+  normalizeForSearch as normalizeTitleForSearch,
+} from "../utils/titleIdentity";
 
 const PLAYER_PROCESS_NAMES = {
   mpv: "mpv",
@@ -56,12 +60,7 @@ export async function isPlayerStillOpen(playerName) {
 }
 
 export function normalizeForSearch(text) {
-  if (!text) return "";
-  return text
-    .toLowerCase()
-    .replace(/[ \-_.]+/g, " ")
-    .replace(/[^a-z0-9 ]/g, "")
-    .trim();
+  return normalizeTitleForSearch(text);
 }
 
 function isFileInUseMessage(message) {
@@ -185,6 +184,8 @@ function buildFolderSearchKeys(folder) {
 
 function buildAnimeSearchKeys(anime) {
   return toUniqueSearchKeys([
+    anime?.torrentSearchTerm,
+    anime?.torrentSearchTerm ? extractBaseTitle(anime.torrentSearchTerm) : "",
     anime?.diskAlias,
     anime?.diskAlias ? extractBaseTitle(anime.diskAlias) : "",
     anime?.title,
@@ -258,56 +259,7 @@ function keysMatch(folderKey, animeKey) {
 }
 
 export function extractBaseTitle(fileName) {
-  if (!fileName) return "";
-  let name = fileName.replace(/\.[^/.]+$/, "");
-
-  name = name.replace(/\[.*?\]/g, "");
-  name = name.replace(/\(.*?\)/g, "");
-  name = name.replace(/\{.*?\}/g, "");
-
-  const junk = [
-    /1080p/gi,
-    /720p/gi,
-    /480p/gi,
-    /bdrip/gi,
-    /h264/gi,
-    /x264/gi,
-    /h265/gi,
-    /x265/gi,
-    /hevc/gi,
-    /10bit/gi,
-    /multi-subs/gi,
-    /aac/gi,
-    /dual-audio/gi,
-    /bluray/gi,
-    /web-dl/gi,
-    /hd/gi,
-    /remux/gi,
-  ];
-  junk.forEach((pattern) => {
-    name = name.replace(pattern, "");
-  });
-
-  name = name.replace(/S[0-9]{1,2}/gi, "");
-  name = name.replace(/Season [0-9]{1,2}/gi, "");
-  name = name.replace(/v[0-9]{1}/gi, "");
-
-  const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/gi;
-  const endingPattern = /\b(end|final|ova|special|movie|film)\b/i;
-
-  const matches = [...name.matchAll(episodePattern)];
-  if (matches.length > 0) {
-    const lastMatch = matches[matches.length - 1];
-    name = name.substring(0, lastMatch.index);
-  } else {
-    const match = name.match(endingPattern);
-    if (match) name = name.substring(0, match.index);
-  }
-
-  name = name.replace(/^[ \-_.]+|[ \-_.]+$/g, "");
-  name = name.replace(/\s+/g, " ");
-
-  return name.trim() || fileName;
+  return deriveBaseTitle(fileName);
 }
 
 export async function deleteFolderFromDisk(folderPath, basePath) {

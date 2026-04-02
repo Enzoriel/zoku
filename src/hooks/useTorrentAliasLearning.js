@@ -23,7 +23,7 @@ export function useTorrentAliasLearning(allAiringAnime) {
 
     // Solo procedemos si hay animes en la biblioteca sin alias
     const libraryAnimes = Object.values(dataRef.current);
-    if (!libraryAnimes.some(a => !a.torrentAlias)) return;
+    if (!libraryAnimes.some(a => !a.torrentAlias || !a.torrentSearchTerm)) return;
 
     const itemsToUpdate = [];
     allAiringAnime.forEach((anime) => {
@@ -31,7 +31,7 @@ export function useTorrentAliasLearning(allAiringAnime) {
       const stored = dataRef.current[id];
       
       // Solo aprendemos si está en la biblioteca y no tiene alias configurado
-      if (stored && !stored.torrentAlias) {
+      if (stored && (!stored.torrentAlias || !stored.torrentSearchTerm)) {
         const lastAiredEp = getReleasedEpisodeCount(anime);
         
         if (lastAiredEp > 0) {
@@ -42,9 +42,10 @@ export function useTorrentAliasLearning(allAiringAnime) {
           if (matches.length > 0) {
             const matchedTitle = matches[0].title;
             const alias = extractAliasFromTitle(matchedTitle);
+            const torrentSearchTerm = alias || extractBaseTitle(matchedTitle);
             const diskAlias = extractBaseTitle(matchedTitle);
-            if (alias || diskAlias) {
-              itemsToUpdate.push({ id, alias, torrentTitle: matchedTitle, diskAlias });
+            if (alias || diskAlias || torrentSearchTerm) {
+              itemsToUpdate.push({ id, alias, torrentSearchTerm, torrentTitle: matchedTitle, diskAlias });
             }
           }
         }
@@ -56,11 +57,12 @@ export function useTorrentAliasLearning(allAiringAnime) {
         const next = { ...prev };
         let changed = false;
         
-        itemsToUpdate.forEach(({ id, alias, torrentTitle, diskAlias }) => {
+        itemsToUpdate.forEach(({ id, alias, torrentSearchTerm, torrentTitle, diskAlias }) => {
           if (
             next[id] &&
             (
               next[id].torrentAlias !== alias ||
+              next[id].torrentSearchTerm !== torrentSearchTerm ||
               next[id].torrentTitle !== torrentTitle ||
               next[id].diskAlias !== diskAlias
             )
@@ -68,6 +70,7 @@ export function useTorrentAliasLearning(allAiringAnime) {
             next[id] = { 
               ...next[id], 
               torrentAlias: alias, 
+              torrentSearchTerm,
               torrentTitle,
               diskAlias,
               lastUpdated: new Date().toISOString() 

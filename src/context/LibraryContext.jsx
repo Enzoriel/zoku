@@ -2,7 +2,16 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect, us
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { folderHasActiveDownload, folderHasTempDownloadFile, scanLibrary } from "../services/fileSystem";
 import { useStore } from "../hooks/useStore";
-import { acceptSuggestedFolder, clearLinkingMetadata, syncAnimeSuggestion } from "../utils/linkingState";
+import {
+  applyAutoLinkLogic,
+  applySuggestionState,
+  buildSuggestionMap,
+  cleanupStaleIntents,
+  hasRecentDownloadIntent,
+  mergeLibraryAnimeUpdates,
+  reconcileMissingFolders,
+  updateTrackingModes,
+} from "../utils/librarySync";
 
 const LibraryContext = createContext(null);
 
@@ -13,12 +22,6 @@ const ACTIVE_DOWNLOAD_POLL_MS = 10 * 1000;
 function normalizeLibraryPath(path) {
   if (!path) return "";
   return String(path).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
-}
-
-function hasRecentDownloadIntent(anime) {
-  if (!anime?.downloadIntentAt) return false;
-  const intentAt = new Date(anime.downloadIntentAt).getTime();
-  return intentAt > 0 && Date.now() - intentAt <= DOWNLOAD_INTENT_WINDOW_MS;
 }
 
 export function LibraryProvider({ children }) {
@@ -33,173 +36,89 @@ export function LibraryProvider({ children }) {
   const unwatchRef = useRef(null);
   const debounceRef = useRef(null);
   const activeDownloadPollRef = useRef(null);
+  const syncRunIdRef = useRef(0);
 
   const performSync = useCallback(
     async (myAnimesOverride = null, settingsOverride = null) => {
       const currentData = dataRef.current;
       if (!currentData.folderPath || !libraryScopeReady) return null;
 
+      const runId = ++syncRunIdRef.current;
       setSyncing(true);
+
       try {
-        let myAnimesToUse = myAnimesOverride || currentData.myAnimes;
         const settingsToUse = settingsOverride || currentData.settings;
-        let localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
-        const missingLinkedFolders = Object.values(localFiles).filter((folder) => folder.isMissing && folder.malId);
+        let nextMyAnimes = myAnimesOverride || currentData.myAnimes;
+        const originalMyAnimes = nextMyAnimes;
+        const nowMs = Date.now();
+        const nowIso = new Date(nowMs).toISOString();
+        let localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes, settingsToUse);
 
-        if (missingLinkedFolders.length > 0) {
-          const missingIds = new Set(missingLinkedFolders.map((folder) => String(folder.malId)));
-          const normalizedMyAnimes = Object.fromEntries(
-            Object.entries(myAnimesToUse).map(([id, anime]) => {
-              if (!missingIds.has(String(id))) {
-                return [id, anime];
-              }
-
-              return [
-                id,
-                {
-                  ...anime,
-                  folderName: null,
-                  lastUpdated: new Date().toISOString(),
-                },
-              ];
-            }),
-          );
-
-          await setMyAnimes(normalizedMyAnimes);
-          myAnimesToUse = normalizedMyAnimes;
-          localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
+        const missingResult = reconcileMissingFolders(localFiles, nextMyAnimes, nowIso);
+        nextMyAnimes = missingResult.myAnimes;
+        if (missingResult.changed) {
+          localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes, settingsToUse);
         }
 
-        const suggestionMap = new Map(
-          Object.values(localFiles)
-            .filter((folder) => !folder.isLinked && folder.isSuggested && folder.suggestedMalId)
-            .map((folder) => [String(folder.suggestedMalId), folder.folderName]),
-        );
+        let suggestionMap = buildSuggestionMap(localFiles);
+        const suggestionResult = applySuggestionState(nextMyAnimes, suggestionMap, nowIso);
+        nextMyAnimes = suggestionResult.myAnimes;
+        if (suggestionResult.changed) {
+          localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes, settingsToUse);
+          suggestionMap = buildSuggestionMap(localFiles);
+        }
 
-        const suggestionUpdates = Object.entries(myAnimesToUse).reduce((acc, [id, anime]) => {
-          const nextSuggestionName = suggestionMap.get(String(id)) || null;
-          const normalizedAnime = anime?.folderName ? clearLinkingMetadata(anime) : syncAnimeSuggestion(anime, nextSuggestionName);
-          const currentSuggestionName = anime?.linkSuggestion?.folderName || null;
+        const autoLinkResult = applyAutoLinkLogic(nextMyAnimes, suggestionMap, {
+          nowMs,
+          windowMs: DOWNLOAD_INTENT_WINDOW_MS,
+        });
+        nextMyAnimes = autoLinkResult.myAnimes;
+        if (autoLinkResult.changed) {
+          localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes, settingsToUse);
+        }
 
-          if (
-            normalizedAnime.folderName !== anime.folderName ||
-            (normalizedAnime.linkSuggestion?.folderName || null) !== currentSuggestionName ||
-            normalizedAnime.rejectedSuggestion !== anime.rejectedSuggestion
-          ) {
-            acc[id] = normalizedAnime;
+        const staleIntentResult = cleanupStaleIntents(localFiles, nextMyAnimes, {
+          nowMs,
+          nowIso,
+          folderHasActiveDownload,
+          folderHasTempDownloadFile,
+        });
+        nextMyAnimes = staleIntentResult.myAnimes;
+
+        const trackingModeResult = updateTrackingModes(localFiles, nextMyAnimes, {
+          nowIso,
+          folderHasTempDownloadFile,
+        });
+        nextMyAnimes = trackingModeResult.myAnimes;
+
+        if (runId !== syncRunIdRef.current) {
+          return null;
+        }
+
+        if (nextMyAnimes !== originalMyAnimes) {
+          const mergedMyAnimes = await setMyAnimes((latestMyAnimes) =>
+            mergeLibraryAnimeUpdates(latestMyAnimes, originalMyAnimes, nextMyAnimes),
+          );
+
+          if (runId !== syncRunIdRef.current) {
+            return null;
           }
 
-          return acc;
-        }, {});
-
-        if (Object.keys(suggestionUpdates).length > 0) {
-          const normalizedMyAnimes = {
-            ...myAnimesToUse,
-            ...suggestionUpdates,
-          };
-
-          await setMyAnimes(normalizedMyAnimes);
-          myAnimesToUse = normalizedMyAnimes;
-          localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
-        }
-
-        const autoLinkUpdates = Object.entries(myAnimesToUse).reduce((acc, [id, anime]) => {
-          if (anime?.folderName) return acc;
-          if (!hasRecentDownloadIntent(anime)) return acc;
-
-          const suggestedFolderName = suggestionMap.get(String(id)) || null;
-          if (!suggestedFolderName) return acc;
-
-          acc[id] = acceptSuggestedFolder(anime, suggestedFolderName);
-          return acc;
-        }, {});
-
-        if (Object.keys(autoLinkUpdates).length > 0) {
-          const normalizedMyAnimes = {
-            ...myAnimesToUse,
-            ...autoLinkUpdates,
-          };
-
-          await setMyAnimes(normalizedMyAnimes);
-          myAnimesToUse = normalizedMyAnimes;
-          localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
-        }
-
-        const intentsToClear = Object.entries(myAnimesToUse).filter(([, anime]) => {
-          if (!anime?.downloadIntentAt || !anime?.folderName) return false;
-          const linkedFolder = Object.values(localFiles).find((folder) => folder.folderName === anime.folderName);
-          if (!linkedFolder) return false;
-          if (anime.downloadTrackingMode === "temp") {
-            return !folderHasTempDownloadFile(linkedFolder);
-          }
-          return !folderHasActiveDownload(linkedFolder, anime.downloadIntentAt, Date.now());
-        });
-
-        if (intentsToClear.length > 0) {
-          const normalizedMyAnimes = Object.fromEntries(
-            Object.entries(myAnimesToUse).map(([id, anime]) => {
-              if (!intentsToClear.some(([targetId]) => String(targetId) === String(id))) {
-                return [id, anime];
-              }
-
-              return [
-                id,
-                {
-                  ...anime,
-                  downloadIntentAt: null,
-                  downloadTrackingMode: null,
-                  lastUpdated: new Date().toISOString(),
-                },
-              ];
-            }),
-          );
-
-          await setMyAnimes(normalizedMyAnimes);
-          myAnimesToUse = normalizedMyAnimes;
-          localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
-        }
-
-        const trackingModeUpdates = Object.entries(myAnimesToUse).filter(([, anime]) => {
-          if (!anime?.downloadIntentAt || !anime?.folderName) return false;
-          const linkedFolder = Object.values(localFiles).find((folder) => folder.folderName === anime.folderName);
-          if (!linkedFolder) return false;
-          const inferredMode = folderHasTempDownloadFile(linkedFolder) ? "temp" : "direct";
-          return inferredMode !== (anime.downloadTrackingMode || null);
-        });
-
-        if (trackingModeUpdates.length > 0) {
-          const normalizedMyAnimes = Object.fromEntries(
-            Object.entries(myAnimesToUse).map(([id, anime]) => {
-              const target = trackingModeUpdates.find(([targetId]) => String(targetId) === String(id));
-              if (!target) {
-                return [id, anime];
-              }
-
-              const linkedFolder = Object.values(localFiles).find((folder) => folder.folderName === anime.folderName);
-              return [
-                id,
-                {
-                  ...anime,
-                  downloadTrackingMode: linkedFolder && folderHasTempDownloadFile(linkedFolder) ? "temp" : "direct",
-                  lastUpdated: new Date().toISOString(),
-                },
-              ];
-            }),
-          );
-
-          await setMyAnimes(normalizedMyAnimes);
-          myAnimesToUse = normalizedMyAnimes;
+          localFiles = await scanLibrary(currentData.folderPath, mergedMyAnimes, settingsToUse);
         }
 
         if (dataRef.current.folderPath === currentData.folderPath) {
           await setLocalFiles(localFiles);
         }
+
         return localFiles;
       } catch (error) {
         console.error("[Library] Error sincronizando:", error);
         return null;
       } finally {
-        setSyncing(false);
+        if (runId === syncRunIdRef.current) {
+          setSyncing(false);
+        }
       }
     },
     [libraryScopeReady, setLocalFiles, setMyAnimes],
@@ -269,7 +188,10 @@ export function LibraryProvider({ children }) {
   }, [stopWatcher]);
 
   useEffect(() => {
-    const hasActiveDownloadIntent = Object.values(data.myAnimes || {}).some((anime) => hasRecentDownloadIntent(anime));
+    const nowMs = Date.now();
+    const hasActiveDownloadIntent = Object.values(data.myAnimes || {}).some((anime) =>
+      hasRecentDownloadIntent(anime, nowMs, DOWNLOAD_INTENT_WINDOW_MS),
+    );
 
     if (!data.folderPath || !libraryScopeReady || !hasActiveDownloadIntent) {
       if (activeDownloadPollRef.current) {

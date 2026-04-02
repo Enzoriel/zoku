@@ -618,7 +618,12 @@ function AnimeDetails() {
           onSave={async (newAlias) => {
             await setMyAnimes((prev) => ({
               ...prev,
-              [animeId]: { ...prev[animeId], torrentAlias: newAlias, lastUpdated: new Date().toISOString() },
+              [animeId]: {
+                ...prev[animeId],
+                torrentAlias: newAlias,
+                torrentSearchTerm: newAlias,
+                lastUpdated: new Date().toISOString(),
+              },
             }));
             showToast("Alias de Nyaa actualizado.", "success");
           }}

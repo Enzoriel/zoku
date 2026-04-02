@@ -33,6 +33,7 @@ export function EpisodeList({
           torrentData,
           principalFansub,
           mainAnime.torrentAlias,
+          mainAnime.torrentSearchTerm,
           mainAnime.torrentTitle,
         );
       });

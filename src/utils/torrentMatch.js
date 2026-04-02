@@ -1,5 +1,5 @@
-import { extractBaseTitle } from "../services/fileSystem";
 import { extractEpisodeNumber } from "./fileParsing";
+import { buildTorrentMatchCandidates, deriveTorrentAliasFromTitle, extractBaseTitle } from "./titleIdentity";
 
 function jaro(s1, s2) {
   if (s1 === s2) return 1;
@@ -81,16 +81,20 @@ export function findTorrentMatches(
   episodeNumber,
   torrentItems,
   torrentAlias = null,
+  torrentSearchTerm = null,
   torrentTitle = null,
 ) {
   if (!torrentItems?.length || !episodeNumber) return [];
 
-  const titlesToMatch = toUniqueTitles([
-    ...buildTitleVariants(torrentAlias),
-    ...buildTitleVariants(torrentTitle ? extractAliasFromTitle(torrentTitle) : ""),
-    ...buildTitleVariants(animeTitleRomaji),
-    ...buildTitleVariants(animeTitleEnglish),
-  ]);
+  const titlesToMatch = toUniqueTitles(
+    buildTorrentMatchCandidates({
+      torrentSearchTerm,
+      torrentAlias,
+      torrentTitle,
+      animeTitleRomaji,
+      animeTitleEnglish,
+    }).flatMap((value) => buildTitleVariants(value)),
+  );
 
   if (titlesToMatch.length === 0) return [];
 
@@ -142,16 +146,5 @@ export function findTorrentMatches(
 }
 
 export function extractAliasFromTitle(rawTitle) {
-  if (!rawTitle) return "";
-
-  const groupMatch = String(rawTitle).match(/^\s*(\[[^\]]+\])\s*(.*)$/);
-  const group = groupMatch ? groupMatch[1].trim() : "";
-  const titlePart = groupMatch ? groupMatch[2] : rawTitle;
-  const baseTitle = extractBaseTitle(titlePart);
-
-  if (!baseTitle) {
-    return String(rawTitle).trim();
-  }
-
-  return group ? `${group} ${baseTitle}`.trim() : baseTitle;
+  return deriveTorrentAliasFromTitle(rawTitle);
 }

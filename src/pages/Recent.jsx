@@ -137,6 +137,7 @@ function Recent() {
           torrentData,
           principalFansub,
           stored?.torrentAlias,
+          stored?.torrentSearchTerm,
           stored?.torrentTitle,
         );
       });
@@ -341,7 +342,9 @@ function Recent() {
                               onClick={(event) => {
                                 event.stopPropagation();
                                 const stored = myAnimeMap[anime.malId || anime.mal_id];
-                                const query = extractBaseTitle(stored?.torrentTitle || stored?.torrentAlias || anime.title);
+    const query =
+      stored?.torrentSearchTerm ||
+      extractBaseTitle(stored?.torrentTitle || stored?.torrentAlias || anime.title);
 
                                 setSearchModalItem({
                                   title: query,

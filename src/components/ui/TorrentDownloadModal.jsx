@@ -90,14 +90,16 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
 
     try {
       const cleanAlias = extractAliasFromTitle(selectedItem.title);
+      const torrentSearchTerm = cleanAlias || extractBaseTitle(selectedItem.title);
       const diskAlias = extractBaseTitle(selectedItem.title);
-      if (!cleanAlias && !diskAlias) return;
+      if (!cleanAlias && !diskAlias && !torrentSearchTerm) return;
 
       await setMyAnimes((prev) => {
         const updated = { ...prev };
         if (updated[malId]) {
           if (
             updated[malId].torrentAlias === cleanAlias &&
+            updated[malId].torrentSearchTerm === torrentSearchTerm &&
             updated[malId].torrentTitle === selectedItem.title &&
             updated[malId].diskAlias === diskAlias
           ) {
@@ -107,6 +109,7 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
           updated[malId] = {
             ...updated[malId],
             torrentAlias: cleanAlias,
+            torrentSearchTerm,
             torrentTitle: selectedItem.title,
             diskAlias,
             lastUpdated: new Date().toISOString(),
