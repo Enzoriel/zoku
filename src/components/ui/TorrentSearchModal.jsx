@@ -13,15 +13,17 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
   const allFansubs = getAllFansubs(storeData.settings);
 
   const handleSelectFansub = (fansubName) => {
-    const cleanTitle = extractBaseTitle(animeTitle || "");
-    const query = `${cleanTitle || animeTitle} ${epNumber}`;
+    const sourceTitle = animeTitle || "";
+    const cleanTitle = malId ? sourceTitle : extractBaseTitle(sourceTitle);
+    const paddedEpisode = String(epNumber || "").padStart(2, "0");
+    const query = `${cleanTitle || sourceTitle} ${paddedEpisode}`.trim();
     navigate("/torrents", {
       state: {
         activeTab: fansubName,
         activeQuery: query,
         searchInput: query,
-        malId: malId,
-        animeTitle: animeTitle,
+        malId,
+        animeTitle,
       },
     });
     onClose();
@@ -32,8 +34,8 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
       isOpen={isOpen}
       onClose={onClose}
       size="sm"
-      title="BÚSQUEDA MANUAL"
-      subtitle={`¿En qué grupo querés buscar el Episodio ${epNumber} de ${animeTitle}?`}
+      title="BUSQUEDA MANUAL"
+      subtitle={`En que grupo quieres buscar el Episodio ${epNumber} de ${animeTitle}?`}
     >
       <div className={styles.section} style={{ padding: 0 }}>
         <div className={styles.fansubGrid} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -44,7 +46,7 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
               onClick={() => handleSelectFansub(principalFansub)}
             >
               <span>{principalFansub}</span>
-              <span style={{ fontSize: "10px" }}>⭐ PRINCIPAL</span>
+              <span style={{ fontSize: "10px" }}>PRINCIPAL</span>
             </button>
           )}
 
@@ -68,7 +70,7 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
             onClick={() => handleSelectFansub("general")}
           >
             <span>Buscar en todo Nyaa</span>
-            <span>🌐</span>
+            <span>NYAA</span>
           </button>
         </div>
       </div>

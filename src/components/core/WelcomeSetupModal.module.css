@@ -1,0 +1,148 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--px-border);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--px-cyan);
+  text-transform: uppercase;
+}
+
+.sectionText {
+  margin: 0;
+  color: var(--px-text-dim);
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.valueBox {
+  min-height: 42px;
+  padding: 10px 12px;
+  background: var(--px-dark);
+  border: 1px solid var(--px-border);
+  color: var(--px-text);
+  display: flex;
+  align-items: center;
+  word-break: break-word;
+}
+
+.select,
+.input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  background: var(--px-dark);
+  border: 1px solid var(--px-border);
+  color: var(--px-text);
+  font: inherit;
+}
+
+.inlineRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--px-border);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background: var(--px-yellow);
+  color: var(--px-dark);
+}
+
+.secondaryButton {
+  background: transparent;
+  color: var(--px-text);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fansubGrid,
+.radioGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fansubChip,
+.radioItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--px-border);
+  background: var(--px-dark);
+  color: var(--px-text);
+}
+
+.fansubChip {
+  cursor: pointer;
+}
+
+.fansubChipActive {
+  border-color: var(--px-cyan);
+  color: var(--px-cyan);
+}
+
+.removeCustom {
+  color: var(--px-pink);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+}
+
+.fieldLabel {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--px-yellow);
+  text-transform: uppercase;
+}
+
+.errorBox {
+  padding: 12px 14px;
+  border: 1px solid var(--px-pink);
+  background: rgba(255, 45, 120, 0.08);
+  color: var(--px-text);
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footerText {
+  margin: 0;
+  color: var(--px-text-dim);
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .inlineRow {
+    grid-template-columns: 1fr;
+  }
+}

@@ -7,6 +7,7 @@ import { LibraryProvider } from "./context/LibraryContext";
 import { TorrentProvider } from "./context/TorrentContext";
 import Layout from "./components/layout/Layout";
 import { GlobalSync } from "./components/core/GlobalSync";
+import { WelcomeSetupModal } from "./components/core/WelcomeSetupModal";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Discover = lazy(() => import("./pages/Discover"));
@@ -28,6 +29,7 @@ function App() {
           <LibraryProvider>
             <BrowserRouter>
               <GlobalSync />
+              <WelcomeSetupModal />
               <Routes>
                 <Route path="/" element={<Layout />}>
                   <Route index element={<Dashboard />} />

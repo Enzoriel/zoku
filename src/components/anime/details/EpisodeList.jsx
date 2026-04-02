@@ -33,6 +33,7 @@ export function EpisodeList({
           torrentData,
           principalFansub,
           mainAnime.torrentAlias,
+          mainAnime.torrentTitle,
         );
       });
     }
@@ -58,7 +59,6 @@ export function EpisodeList({
     }
     if (
       status === "Proximamente" ||
-      status === "PrÃ³ximamente" ||
       status === "Próximamente" ||
       status === "NOT_YET_RELEASED" ||
       status === "Not yet aired"
@@ -129,7 +129,7 @@ export function EpisodeList({
                     setTorrentModalOpen(true);
                   }}
                 >
-                  {hasPrincipalMatch ? "⬇ Disponible" : "⬇ Alternativa"}
+                  {hasPrincipalMatch ? "Disponible" : "Alternativa"}
                 </button>
               )}
             </div>

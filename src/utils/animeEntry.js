@@ -57,6 +57,8 @@ export function buildStoredAnimeEntry(anime = {}, overrides = {}) {
     linkSuggestion: anime.linkSuggestion || null,
     rejectedSuggestion: anime.rejectedSuggestion || null,
     torrentAlias: anime.torrentAlias || "",
+    torrentTitle: anime.torrentTitle || "",
+    diskAlias: anime.diskAlias || "",
     lastMetadataFetch: anime.lastMetadataFetch || now,
     addedAt: anime.addedAt || now,
     lastUpdated: anime.lastUpdated || now,

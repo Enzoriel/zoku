@@ -1,6 +1,8 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLibrary } from "../../context/LibraryContext";
+import { useTorrent } from "../../context/TorrentContext";
 import { useStore } from "../../hooks/useStore";
+import { extractBaseTitle } from "../../services/fileSystem";
 import { extractAliasFromTitle } from "../../utils/torrentMatch";
 import { getPrincipalFansub, getAllFansubs } from "../../utils/torrentConfig";
 import Modal from "./Modal";
@@ -20,7 +22,7 @@ function sortItems(items) {
     const resA = RESOLUTION_ORDER[a.resolution] ?? 0;
     const resB = RESOLUTION_ORDER[b.resolution] ?? 0;
     if (resA !== resB) return resB - resA;
-    if (a.is_hevc !== b.is_hevc) return a.is_hevc ? 1 : -1;
+    if (a.is_hevc !== b.is_hevc) return a.is_hevc ? -1 : 1;
     return 0;
   });
 }
@@ -28,6 +30,7 @@ function sortItems(items) {
 function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }) {
   const { data: storeData, setMyAnimes } = useStore();
   const { performSync } = useLibrary();
+  const { refresh: refreshTorrentFeed } = useTorrent();
 
   const principalFansub = getPrincipalFansub(storeData.settings);
   const allFansubs = getAllFansubs(storeData.settings).map((f) => f.name.toLowerCase());
@@ -87,15 +90,25 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
 
     try {
       const cleanAlias = extractAliasFromTitle(selectedItem.title);
-      if (!cleanAlias) return;
+      const diskAlias = extractBaseTitle(selectedItem.title);
+      if (!cleanAlias && !diskAlias) return;
 
       await setMyAnimes((prev) => {
         const updated = { ...prev };
         if (updated[malId]) {
-          if (updated[malId].torrentAlias === cleanAlias) return prev;
+          if (
+            updated[malId].torrentAlias === cleanAlias &&
+            updated[malId].torrentTitle === selectedItem.title &&
+            updated[malId].diskAlias === diskAlias
+          ) {
+            return prev;
+          }
+
           updated[malId] = {
             ...updated[malId],
             torrentAlias: cleanAlias,
+            torrentTitle: selectedItem.title,
+            diskAlias,
             lastUpdated: new Date().toISOString(),
           };
         }
@@ -147,6 +160,12 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
       }
     }
 
+    try {
+      await refreshTorrentFeed();
+    } catch (refreshError) {
+      console.error("[Download] torrent feed refresh failed:", refreshError);
+    }
+
     setTimeout(() => {
       void performSync();
     }, 1500);
@@ -180,15 +199,15 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
 
                 <div className={styles.itemList}>
                   {group.items.map((item, idx) => (
-                    <div key={idx} className={styles.item}>
+                    <div key={item.info_hash || item.download_url || item.magnet || `${item.title}-${idx}`} className={styles.item}>
                       <div className={styles.itemTitle}>{item.title !== animeTitle && item.title}</div>
 
                       <div className={styles.itemInfo}>
                         <span className={styles.itemRes}>{item.resolution}</span>
                         {item.is_hevc && <span className={styles.itemHevc}>HEVC</span>}
-                        <span className={styles.itemSize}>• {item.size}</span>
+                        <span className={styles.itemSize}>- {item.size}</span>
                         <span className={styles.itemStats}>
-                          • S:
+                          - S:
                           <span
                             className={
                               item.seeders >= 10

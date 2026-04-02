@@ -6109,6 +6109,7 @@ dependencies = [
  "tauri-plugin-store",
  "tokio",
  "urlencoding",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

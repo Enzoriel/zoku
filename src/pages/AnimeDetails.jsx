@@ -71,7 +71,8 @@ function AnimeDetails() {
   } = usePlayTracking((message, type) => showToast(message, type));
 
   const animeId = useMemo(() => {
-    return id && id !== "null" && id !== "undefined" ? id : anime?.malId || anime?.mal_id || null;
+    if (id === "null" || id === "undefined") return null;
+    return id || anime?.malId || anime?.mal_id || null;
   }, [id, anime]);
 
   const mainAnime = useMemo(() => {
@@ -420,6 +421,7 @@ function AnimeDetails() {
       delete newMyAnimes[animeId];
       await setMyAnimes(newMyAnimes);
       await performSync(newMyAnimes);
+      setAnime(null);
       if (mainAnime.folderName) {
         navigate(`/anime/null?folder=${encodeURIComponent(mainAnime.folderName)}`, { replace: true });
       } else {
@@ -641,4 +643,3 @@ function AnimeDetails() {
 }
 
 export default AnimeDetails;
-

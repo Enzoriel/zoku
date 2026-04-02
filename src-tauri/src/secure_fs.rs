@@ -6,7 +6,24 @@ use std::{
 };
 
 #[cfg(windows)]
+use std::ffi::OsStr;
+#[cfg(windows)]
 use std::os::windows::fs::OpenOptionsExt;
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt;
+#[cfg(windows)]
+use windows_sys::Win32::Foundation::ERROR_MORE_DATA;
+#[cfg(windows)]
+use windows_sys::Win32::System::RestartManager::{
+    CCH_RM_MAX_APP_NAME,
+    CCH_RM_MAX_SVC_NAME,
+    CCH_RM_SESSION_KEY,
+    RM_PROCESS_INFO,
+    RmEndSession,
+    RmGetList,
+    RmRegisterResources,
+    RmStartSession,
+};
 
 use notify::{
     event::{CreateKind, EventKind, ModifyKind, RemoveKind, RenameMode},
@@ -286,7 +303,116 @@ fn read_relevant_files(directory: &Path) -> Result<Vec<LibraryFileEntry>, String
 }
 
 #[cfg(windows)]
+fn to_wide_null(value: &OsStr) -> Vec<u16> {
+    value.encode_wide().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(windows)]
+fn read_wide_string(buffer: &[u16]) -> String {
+    let end = buffer.iter().position(|value| *value == 0).unwrap_or(buffer.len());
+    String::from_utf16_lossy(&buffer[..end]).trim().to_string()
+}
+
+#[cfg(windows)]
+fn get_locking_process_names(path: &Path) -> Result<Vec<String>, String> {
+    let mut session_handle = 0u32;
+    let mut session_key = [0u16; (CCH_RM_SESSION_KEY as usize) + 1];
+
+    let start_result = unsafe { RmStartSession(&mut session_handle, 0, session_key.as_mut_ptr()) };
+    if start_result != 0 {
+      return Err(format!("No se pudo iniciar la sesion de verificacion de bloqueo: {start_result}"));
+    }
+
+    let resource_path = to_wide_null(path.as_os_str());
+    let resources = [resource_path.as_ptr()];
+
+    let register_result = unsafe {
+        RmRegisterResources(
+            session_handle,
+            resources.len() as u32,
+            resources.as_ptr(),
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+        )
+    };
+
+    if register_result != 0 {
+        unsafe { RmEndSession(session_handle) };
+        return Err(format!("No se pudo registrar el recurso para verificar bloqueo: {register_result}"));
+    }
+
+    let mut needed = 0u32;
+    let mut count = 0u32;
+    let mut reboot_reasons = 0u32;
+    let mut names = Vec::new();
+
+    let first_result = unsafe {
+        RmGetList(
+            session_handle,
+            &mut needed,
+            &mut count,
+            std::ptr::null_mut(),
+            &mut reboot_reasons,
+        )
+    };
+
+    if first_result == ERROR_MORE_DATA {
+        let mut process_info = vec![
+            RM_PROCESS_INFO {
+                Process: unsafe { std::mem::zeroed() },
+                strAppName: [0; (CCH_RM_MAX_APP_NAME as usize) + 1],
+                strServiceShortName: [0; (CCH_RM_MAX_SVC_NAME as usize) + 1],
+                ApplicationType: 0,
+                AppStatus: 0,
+                TSSessionId: 0,
+                bRestartable: 0,
+            };
+            needed as usize
+        ];
+        count = needed;
+
+        let second_result = unsafe {
+            RmGetList(
+                session_handle,
+                &mut needed,
+                &mut count,
+                process_info.as_mut_ptr(),
+                &mut reboot_reasons,
+            )
+        };
+
+        if second_result != 0 {
+            unsafe { RmEndSession(session_handle) };
+            return Err(format!("No se pudo obtener la lista de procesos bloqueando el archivo: {second_result}"));
+        }
+
+        names = process_info
+            .into_iter()
+            .take(count as usize)
+            .map(|info| read_wide_string(&info.strAppName))
+            .filter(|name| !name.is_empty())
+            .collect();
+    } else if first_result != 0 {
+        unsafe { RmEndSession(session_handle) };
+        return Err(format!("No se pudo consultar si el archivo estaba en uso: {first_result}"));
+    }
+
+    unsafe { RmEndSession(session_handle) };
+    Ok(names)
+}
+
+#[cfg(windows)]
 fn ensure_file_not_in_use(path: &Path) -> Result<(), String> {
+    let locking_processes = get_locking_process_names(path)?;
+    if !locking_processes.is_empty() {
+        return Err(format!(
+            "El archivo esta siendo usado por otra aplicacion: {}",
+            locking_processes.join(", ")
+        ));
+    }
+
     let mut options = fs::OpenOptions::new();
     options.read(true).share_mode(0);
     options

@@ -3,6 +3,7 @@ import { useStore } from "./useStore";
 import { useTorrent } from "../context/TorrentContext";
 import { findTorrentMatches, extractAliasFromTitle } from "../utils/torrentMatch";
 import { getReleasedEpisodeCount } from "../utils/airingStatus";
+import { extractBaseTitle } from "../services/fileSystem";
 
 /**
  * Hook que observa los animes en emisión y los torrents recientes
@@ -39,9 +40,11 @@ export function useTorrentAliasLearning(allAiringAnime) {
           
           const matches = findTorrentMatches(titleRomaji, titleEnglish, lastAiredEp, torrentData);
           if (matches.length > 0) {
-            const alias = extractAliasFromTitle(matches[0].title);
-            if (alias) {
-              itemsToUpdate.push({ id, alias });
+            const matchedTitle = matches[0].title;
+            const alias = extractAliasFromTitle(matchedTitle);
+            const diskAlias = extractBaseTitle(matchedTitle);
+            if (alias || diskAlias) {
+              itemsToUpdate.push({ id, alias, torrentTitle: matchedTitle, diskAlias });
             }
           }
         }
@@ -53,11 +56,20 @@ export function useTorrentAliasLearning(allAiringAnime) {
         const next = { ...prev };
         let changed = false;
         
-        itemsToUpdate.forEach(({ id, alias }) => {
-          if (next[id] && next[id].torrentAlias !== alias) {
+        itemsToUpdate.forEach(({ id, alias, torrentTitle, diskAlias }) => {
+          if (
+            next[id] &&
+            (
+              next[id].torrentAlias !== alias ||
+              next[id].torrentTitle !== torrentTitle ||
+              next[id].diskAlias !== diskAlias
+            )
+          ) {
             next[id] = { 
               ...next[id], 
               torrentAlias: alias, 
+              torrentTitle,
+              diskAlias,
               lastUpdated: new Date().toISOString() 
             };
             changed = true;

@@ -36,6 +36,7 @@ function Recent() {
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
   const [torrentModalTitle, setTorrentModalTitle] = useState("");
+  const [torrentModalAnimeTitle, setTorrentModalAnimeTitle] = useState("");
   const [torrentModalMalId, setTorrentModalMalId] = useState(null);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalItem, setSearchModalItem] = useState(null);
@@ -114,7 +115,10 @@ function Recent() {
       .map(([key, value]) => ({
         key,
         date: value.date,
-        episodes: value.episodes.sort((first, second) => second.airedAt - first.airedAt),
+        episodes: value.episodes.sort((first, second) => {
+          if (second.airedAt !== first.airedAt) return second.airedAt - first.airedAt;
+          return second.ep - first.ep;
+        }),
       }));
   }, [myAiringAnime]);
 
@@ -133,6 +137,7 @@ function Recent() {
           torrentData,
           principalFansub,
           stored?.torrentAlias,
+          stored?.torrentTitle,
         );
       });
     });
@@ -245,7 +250,7 @@ function Recent() {
           ) : groupedByDay.length === 0 ? (
             <div className={styles.emptyState}>
               <p>No hay episodios recientes de tus series en emision.</p>
-              <span>{hasTrackedAnime ? "Vuelve a revisar mas tarde." : "Añade series a tu lista desde Descubrir."}</span>
+              <span>{hasTrackedAnime ? "Vuelve a revisar mas tarde." : "Anade series a tu lista desde Descubrir."}</span>
             </div>
           ) : (
             groupedByDay.map(({ key, date, episodes }) => (
@@ -288,7 +293,7 @@ function Recent() {
                         <span className={styles.animeTitle}>{anime.title}</span>
                         <span className={styles.epNumber}>
                           Episodio {ep}
-                          {isEstimated ? " · estimado" : ""}
+                          {isEstimated ? " - estimado" : ""}
                         </span>
                       </div>
                       <div className={styles.episodeActions} onClick={(event) => event.stopPropagation()}>
@@ -318,7 +323,8 @@ function Recent() {
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setTorrentModalItems(matches);
-                                  setTorrentModalTitle(`${anime.title} — Episodio ${ep}`);
+                                  setTorrentModalTitle(`${anime.title} - Episodio ${ep}`);
+                                  setTorrentModalAnimeTitle(anime.title);
                                   setTorrentModalMalId(anime.malId || anime.mal_id);
                                   setTorrentModalOpen(true);
                                 }}
@@ -331,11 +337,11 @@ function Recent() {
                           return (
                             <button
                               className={`${styles.torrentBtn} ${styles.torrentBtnAlt}`}
-                              title="Buscar torrent manualmente en otras pestañas"
+                              title="Buscar torrent manualmente en otras pestanas"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 const stored = myAnimeMap[anime.malId || anime.mal_id];
-                                const query = extractBaseTitle(stored?.torrentAlias || anime.title);
+                                const query = extractBaseTitle(stored?.torrentTitle || stored?.torrentAlias || anime.title);
 
                                 setSearchModalItem({
                                   title: query,
@@ -345,7 +351,7 @@ function Recent() {
                                 setSearchModalOpen(true);
                               }}
                             >
-                              🔍 Buscar
+                              Buscar
                             </button>
                           );
                         })()}
@@ -366,7 +372,7 @@ function Recent() {
                               disabled
                               title="El cliente externo esta procesando el archivo (.part / .!qB)"
                             >
-                              ⏳ DESCARGANDO
+                              DESCARGANDO
                             </button>
                           ) : (
                             <button
@@ -460,7 +466,7 @@ function Recent() {
       <TorrentDownloadModal
         isOpen={torrentModalOpen}
         onClose={() => setTorrentModalOpen(false)}
-        animeTitle={torrentModalTitle.split(" — ")[0]}
+        animeTitle={torrentModalAnimeTitle}
         items={torrentModalItems}
         malId={torrentModalMalId}
       />
@@ -483,4 +489,3 @@ function Recent() {
 }
 
 export default Recent;
-

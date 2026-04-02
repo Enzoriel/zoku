@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect, us
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { folderHasActiveDownload, folderHasTempDownloadFile, scanLibrary } from "../services/fileSystem";
 import { useStore } from "../hooks/useStore";
-import { clearLinkingMetadata, syncAnimeSuggestion } from "../utils/linkingState";
+import { acceptSuggestedFolder, clearLinkingMetadata, syncAnimeSuggestion } from "../utils/linkingState";
 
 const LibraryContext = createContext(null);
 
@@ -13,6 +13,12 @@ const ACTIVE_DOWNLOAD_POLL_MS = 10 * 1000;
 function normalizeLibraryPath(path) {
   if (!path) return "";
   return String(path).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+function hasRecentDownloadIntent(anime) {
+  if (!anime?.downloadIntentAt) return false;
+  const intentAt = new Date(anime.downloadIntentAt).getTime();
+  return intentAt > 0 && Date.now() - intentAt <= DOWNLOAD_INTENT_WINDOW_MS;
 }
 
 export function LibraryProvider({ children }) {
@@ -90,6 +96,28 @@ export function LibraryProvider({ children }) {
           const normalizedMyAnimes = {
             ...myAnimesToUse,
             ...suggestionUpdates,
+          };
+
+          await setMyAnimes(normalizedMyAnimes);
+          myAnimesToUse = normalizedMyAnimes;
+          localFiles = await scanLibrary(currentData.folderPath, myAnimesToUse, settingsToUse);
+        }
+
+        const autoLinkUpdates = Object.entries(myAnimesToUse).reduce((acc, [id, anime]) => {
+          if (anime?.folderName) return acc;
+          if (!hasRecentDownloadIntent(anime)) return acc;
+
+          const suggestedFolderName = suggestionMap.get(String(id)) || null;
+          if (!suggestedFolderName) return acc;
+
+          acc[id] = acceptSuggestedFolder(anime, suggestedFolderName);
+          return acc;
+        }, {});
+
+        if (Object.keys(autoLinkUpdates).length > 0) {
+          const normalizedMyAnimes = {
+            ...myAnimesToUse,
+            ...autoLinkUpdates,
           };
 
           await setMyAnimes(normalizedMyAnimes);
@@ -241,11 +269,7 @@ export function LibraryProvider({ children }) {
   }, [stopWatcher]);
 
   useEffect(() => {
-    const hasActiveDownloadIntent = Object.values(data.myAnimes || {}).some((anime) => {
-      if (!anime?.downloadIntentAt) return false;
-      const intentAt = new Date(anime.downloadIntentAt).getTime();
-      return intentAt > 0 && Date.now() - intentAt <= DOWNLOAD_INTENT_WINDOW_MS;
-    });
+    const hasActiveDownloadIntent = Object.values(data.myAnimes || {}).some((anime) => hasRecentDownloadIntent(anime));
 
     if (!data.folderPath || !libraryScopeReady || !hasActiveDownloadIntent) {
       if (activeDownloadPollRef.current) {

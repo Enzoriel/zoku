@@ -4,14 +4,29 @@ import { getStore, setStore, clearStore } from "../services/store";
 
 export const StoreContext = createContext();
 
+const DEFAULT_SETTINGS = {
+  player: "mpv",
+  onboardingComplete: false,
+};
+
+function normalizeSettings(settings, folderPath) {
+  const nextSettings = settings || DEFAULT_SETTINGS;
+  const hasTorrentConfig = Array.isArray(nextSettings?.torrent?.fansubs) && nextSettings.torrent.fansubs.length > 0;
+  const hasLegacySetup = Boolean(folderPath) || hasTorrentConfig;
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...nextSettings,
+    onboardingComplete: nextSettings?.onboardingComplete ?? hasLegacySetup,
+  };
+}
+
 export function StoreProvider({ children }) {
   const [data, setData] = useState({
     folderPath: "",
     myAnimes: {},
     localFiles: {},
-    settings: {
-      player: "mpv",
-    },
+    settings: DEFAULT_SETTINGS,
   });
   const storeStateRef = useRef(data);
   const [loading, setLoading] = useState(true);
@@ -66,7 +81,7 @@ export function StoreProvider({ children }) {
         const folderPath = folderPathValue || "";
         const myAnimes = myAnimesValue || {};
         const localFiles = localFilesValue || {};
-        const settings = settingsValue || { player: "mpv" };
+        const settings = normalizeSettings(settingsValue, folderPath);
         const canonicalFolderPath = (await ensureLibraryScope(folderPath)) ?? normalizeLibraryPath(folderPath);
         const loadedData = { folderPath: canonicalFolderPath, myAnimes, localFiles, settings };
         storeStateRef.current = loadedData;
@@ -139,7 +154,7 @@ export function StoreProvider({ children }) {
             folderPath: "",
             myAnimes: {},
             localFiles: {},
-            settings: { player: "mpv" },
+            settings: DEFAULT_SETTINGS,
           };
           await invoke("ensure_library_scope", { path: "" });
           setLibraryScopeReady(true);

@@ -1,13 +1,6 @@
+import { extractBaseTitle } from "../services/fileSystem";
 import { extractEpisodeNumber } from "./fileParsing";
 
-// ─── Jaro-Winkler (implementación manual) ─────────────────────────────────────
-
-/**
- * Calcula la distancia Jaro entre dos strings.
- * @param {string} s1
- * @param {string} s2
- * @returns {number} score entre 0 y 1
- */
 function jaro(s1, s2) {
   if (s1 === s2) return 1;
   if (!s1.length || !s2.length) return 0;
@@ -19,15 +12,15 @@ function jaro(s1, s2) {
   let matches = 0;
   let transpositions = 0;
 
-  for (let i = 0; i < s1.length; i++) {
+  for (let i = 0; i < s1.length; i += 1) {
     const start = Math.max(0, i - matchWindow);
     const end = Math.min(i + matchWindow + 1, s2.length);
 
-    for (let j = start; j < end; j++) {
+    for (let j = start; j < end; j += 1) {
       if (s2Matches[j] || s1[i] !== s2[j]) continue;
       s1Matches[i] = true;
       s2Matches[j] = true;
-      matches++;
+      matches += 1;
       break;
     }
   }
@@ -35,131 +28,112 @@ function jaro(s1, s2) {
   if (matches === 0) return 0;
 
   let k = 0;
-  for (let i = 0; i < s1.length; i++) {
+  for (let i = 0; i < s1.length; i += 1) {
     if (!s1Matches[i]) continue;
-    while (!s2Matches[k]) k++;
-    if (s1[i] !== s2[k]) transpositions++;
-    k++;
+    while (!s2Matches[k]) k += 1;
+    if (s1[i] !== s2[k]) transpositions += 1;
+    k += 1;
   }
 
   return (matches / s1.length + matches / s2.length + (matches - transpositions / 2) / matches) / 3;
 }
 
-/**
- * Calcula el score Jaro-Winkler entre dos strings.
- * @param {string} s1
- * @param {string} s2
- * @param {number} [prefixScale=0.1] peso del prefijo común (máx 0.25)
- * @returns {number} score entre 0 y 1
- */
 function jaroWinkler(s1, s2, prefixScale = 0.1) {
   const jaroScore = jaro(s1, s2);
 
-  // Prefijo común (máximo 4 caracteres)
   let prefix = 0;
   const maxPrefix = Math.min(s1.length, s2.length, 4);
-  for (let i = 0; i < maxPrefix; i++) {
-    if (s1[i] === s2[i]) prefix++;
+  for (let i = 0; i < maxPrefix; i += 1) {
+    if (s1[i] === s2[i]) prefix += 1;
     else break;
   }
 
   return jaroScore + prefix * prefixScale * (1 - jaroScore);
 }
 
-/**
- * Normaliza una cadena eliminando todo lo que no sea alfanumérico.
- * @param {string} str 
- * @returns {string}
- */
 function superNormalize(str) {
   if (!str) return "";
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-// ─── Matching de torrents ─────────────────────────────────────────────────────
+function toUniqueTitles(values) {
+  return Array.from(new Set((values || []).filter(Boolean)));
+}
 
-const MATCH_SCORE_THRESHOLD = 0.75; // Aumentamos ligeramente de 0.72
+function buildTitleVariants(value) {
+  if (!value) return [];
+  const baseTitle = extractBaseTitle(value);
+  return toUniqueTitles([value, baseTitle]);
+}
 
-/**
- * Dado un título de anime (de AniList), un número de episodio,
- * y el array de TorrentItems del TorrentContext,
- * devuelve los TorrentItems que corresponden a ese episodio.
- *
- * @param {string} animeTitleRomaji - título en romaji de AniList
- * @param {string} animeTitleEnglish - título en inglés de AniList (puede ser null)
- * @param {number} episodeNumber - número del episodio a buscar
- * @param {TorrentItem[]} torrentItems - items del TorrentContext
- * @param {string} torrentAlias - Alias opcional vinculado manualmente por el usuario
- * @returns {TorrentItem[]} items que matchean, ordenados por score desc
- */
-export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeNumber, torrentItems, torrentAlias = null) {
+function getWords(value) {
+  return String(value || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 2);
+}
+
+const MATCH_SCORE_THRESHOLD = 0.75;
+
+export function findTorrentMatches(
+  animeTitleRomaji,
+  animeTitleEnglish,
+  episodeNumber,
+  torrentItems,
+  torrentAlias = null,
+  torrentTitle = null,
+) {
   if (!torrentItems?.length || !episodeNumber) return [];
 
-  const titlesToMatch = Array.from(
-    new Set([torrentAlias, torrentAlias ? extractAliasFromTitle(torrentAlias) : null, animeTitleRomaji, animeTitleEnglish].filter(Boolean)),
-  );
+  const titlesToMatch = toUniqueTitles([
+    ...buildTitleVariants(torrentAlias),
+    ...buildTitleVariants(torrentTitle ? extractAliasFromTitle(torrentTitle) : ""),
+    ...buildTitleVariants(animeTitleRomaji),
+    ...buildTitleVariants(animeTitleEnglish),
+  ]);
+
   if (titlesToMatch.length === 0) return [];
 
   return torrentItems
     .map((item) => {
-      // 1. Extraer número de episodio del título del torrent
       const itemEpisode = extractEpisodeNumber(item.title, titlesToMatch);
-
-      // 2. Si el número de episodio no coincide → descartar
       if (itemEpisode !== episodeNumber) return null;
 
-      // 3. Limpiar el título del torrent para matching
-      let cleanTitle = item.title
-        .replace(/^\[[^\]]+\]\s*/, "") // fansub
-        .replace(/\b(2160p|1080p|720p|480p|360p)\b/gi, "")
-        .replace(/\b(HEVC|x265|x264|h265|h264|10bit|8bit)\b/gi, "")
-        .replace(/[[\(][a-f0-9]{8}[\]\)]/gi, "") // hash CRC
-        .replace(/[-–]\s*\d{1,4}\s*$/, "") // número de episodio al final
-        .replace(/[-–]\s*\d{1,4}\s*[-–]/, " ") // número de episodio en medio
-        .replace(/\s+/g, " ")
-        .trim();
+      const cleanTitle = extractBaseTitle(item.title);
+      if (!cleanTitle) return null;
 
-      // 4. Calcular score máximo contra todos los títulos disponibles
       let score = 0;
       let matchedTitle = "";
-      
-      titlesToMatch.forEach(t => {
-        const jw = jaroWinkler(cleanTitle.toLowerCase(), t.toLowerCase());
-        
-        // Bonus por coincidencia de palabras (similar a AnimeDetails)
-        const getWords = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
-        const wT = getWords(cleanTitle);
-        const wA = getWords(t);
-        
+
+      titlesToMatch.forEach((candidate) => {
+        const jw = jaroWinkler(cleanTitle.toLowerCase(), candidate.toLowerCase());
+        const torrentWords = getWords(cleanTitle);
+        const candidateWords = getWords(candidate);
+
         let wordScore = 0;
-        if (wT.length > 0 && wA.length > 0) {
-            const matchesCount = wA.filter(w => wT.includes(w)).length;
-            wordScore = matchesCount / Math.max(wA.length, wT.length);
+        if (torrentWords.length > 0 && candidateWords.length > 0) {
+          const shared = candidateWords.filter((word) => torrentWords.includes(word)).length;
+          wordScore = shared / Math.max(candidateWords.length, torrentWords.length);
         }
 
         const compositeScore = Math.max(jw, wordScore);
-
         if (compositeScore > score) {
           score = compositeScore;
-          matchedTitle = t;
+          matchedTitle = candidate;
         }
       });
 
-      // 5. Normalización agresiva y validación cruzada
       const normTorrent = superNormalize(cleanTitle);
-      const normAnime = superNormalize(matchedTitle);
+      const normAnime = superNormalize(extractBaseTitle(matchedTitle) || matchedTitle);
 
-      // Si el título es largo y no se contienen, penalizamos si el score no es perfecto
       if (normAnime.length > 5) {
         const contains = normTorrent.includes(normAnime) || normAnime.includes(normTorrent);
         if (!contains && score < 0.95) {
-          score *= 0.8; 
+          score *= 0.8;
         }
       }
 
-      // 6. Descartar si el score es menor al umbral
       if (score < MATCH_SCORE_THRESHOLD) return null;
-
       return { item, score };
     })
     .filter(Boolean)
@@ -167,27 +141,17 @@ export function findTorrentMatches(animeTitleRomaji, animeTitleEnglish, episodeN
     .map(({ item }) => item);
 }
 
-/**
- * Extrae el alias de Nyaa de un título de torrent ruidoso.
- * @param {string} rawTitle 
- * @returns {string}
- */
 export function extractAliasFromTitle(rawTitle) {
   if (!rawTitle) return "";
-  
-  const fansubMatch = rawTitle.match(/^(\[[^\]]+\])/);
-  const fansubPart = fansubMatch ? fansubMatch[1] : "";
-  
-  let titlePart = rawTitle
-    .replace(/^\[[^\]]+\]\s*/, "") // fansub
-    .replace(/\s*-\s*\d+.*$/, "") // ep
-    .replace(/\s*-\s*v\d+.*$/, "") // v2
-    .replace(/\b(2160p|1080p|720p|480p|360p)\b/gi, "")
-    .replace(/\b(HEVC|x265|x264|h265|h264|10bit|8bit)\b/gi, "")
-    .replace(/[[\(][a-f0-9]{8}[\]\)]/gi, "") // hash
-    .replace(/\s+\d+.*$/, "") // ep (space)
-    .replace(/[\[\(].*$/, "") // metadata tags
-    .trim();
 
-  return fansubPart ? `${fansubPart} ${titlePart}` : titlePart;
+  const groupMatch = String(rawTitle).match(/^\s*(\[[^\]]+\])\s*(.*)$/);
+  const group = groupMatch ? groupMatch[1].trim() : "";
+  const titlePart = groupMatch ? groupMatch[2] : rawTitle;
+  const baseTitle = extractBaseTitle(titlePart);
+
+  if (!baseTitle) {
+    return String(rawTitle).trim();
+  }
+
+  return group ? `${group} ${baseTitle}`.trim() : baseTitle;
 }

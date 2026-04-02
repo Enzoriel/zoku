@@ -185,8 +185,11 @@ function buildFolderSearchKeys(folder) {
 
 function buildAnimeSearchKeys(anime) {
   return toUniqueSearchKeys([
+    anime?.diskAlias,
+    anime?.diskAlias ? extractBaseTitle(anime.diskAlias) : "",
     anime?.title,
     anime?.title_english,
+    anime?.torrentTitle ? extractBaseTitle(anime.torrentTitle) : "",
     anime?.torrentAlias ? extractBaseTitle(anime.torrentAlias) : "",
   ]);
 }

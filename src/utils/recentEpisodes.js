@@ -77,7 +77,10 @@ export function buildRecentEpisodeOccurrences(anime, nowMs = Date.now()) {
     .filter((entry) => entry.airedAt >= cutoffMs && entry.airedAt <= nowMs + 60 * 60 * 1000);
 
   if (explicitOccurrences.length > 0) {
-    return explicitOccurrences.sort((first, second) => second.airedAt - first.airedAt);
+    return explicitOccurrences.sort((first, second) => {
+      if (second.airedAt !== first.airedAt) return second.airedAt - first.airedAt;
+      return second.ep - first.ep;
+    });
   }
 
   const startDate = parseDateParts(anime?.startDate || anime?.aired?.from);

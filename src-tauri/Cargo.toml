@@ -32,3 +32,4 @@ regex = "1"
 urlencoding = "2"
 futures = "0.3"
 notify = "6"
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_RestartManager"] }
