@@ -262,7 +262,7 @@ function TorrentPage() {
               </thead>
               <tbody>
                 {items.map((item, index) => (
-                  <tr key={index} className={styles.tableRow}>
+                  <tr key={item.info_hash || item.download_url || item.magnet || `torrent-${index}`} className={styles.tableRow}>
                     <td className={styles.colTitle}>
                       <button
                         type="button"

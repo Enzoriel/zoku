@@ -14,8 +14,7 @@ export function GlobalSync() {
   // Obtenemos los animes en emisión (incluyendo los de la biblioteca que no son de temporada)
   const { allAiringAnime } = useRecentAnime(
     seasonalAnime,
-    storeData.myAnimes,
-    storeData.localFiles
+    storeData.myAnimes
   );
 
   // Activamos el aprendizaje automático de alias de Nyaa

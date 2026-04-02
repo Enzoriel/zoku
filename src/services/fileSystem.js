@@ -374,12 +374,11 @@ function getVideosInFolder(directory) {
   });
 }
 
-export async function scanLibrary(basePath, myAnimes, settings = {}) {
+export async function scanLibrary(basePath, myAnimes) {
   if (!basePath) return {};
 
   const virtualLibrary = {};
   const animeList = Object.values(myAnimes || {});
-  void settings;
 
   try {
     const scanResult = await invoke("scan_library_entries");
@@ -490,17 +489,14 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
     animeList.forEach((anime) => {
       // Si tiene folderName, verificar si la carpeta existe físicamente
       if (anime.folderName) {
-        const alreadyInList = Object.keys(virtualLibrary).includes(anime.folderName);
-        if (!alreadyInList) {
-          // La carpeta vinculada ya no existe en disco
+        const exists = Object.keys(virtualLibrary).includes(anime.folderName);
+        if (!exists) {
           virtualLibrary[anime.folderName] = {
             files: [],
             isLinked: true,
             isSuggested: false,
             malId: anime.malId,
             animeData: anime,
-            suggestedMalId: null,
-            suggestedAnimeData: null,
             resolvedMalId: anime.malId,
             resolvedAnimeData: anime,
             folderName: anime.folderName,
@@ -510,23 +506,18 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
         return;
       }
 
-      // Sin folderName: anime en seguimiento puro, solo si no esta completado
-      const alreadyInList = Object.values(virtualLibrary).some(
-        (f) =>
-          String(f.malId) === String(anime.malId) ||
-          String(f.resolvedMalId) === String(anime.malId) ||
-          String(f.suggestedMalId) === String(anime.malId),
+      // Seguimiento puro (sin carpeta)
+      const inVirtual = Object.values(virtualLibrary).some(
+        (f) => String(f.resolvedMalId) === String(anime.malId)
       );
-      if (!alreadyInList && !isCompletedAnime(anime)) {
+      if (!inVirtual && !isCompletedAnime(anime)) {
         virtualLibrary[`__tracking__${anime.malId}`] = {
           files: [],
           isLinked: false,
           isSuggested: false,
-          isTracking: true, // sin carpeta, solo seguimiento
+          isTracking: true,
           malId: anime.malId,
           animeData: anime,
-          suggestedMalId: null,
-          suggestedAnimeData: null,
           resolvedMalId: anime.malId,
           resolvedAnimeData: anime,
           folderName: null,
@@ -535,6 +526,7 @@ export async function scanLibrary(basePath, myAnimes, settings = {}) {
     });
   } catch (error) {
     console.error("[FS] Fallo en el escáner virtual:", error);
+    return { __scanError: true, __errorMessage: error.message || "Error desconocido" };
   }
 
   return virtualLibrary;

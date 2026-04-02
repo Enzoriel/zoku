@@ -118,14 +118,19 @@ function AnimeDetails() {
     if (!mainAnime?.malId || !mainAnime?.isInLibrary || mainAnime?.folderName) return [];
 
     return findAnimeFolderCandidates(mainAnime, data?.localFiles || {}, { onlyWithFiles: true })
-      .filter(([folderKey]) => String(mainAnime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderKey.toLowerCase())
+      .filter(
+        ([folderKey]) =>
+          String(mainAnime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderKey.toLowerCase(),
+      )
       .map(([key, folder]) => ({ key, ...folder }));
   }, [mainAnime, data?.localFiles]);
 
   const suggestedFolder = useMemo(() => {
     if (!mainAnime?.linkSuggestion?.folderName) return null;
     return (
-      Object.values(data?.localFiles || {}).find((folder) => folder.folderName === mainAnime.linkSuggestion.folderName) || null
+      Object.values(data?.localFiles || {}).find(
+        (folder) => folder.folderName === mainAnime.linkSuggestion.folderName,
+      ) || null
     );
   }, [mainAnime, data?.localFiles]);
 
@@ -190,8 +195,6 @@ function AnimeDetails() {
   const dataMyAnimesRef = useRef(data.myAnimes);
   const getAnimeByIdRef = useRef(getAnimeById);
   const getFreshAnimeByIdRef = useRef(getFreshAnimeById);
-  const refreshAnimeByIdRef = useRef(refreshAnimeById);
-  const setMyAnimesRef = useRef(setMyAnimes);
 
   useEffect(() => {
     dataMyAnimesRef.current = data.myAnimes;
@@ -204,14 +207,6 @@ function AnimeDetails() {
   useEffect(() => {
     getFreshAnimeByIdRef.current = getFreshAnimeById;
   }, [getFreshAnimeById]);
-
-  useEffect(() => {
-    refreshAnimeByIdRef.current = refreshAnimeById;
-  }, [refreshAnimeById]);
-
-  useEffect(() => {
-    setMyAnimesRef.current = setMyAnimes;
-  }, [setMyAnimes]);
 
   useEffect(() => {
     if (animeId && !Number.isNaN(Number(animeId))) {
@@ -241,9 +236,7 @@ function AnimeDetails() {
     const isAiring = isAnimeActivelyAiring(stored);
     const hasFreshContext = Boolean(getFreshAnimeByIdRef.current(currentAnimeId));
     const staleAiringData = isAiringMetadataStale(stored, now);
-    const needsScheduledRefresh = isAiring
-      ? ageMs >= AIRING_METADATA_REFRESH_MS
-      : daysSince >= METADATA_REFRESH_DAYS;
+    const needsScheduledRefresh = isAiring ? ageMs >= AIRING_METADATA_REFRESH_MS : daysSince >= METADATA_REFRESH_DAYS;
     const needsOffSeasonRetry = !hasFreshContext && ageMs >= NON_SEASON_METADATA_REFRESH_MS;
 
     if (!isMissingData && !staleAiringData && !needsScheduledRefresh && !needsOffSeasonRetry) {
@@ -259,7 +252,7 @@ function AnimeDetails() {
       (!hasFreshContext && isAiring);
 
     if (shouldQueryApi) {
-      const refreshedData = await refreshAnimeByIdRef.current(currentAnimeId, {
+      const refreshedData = await refreshAnimeById(currentAnimeId, {
         force: true,
         anilistId: stored.anilistId,
       });
@@ -288,7 +281,7 @@ function AnimeDetails() {
       ...safeApiData
     } = apiData;
 
-    await setMyAnimesRef.current((prev) => ({
+    await setMyAnimes((prev) => ({
       ...prev,
       [currentAnimeId]: {
         ...prev[currentAnimeId],

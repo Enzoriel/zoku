@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLibrary } from "../../context/LibraryContext";
 import { useTorrent } from "../../context/TorrentContext";
@@ -35,55 +36,57 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
   const principalFansub = getPrincipalFansub(storeData.settings);
   const allFansubs = getAllFansubs(storeData.settings).map((f) => f.name.toLowerCase());
 
-  let groupedItems = [];
+  const groupedItems = useMemo(() => {
+    const groups = [];
+    if (principalFansub) {
+      const principalItems = [];
+      const secondaryItems = [];
+      const otherItems = [];
 
-  if (principalFansub) {
-    const principalItems = [];
-    const secondaryItems = [];
-    const otherItems = [];
+      items.forEach((item) => {
+        const fansub = item.fansub.toLowerCase();
+        if (fansub === principalFansub.toLowerCase()) {
+          principalItems.push(item);
+        } else if (allFansubs.includes(fansub)) {
+          secondaryItems.push(item);
+        } else {
+          otherItems.push(item);
+        }
+      });
 
-    items.forEach((item) => {
-      const fansub = item.fansub.toLowerCase();
-      if (fansub === principalFansub.toLowerCase()) {
-        principalItems.push(item);
-      } else if (allFansubs.includes(fansub)) {
-        secondaryItems.push(item);
-      } else {
-        otherItems.push(item);
+      if (principalItems.length > 0) {
+        groups.push({ title: principalFansub, isPrincipal: true, items: sortItems(principalItems) });
       }
-    });
 
-    if (principalItems.length > 0) {
-      groupedItems.push({ title: principalFansub, isPrincipal: true, items: sortItems(principalItems) });
+      const secondaryGroups = {};
+      secondaryItems.forEach((item) => {
+        if (!secondaryGroups[item.fansub]) secondaryGroups[item.fansub] = [];
+        secondaryGroups[item.fansub].push(item);
+      });
+      Object.keys(secondaryGroups).forEach((fansub) => {
+        groups.push({ title: fansub, isPrincipal: false, items: sortItems(secondaryGroups[fansub]) });
+      });
+
+      const otherGroups = {};
+      otherItems.forEach((item) => {
+        if (!otherGroups[item.fansub]) otherGroups[item.fansub] = [];
+        otherGroups[item.fansub].push(item);
+      });
+      Object.keys(otherGroups).forEach((fansub) => {
+        groups.push({ title: fansub, isPrincipal: false, items: sortItems(otherGroups[fansub]) });
+      });
+    } else {
+      const groupsMap = {};
+      items.forEach((item) => {
+        if (!groupsMap[item.fansub]) groupsMap[item.fansub] = [];
+        groupsMap[item.fansub].push(item);
+      });
+      Object.keys(groupsMap).forEach((fansub) => {
+        groups.push({ title: fansub, isPrincipal: false, items: sortItems(groupsMap[fansub]) });
+      });
     }
-
-    const secondaryGroups = {};
-    secondaryItems.forEach((item) => {
-      if (!secondaryGroups[item.fansub]) secondaryGroups[item.fansub] = [];
-      secondaryGroups[item.fansub].push(item);
-    });
-    Object.keys(secondaryGroups).forEach((fansub) => {
-      groupedItems.push({ title: fansub, isPrincipal: false, items: sortItems(secondaryGroups[fansub]) });
-    });
-
-    const otherGroups = {};
-    otherItems.forEach((item) => {
-      if (!otherGroups[item.fansub]) otherGroups[item.fansub] = [];
-      otherGroups[item.fansub].push(item);
-    });
-    Object.keys(otherGroups).forEach((fansub) => {
-      groupedItems.push({ title: fansub, isPrincipal: false, items: sortItems(otherGroups[fansub]) });
-    });
-  } else {
-    const groups = {};
-    items.forEach((item) => {
-      if (!groups[item.fansub]) groups[item.fansub] = [];
-      groups[item.fansub].push(item);
-    });
-    Object.keys(groups).forEach((fansub) => {
-      groupedItems.push({ title: fansub, isPrincipal: false, items: sortItems(groups[fansub]) });
-    });
-  }
+    return groups;
+  }, [items, principalFansub, allFansubs]);
 
   const handleLinkAliasSilently = async (selectedItem) => {
     if (!malId || !selectedItem?.title) return;
@@ -155,9 +158,14 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
     try {
       await openUrl(url);
     } catch (e) {
-      console.error("[Download] openUrl failed, trying browser fallback:", e);
+      console.error("[Download] openUrl failed, trying safe fallback:", e);
       if (url.startsWith("magnet:")) {
-        window.location.href = url;
+        try {
+          await navigator.clipboard.writeText(url);
+          console.log("[Download] Magnet copiado al portapapeles debido a fallo de openUrl.");
+        } catch (clipError) {
+          console.error("[Download] Clipboard fallback failed:", clipError);
+        }
       } else {
         window.open(url, "_blank");
       }

@@ -52,19 +52,19 @@ export function LibraryProvider({ children }) {
         const originalMyAnimes = nextMyAnimes;
         const nowMs = Date.now();
         const nowIso = new Date(nowMs).toISOString();
-        let localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes, settingsToUse);
+        let localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes);
 
         const missingResult = reconcileMissingFolders(localFiles, nextMyAnimes, nowIso);
         nextMyAnimes = missingResult.myAnimes;
         if (missingResult.changed) {
-          localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes, settingsToUse);
+          localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes);
         }
 
         let suggestionMap = buildSuggestionMap(localFiles);
         const suggestionResult = applySuggestionState(nextMyAnimes, suggestionMap, nowIso);
         nextMyAnimes = suggestionResult.myAnimes;
         if (suggestionResult.changed) {
-          localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes, settingsToUse);
+          localFiles = await scanLibrary(currentData.folderPath, nextMyAnimes);
           suggestionMap = buildSuggestionMap(localFiles);
         }
 

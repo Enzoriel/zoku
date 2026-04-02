@@ -34,12 +34,10 @@ function isRecentlyRelevantAnime(anime, now) {
   return Number.isFinite(finishedAt) && now - finishedAt < RECENT_MS;
 }
 
-export function useRecentAnime(seasonalAnime, myAnimes, localFiles) {
+export function useRecentAnime(seasonalAnime, myAnimes) {
   const [extraAnime, setExtraAnime] = useState([]);
   const [loadingExtra, setLoadingExtra] = useState(false);
   const [errorExtra, setErrorExtra] = useState(null);
-
-  void localFiles;
 
   const seasonalIds = useMemo(() => new Set(seasonalAnime.map((a) => Number(a.malId || a.mal_id))), [seasonalAnime]);
 

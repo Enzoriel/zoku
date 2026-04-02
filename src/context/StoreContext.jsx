@@ -41,19 +41,22 @@ export function StoreProvider({ children }) {
     return String(path).replace(/\\/g, "/").replace(/\/+$/, "");
   }, []);
 
-  const ensureLibraryScope = useCallback(async (folderPath) => {
-    try {
-      const result = await invoke("ensure_library_scope", { path: folderPath || "" });
-      setLibraryScopeError(null);
-      setLibraryScopeReady(true);
-      return normalizeLibraryPath(result?.rootPath || folderPath || "");
-    } catch (error) {
-      console.error("[Store] Error asegurando scope de biblioteca:", error);
-      setLibraryScopeError("No se pudo autorizar la carpeta de biblioteca actual.");
-      setLibraryScopeReady(false);
-      return null;
-    }
-  }, [normalizeLibraryPath]);
+  const ensureLibraryScope = useCallback(
+    async (folderPath) => {
+      try {
+        const result = await invoke("ensure_library_scope", { path: folderPath || "" });
+        setLibraryScopeError(null);
+        setLibraryScopeReady(true);
+        return normalizeLibraryPath(result?.rootPath || folderPath || "");
+      } catch (error) {
+        console.error("[Store] Error asegurando scope de biblioteca:", error);
+        setLibraryScopeError("No se pudo autorizar la carpeta de biblioteca actual.");
+        setLibraryScopeReady(false);
+        return null;
+      }
+    },
+    [normalizeLibraryPath],
+  );
 
   const processQueue = useCallback(async () => {
     if (isWriting.current || writeQueue.current.length === 0) return;
@@ -193,7 +196,18 @@ export function StoreProvider({ children }) {
       clearAllData,
       retryLibraryScope,
     }),
-    [data, loading, libraryScopeReady, libraryScopeError, setFolderPath, setMyAnimes, setLocalFiles, setSettings, clearAllData, retryLibraryScope],
+    [
+      data,
+      loading,
+      libraryScopeReady,
+      libraryScopeError,
+      setFolderPath,
+      setMyAnimes,
+      setLocalFiles,
+      setSettings,
+      clearAllData,
+      retryLibraryScope,
+    ],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

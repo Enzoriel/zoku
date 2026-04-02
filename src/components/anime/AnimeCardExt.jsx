@@ -108,7 +108,7 @@ function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes 
 
             <div className={styles.genres}>
               {anime.genres?.slice(0, 2).map((g, i) => (
-                <span key={i} className={styles.genreTag}>
+                <span key={g.name || g.mal_id || `genre-${i}`} className={styles.genreTag}>
                   {g.name || g}
                 </span>
               ))}
@@ -157,7 +157,7 @@ function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes 
           <h3 className={styles.title}>{title}</h3>
           <div className={styles.cardGenres}>
             {anime.genres?.slice(0, 2).map((g, i) => (
-              <span key={i} className={styles.cardGenreTag}>
+              <span key={g.name || g.mal_id || `genre-${i}`} className={styles.cardGenreTag}>
                 {g.name || g}
               </span>
             ))}

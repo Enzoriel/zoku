@@ -73,7 +73,7 @@ function History() {
   const groupedByMonth = useMemo(() => {
     const groups = {};
     historyData.forEach((event) => {
-      const key = `${event.date.getFullYear()}-${String(event.date.getMonth()).padStart(2, "0")}`;
+      const key = `${event.date.getFullYear()}-${String(event.date.getMonth() + 1).padStart(2, "0")}`;
       if (!groups[key]) {
         groups[key] = {
           year: event.date.getFullYear(),
