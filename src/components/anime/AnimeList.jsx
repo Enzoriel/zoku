@@ -2,16 +2,13 @@ import { useState, useEffect } from "react";
 import AnimeCardExt from "./AnimeCardExt";
 import styles from "./AnimeList.module.css";
 import { useStore } from "../../hooks/useStore";
+import { useAnime } from "../../context/AnimeContext";
 
 const PAGE_SIZE = 12;
 
 function AnimeList({ animes = [], disablePagination = false }) {
+  const { page, setPage } = useAnime();
   const { data, setMyAnimes } = useStore();
-  const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    setPage(1);
-  }, [animes]);
 
   useEffect(() => {
     if (disablePagination) return;

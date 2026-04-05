@@ -17,6 +17,7 @@ export function AnimeProvider({ children }) {
   const [error, setError] = useState(null);
   const isFetching = useRef(false);
   const detailRequestsRef = useRef(new Map());
+  const [page, setPage] = useState(1);
 
   const fetchSeasonal = useCallback(async () => {
     if (isFetching.current) return;
@@ -32,6 +33,7 @@ export function AnimeProvider({ children }) {
     } finally {
       isFetching.current = false;
       setLoading(false);
+      setPage(1);
     }
   }, []);
 
@@ -67,7 +69,9 @@ export function AnimeProvider({ children }) {
     (id) => {
       const parsed = parseInt(id, 10);
       return (
-        seasonalAnime.find((anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed) ||
+        seasonalAnime.find(
+          (anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed,
+        ) ||
         searchAnimes.find((anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed) ||
         extraAnimeById[parsed] ||
         null
@@ -123,8 +127,21 @@ export function AnimeProvider({ children }) {
       getFreshAnimeById,
       refreshAnimeById,
       retryFetch,
+      page,
+      setPage,
     }),
-    [seasonalAnime, searchAnimes, loading, error, getAnimeById, getFreshAnimeById, refreshAnimeById, retryFetch],
+    [
+      seasonalAnime,
+      searchAnimes,
+      loading,
+      error,
+      getAnimeById,
+      getFreshAnimeById,
+      refreshAnimeById,
+      retryFetch,
+      page,
+      setPage,
+    ],
   );
 
   return <AnimeContext.Provider value={value}>{children}</AnimeContext.Provider>;

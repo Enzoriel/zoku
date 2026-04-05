@@ -5,7 +5,7 @@ import styles from "./Discover.module.css";
 import { useAnime } from "../context/AnimeContext";
 
 function Discover() {
-  const { seasonalAnime: allAnimes, loading, error, retryFetch } = useAnime();
+  const { seasonalAnime: allAnimes, loading, error, retryFetch, setPage } = useAnime();
   const [type, setType] = useState("TV");
   const [pendingType, setPendingType] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -18,6 +18,7 @@ function Discover() {
     if (newType === type || isPending) return;
     setPendingType(newType);
     startTransition(() => {
+      setPage(1);
       setType(newType);
       setPendingType(null);
     });
