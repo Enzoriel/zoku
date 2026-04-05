@@ -47,7 +47,8 @@ export function getReleasedEpisodeCount(anime, nowMs = Date.now()) {
     Array.isArray(anime?.episodeList) ? anime.episodeList.length : 0,
   );
 
-  const nextEpisodeNumber = toFiniteNumber(anime?.nextAiringEpisode?.episode);
+  const nextAiring = anime?.nextAiringEpisode;
+  const nextEpisodeNumber = toFiniteNumber(nextAiring?.episode);
   if (!nextEpisodeNumber) {
     if (isFinishedStatus(status)) {
       return finishedCount;
@@ -60,7 +61,7 @@ export function getReleasedEpisodeCount(anime, nowMs = Date.now()) {
     return toFiniteNumber(anime?.episodes);
   }
 
-  const releasedBySchedule = hasAiredNextEpisode(anime.nextAiringEpisode, nowMs)
+  const releasedBySchedule = hasAiredNextEpisode(nextAiring, nowMs)
     ? nextEpisodeNumber
     : Math.max(nextEpisodeNumber - 1, 0);
 
@@ -72,5 +73,6 @@ export function getReleasedEpisodeCount(anime, nowMs = Date.now()) {
 }
 
 export function isAiringMetadataStale(anime, nowMs = Date.now()) {
-  return isAnimeActivelyAiring(anime) && hasAiredNextEpisode(anime?.nextAiringEpisode, nowMs);
+  const nextAiring = anime?.nextAiringEpisode;
+  return isAnimeActivelyAiring(anime) && hasAiredNextEpisode(nextAiring, nowMs);
 }

@@ -1,20 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useStore } from "../../hooks/useStore";
 import { getPreferredResolution } from "../../utils/torrentConfig";
+import { PRESET_FANSUBS, SUPPORTED_RESOLUTIONS } from "../../utils/constants";
 import styles from "./FansubOnboardingModal.module.css";
-
-const PRESET_FANSUBS = [
-  "SubsPlease",
-  "Erai-raws",
-  "HorribleSubs",
-  "ASW",
-  "Judas",
-  "Ember",
-  "LostYears",
-  "Yameii",
-  "DKB",
-  "Cerberus",
-];
 
 function FansubOnboardingModal({ onComplete }) {
   const { data, setSettings } = useStore();
@@ -193,7 +181,7 @@ function FansubOnboardingModal({ onComplete }) {
             <span className={styles.principalLabel}>RESOLUCIÓN PREFERIDA</span>
           </div>
           <div className={styles.resolutionGrid}>
-            {["2160p", "1080p", "720p", "480p"].map((res) => (
+            {SUPPORTED_RESOLUTIONS.map((res) => (
               <label key={res} className={`${styles.radioItem} ${resolution === res ? styles.radioActive : ""}`}>
                 <input
                   type="radio"

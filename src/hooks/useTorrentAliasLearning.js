@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useStore } from "./useStore";
 import { useTorrent } from "../context/TorrentContext";
-import { findTorrentMatches, extractAliasFromTitle } from "../utils/torrentMatch";
+import { findTorrentMatches } from "../utils/torrentMatch";
 import { getReleasedEpisodeCount } from "../utils/airingStatus";
-import { extractBaseTitle } from "../services/fileSystem";
+import { deriveTorrentLinkFields, applyTorrentLinkFields } from "../utils/torrentLinking";
 
 /**
  * Hook que observa los animes en emisión y los torrents recientes
@@ -35,17 +35,17 @@ export function useTorrentAliasLearning(allAiringAnime) {
         const lastAiredEp = getReleasedEpisodeCount(anime);
         
         if (lastAiredEp > 0) {
-          const titleRomaji = anime.title;
-          const titleEnglish = anime.title_english || null;
-          
-          const matches = findTorrentMatches(titleRomaji, titleEnglish, lastAiredEp, torrentData);
+          const matches = findTorrentMatches(
+            anime.title,
+            anime.title_english || null,
+            lastAiredEp,
+            torrentData,
+          );
+
           if (matches.length > 0) {
-            const matchedTitle = matches[0].title;
-            const alias = extractAliasFromTitle(matchedTitle);
-            const torrentSearchTerm = alias || extractBaseTitle(matchedTitle);
-            const diskAlias = extractBaseTitle(matchedTitle);
-            if (alias || diskAlias || torrentSearchTerm) {
-              itemsToUpdate.push({ id, alias, torrentSearchTerm, torrentTitle: matchedTitle, diskAlias });
+            const linkFields = deriveTorrentLinkFields(matches[0].title);
+            if (linkFields) {
+              itemsToUpdate.push({ id, linkFields });
             }
           }
         }
@@ -57,24 +57,12 @@ export function useTorrentAliasLearning(allAiringAnime) {
         const next = { ...prev };
         let changed = false;
         
-        itemsToUpdate.forEach(({ id, alias, torrentSearchTerm, torrentTitle, diskAlias }) => {
-          if (
-            next[id] &&
-            (
-              next[id].torrentAlias !== alias ||
-              next[id].torrentSearchTerm !== torrentSearchTerm ||
-              next[id].torrentTitle !== torrentTitle ||
-              next[id].diskAlias !== diskAlias
-            )
-          ) {
-            next[id] = { 
-              ...next[id], 
-              torrentAlias: alias, 
-              torrentSearchTerm,
-              torrentTitle,
-              diskAlias,
-              lastUpdated: new Date().toISOString() 
-            };
+        itemsToUpdate.forEach(({ id, linkFields }) => {
+          if (!next[id]) return;
+
+          const updated = applyTorrentLinkFields(next[id], linkFields);
+          if (updated) {
+            next[id] = updated;
             changed = true;
           }
         });

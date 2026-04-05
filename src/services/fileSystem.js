@@ -2,10 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { Command } from "@tauri-apps/plugin-shell";
 import { extractEpisodeNumber, detectConstantNumbers } from "../utils/fileParsing";
-import {
-  extractBaseTitle as deriveBaseTitle,
-  normalizeForSearch as normalizeTitleForSearch,
-} from "../utils/titleIdentity";
+import { extractBaseTitle, normalizeForSearch as normalizeTitleForSearch } from "../utils/titleIdentity";
 
 const PLAYER_PROCESS_NAMES = {
   mpv: "mpv",
@@ -168,7 +165,9 @@ function isSeasonCompatible(folder, anime) {
   ].filter(Number.isFinite);
 
   if (folderSeasons.length === 0) {
-    return false;
+    // Si no logramos extraer la temporada del archivo explícitamente (ej: no dice "Season 2"),
+    // NO rechazamos. Dejamos que la similitud de texto decida el match.
+    return true;
   }
 
   return folderSeasons.includes(animeSeason);
@@ -195,7 +194,7 @@ function buildAnimeSearchKeys(anime) {
   ]);
 }
 
-function getKeyMatchScore(folderKey, animeKey) {
+function getKeyMatchScore(folderKey, animeKey, lenient = false) {
   if (!folderKey || !animeKey) return 0;
   if (folderKey === animeKey) return 1;
 
@@ -211,7 +210,8 @@ function getKeyMatchScore(folderKey, animeKey) {
   const sharedTokens = animeTokens.filter((token) => folderTokens.includes(token)).length;
   const overlapRatio = sharedTokens / Math.max(folderTokens.length, animeTokens.length);
 
-  return sharedTokens >= 2 && overlapRatio >= 0.75 ? overlapRatio : 0;
+  const threshold = lenient ? 0.45 : 0.75;
+  return sharedTokens >= 2 && overlapRatio >= threshold ? overlapRatio : 0;
 }
 
 export function findAnimeFolderCandidates(anime, localFiles, options = {}) {
@@ -226,12 +226,31 @@ export function findAnimeFolderCandidates(anime, localFiles, options = {}) {
   const animeKeys = buildAnimeSearchKeys(anime);
   if (animeKeys.length === 0) return [];
 
+  const intentAt = anime?.downloadIntentAt ? new Date(anime.downloadIntentAt).getTime() : 0;
+  const isRecentToIntent = (folder) => {
+    if (intentAt === 0) return false;
+    return (folder?.files || []).some((file) => {
+      const modifiedAtMs = Number(file.modifiedAtMs || 0);
+      return modifiedAtMs > 0 && modifiedAtMs >= intentAt - 30000;
+    });
+  };
+
   return folders
     .map(([folderName, folder]) => {
       const folderKeys = buildFolderSearchKeys(folder);
-      const score = Math.max(
-        ...folderKeys.map((folderKey) => Math.max(...animeKeys.map((animeKey) => getKeyMatchScore(folderKey, animeKey)))),
+      const isLenient = isRecentToIntent(folder);
+      
+      let score = Math.max(
+        ...folderKeys.map((folderKey) => 
+          Math.max(...animeKeys.map((animeKey) => getKeyMatchScore(folderKey, animeKey, isLenient)))
+        ),
       );
+
+      // Dar un gran impulso a la puntuación si sabemos que el archivo acaba de ser descargado
+      // justo después de que el usuario hizo click en 'Descargar'
+      if (score > 0 && isLenient) {
+        score = Math.min(1.0, score + 0.4);
+      }
 
       return score > 0 ? [folderName, folder, score] : null;
     })
@@ -255,12 +274,10 @@ function tokenizeSearchKey(value) {
 }
 
 function keysMatch(folderKey, animeKey) {
-  return getKeyMatchScore(folderKey, animeKey) > 0;
+  return getKeyMatchScore(folderKey, animeKey, false) > 0;
 }
 
-export function extractBaseTitle(fileName) {
-  return deriveBaseTitle(fileName);
-}
+
 
 export async function deleteFolderFromDisk(folderPath, basePath) {
   if (!folderPath) return false;

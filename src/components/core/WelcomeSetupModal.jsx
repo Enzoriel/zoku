@@ -3,21 +3,8 @@ import Modal from "../ui/Modal";
 import { useStore } from "../../hooks/useStore";
 import { selectFolder } from "../../services/fileSystem";
 import { getPreferredResolution } from "../../utils/torrentConfig";
+import { KNOWN_PLAYERS, SUPPORTED_RESOLUTIONS, PRESET_FANSUBS } from "../../utils/constants";
 import styles from "./WelcomeSetupModal.module.css";
-
-const KNOWN_PLAYERS = ["mpv", "vlc", "mpc-hc", "mpc-be", "potplayer"];
-const PRESET_FANSUBS = [
-  "SubsPlease",
-  "Erai-raws",
-  "HorribleSubs",
-  "ASW",
-  "Judas",
-  "Ember",
-  "LostYears",
-  "Yameii",
-  "DKB",
-  "Cerberus",
-];
 
 export function WelcomeSetupModal() {
   const { data, loading, setFolderPath, setSettings } = useStore();
@@ -257,7 +244,7 @@ export function WelcomeSetupModal() {
           )}
           <label className={styles.fieldLabel}>Resolucion preferida</label>
           <div className={styles.radioGrid}>
-            {["2160p", "1080p", "720p", "480p"].map((value) => (
+            {SUPPORTED_RESOLUTIONS.map((value) => (
               <label key={value} className={styles.radioItem}>
                 <input type="radio" checked={resolution === value} onChange={() => setResolution(value)} />
                 <span>{value}</span>

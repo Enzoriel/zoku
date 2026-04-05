@@ -49,13 +49,13 @@ function buildBatchPremiereOccurrences(releasedEpisodeCount, startDate) {
   }));
 }
 
-function buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs) {
+function buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs, isEstimated = true) {
   const occurrences = [];
   for (let offset = 0; offset < releasedEpisodeCount; offset += 1) {
     occurrences.push({
       ep: releasedEpisodeCount - offset,
       airedAt: lastReleaseMs - offset * WEEK_MS,
-      isEstimated: true,
+      isEstimated,
     });
   }
   return occurrences;
@@ -84,18 +84,19 @@ export function buildRecentEpisodeOccurrences(anime, nowMs = Date.now()) {
   }
 
   const startDate = parseDateParts(anime?.startDate || anime?.aired?.from);
-  const nextAiringAtMs = Number(anime?.nextAiringEpisode?.airingAt || 0) * 1000;
+  const nextAiring = anime?.nextAiringEpisode;
+  const nextAiringAtMs = Number(nextAiring?.airingAt || 0) * 1000;
   const hasNextAiring = Number.isFinite(nextAiringAtMs) && nextAiringAtMs > 0;
 
   if (startDate && hasNextAiring) {
-    const lastReleaseMs = hasAiredNextEpisode(anime.nextAiringEpisode, nowMs) ? nextAiringAtMs : nextAiringAtMs - WEEK_MS;
+    const lastReleaseMs = hasAiredNextEpisode(nextAiring, nowMs) ? nextAiringAtMs : nextAiringAtMs - WEEK_MS;
     if (isSameLocalDay(startDate, new Date(lastReleaseMs))) {
       return buildBatchPremiereOccurrences(releasedEpisodeCount, startDate).filter(
         (entry) => entry.airedAt >= cutoffMs && entry.airedAt <= nowMs + 60 * 60 * 1000,
       );
     }
 
-    return buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs).filter(
+    return buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs, false).filter(
       (entry) => entry.airedAt >= cutoffMs && entry.airedAt <= nowMs + 60 * 60 * 1000,
     );
   }
@@ -107,15 +108,15 @@ export function buildRecentEpisodeOccurrences(anime, nowMs = Date.now()) {
   }
 
   if (hasNextAiring) {
-    const lastReleaseMs = hasAiredNextEpisode(anime.nextAiringEpisode, nowMs) ? nextAiringAtMs : nextAiringAtMs - WEEK_MS;
-    return buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs).filter(
+    const lastReleaseMs = hasAiredNextEpisode(nextAiring, nowMs) ? nextAiringAtMs : nextAiringAtMs - WEEK_MS;
+    return buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs, false).filter(
       (entry) => entry.airedAt >= cutoffMs && entry.airedAt <= nowMs + 60 * 60 * 1000,
     );
   }
 
   const endDate = parseDateParts(anime?.endDate);
   if (endDate) {
-    return buildWeeklyOccurrences(releasedEpisodeCount, endDate.getTime()).filter(
+    return buildWeeklyOccurrences(releasedEpisodeCount, endDate.getTime(), false).filter(
       (entry) => entry.airedAt >= cutoffMs && entry.airedAt <= nowMs + 60 * 60 * 1000,
     );
   }

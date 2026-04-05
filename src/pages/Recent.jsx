@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
 import { useRecentAnime } from "../hooks/useRecentAnime";
-import { extractBaseTitle } from "../services/fileSystem";
-import { extractEpisodeNumber } from "../utils/fileParsing";
+import { extractBaseTitle } from "../utils/titleIdentity";
 import { useTorrent } from "../context/TorrentContext";
 import { useToast } from "../hooks/useToast";
 import { formatRelativeDate, getLocalDayKey } from "../utils/dateFormat";
@@ -12,12 +11,11 @@ import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import TorrentSearchModal from "../components/ui/TorrentSearchModal";
 import RetryPanel from "../components/ui/RetryPanel";
 import { usePlayTracking } from "../hooks/usePlayTracking";
+import { extractEpisodeNumber } from "../utils/fileParsing";
 import { getEpisodeTorrentAvailability } from "../utils/torrentAvailability";
 import { buildRecentEpisodeOccurrences } from "../utils/recentEpisodes";
 import styles from "./Recent.module.css";
-
-const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"];
-const DAY_NAMES_SHORT = ["DOM", "LUN", "MAR", "MIE", "JUE", "VIE", "SAB"];
+import { DAY_NAMES, DAY_NAMES_SHORT } from "../utils/constants";
 
 function Recent() {
   const { data } = useStore();
@@ -35,17 +33,13 @@ function Recent() {
 
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
-  const [torrentModalTitle, setTorrentModalTitle] = useState("");
   const [torrentModalAnimeTitle, setTorrentModalAnimeTitle] = useState("");
   const [torrentModalMalId, setTorrentModalMalId] = useState(null);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalItem, setSearchModalItem] = useState(null);
 
   const { toast, showToast } = useToast();
-  const {
-    playingEp,
-    handlePlayEpisode: trackPlay,
-  } = usePlayTracking((message, type) => showToast(message, type));
+  const { playingEp, handlePlayEpisode: trackPlay } = usePlayTracking((message, type) => showToast(message, type));
 
   const myAnimeMap = useMemo(() => {
     const map = {};
@@ -70,6 +64,8 @@ function Recent() {
         const watchedEps = stored?.watchedEpisodes || [];
         const localFolder = Object.values(data.localFiles || {}).find((folder) => {
           if (stored?.folderName && folder.folderName === stored.folderName) return true;
+          const id = String(animeId);
+          if (folder.resolvedMalId && String(folder.resolvedMalId) === id) return true;
           return false;
         });
         const localFiles = localFolder?.files || [];
@@ -149,14 +145,14 @@ function Recent() {
     const groups = Array.from({ length: 7 }, () => []);
 
     myAiringAnime.forEach((anime) => {
-      if (!anime.nextAiring) return;
-      const nextDate = new Date(anime.nextAiring.airingAt * 1000);
+      if (!anime.nextAiringEpisode) return;
+      const nextDate = new Date(anime.nextAiringEpisode.airingAt * 1000);
       const dayOfWeek = nextDate.getDay();
       groups[dayOfWeek].push({
         anime,
-        nextEp: anime.nextAiring.episode,
-        airingAt: anime.nextAiring.airingAt * 1000,
-        timeUntil: anime.nextAiring.timeUntilAiring,
+        nextEp: anime.nextAiringEpisode.episode,
+        airingAt: anime.nextAiringEpisode.airingAt * 1000,
+        timeUntil: anime.nextAiringEpisode.timeUntilAiring,
       });
     });
 
@@ -251,7 +247,9 @@ function Recent() {
           ) : groupedByDay.length === 0 ? (
             <div className={styles.emptyState}>
               <p>No hay episodios recientes de tus series en emision.</p>
-              <span>{hasTrackedAnime ? "Vuelve a revisar mas tarde." : "Anade series a tu lista desde Descubrir."}</span>
+              <span>
+                {hasTrackedAnime ? "Vuelve a revisar mas tarde." : "Anade series a tu lista desde Descubrir."}
+              </span>
             </div>
           ) : (
             groupedByDay.map(({ key, date, episodes }) => (
@@ -292,10 +290,7 @@ function Recent() {
                       </div>
                       <div className={styles.episodeInfo}>
                         <span className={styles.animeTitle}>{anime.title}</span>
-                        <span className={styles.epNumber}>
-                          Episodio {ep}
-                          {isEstimated ? " - estimado" : ""}
-                        </span>
+                        <span className={styles.epNumber}>Episodio {ep}</span>
                       </div>
                       <div className={styles.episodeActions} onClick={(event) => event.stopPropagation()}>
                         {(() => {
@@ -324,7 +319,6 @@ function Recent() {
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setTorrentModalItems(matches);
-                                  setTorrentModalTitle(`${anime.title} - Episodio ${ep}`);
                                   setTorrentModalAnimeTitle(anime.title);
                                   setTorrentModalMalId(anime.malId || anime.mal_id);
                                   setTorrentModalOpen(true);
@@ -342,9 +336,9 @@ function Recent() {
                               onClick={(event) => {
                                 event.stopPropagation();
                                 const stored = myAnimeMap[anime.malId || anime.mal_id];
-    const query =
-      stored?.torrentSearchTerm ||
-      extractBaseTitle(stored?.torrentTitle || stored?.torrentAlias || anime.title);
+                                const query =
+                                  stored?.torrentSearchTerm ||
+                                  extractBaseTitle(stored?.torrentTitle || stored?.torrentAlias || anime.title);
 
                                 setSearchModalItem({
                                   title: query,
@@ -413,7 +407,9 @@ function Recent() {
                 onClick={() => setActiveDay(index)}
               >
                 <span className={styles.dayBtnName}>{day}</span>
-                {scheduleByDay[index].length > 0 && <span className={styles.dayBtnCount}>{scheduleByDay[index].length}</span>}
+                {scheduleByDay[index].length > 0 && (
+                  <span className={styles.dayBtnCount}>{scheduleByDay[index].length}</span>
+                )}
               </button>
             ))}
           </div>

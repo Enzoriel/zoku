@@ -7,8 +7,7 @@ import { selectFolder } from "../services/fileSystem";
 import { getPreferredResolution } from "../utils/torrentConfig";
 import styles from "./Configuration.module.css";
 
-const KNOWN_PLAYERS = ["mpv", "vlc", "mpc-hc", "mpc-be", "potplayer"];
-
+import { KNOWN_PLAYERS, SUPPORTED_RESOLUTIONS } from "../utils/constants";
 const Configuration = () => {
   const { data, setSettings, setFolderPath, clearAllData } = useStore();
   const navigate = useNavigate();
@@ -162,7 +161,7 @@ const Configuration = () => {
         <div className={styles.settingItem} style={{ marginBottom: "20px" }}>
           <label>Calidad de video preferida:</label>
           <div className={styles.resContainer}>
-            {["2160p", "1080p", "720p", "480p"].map((resolution) => (
+            {SUPPORTED_RESOLUTIONS.map((resolution) => (
               <button
                 key={resolution}
                 className={`${styles.resBtn} ${localResolution === resolution ? styles.resBtnActive : ""}`}

@@ -1,10 +1,7 @@
 import { useMemo } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useLibrary } from "../../context/LibraryContext";
-import { useTorrent } from "../../context/TorrentContext";
 import { useStore } from "../../hooks/useStore";
-import { extractBaseTitle } from "../../services/fileSystem";
-import { extractAliasFromTitle } from "../../utils/torrentMatch";
+import { deriveTorrentLinkFields, applyTorrentLinkFields } from "../../utils/torrentLinking";
 import { getPrincipalFansub, getAllFansubs } from "../../utils/torrentConfig";
 import Modal from "./Modal";
 import styles from "./TorrentDownloadModal.module.css";
@@ -30,8 +27,6 @@ function sortItems(items) {
 
 function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }) {
   const { data: storeData, setMyAnimes } = useStore();
-  const { performSync } = useLibrary();
-  const { refresh: refreshTorrentFeed } = useTorrent();
 
   const principalFansub = getPrincipalFansub(storeData.settings);
   const allFansubs = getAllFansubs(storeData.settings).map((f) => f.name.toLowerCase());
@@ -88,73 +83,10 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
     return groups;
   }, [items, principalFansub, allFansubs]);
 
-  const handleLinkAliasSilently = async (selectedItem) => {
-    if (!malId || !selectedItem?.title) return;
-
-    try {
-      const cleanAlias = extractAliasFromTitle(selectedItem.title);
-      const torrentSearchTerm = cleanAlias || extractBaseTitle(selectedItem.title);
-      const diskAlias = extractBaseTitle(selectedItem.title);
-      if (!cleanAlias && !diskAlias && !torrentSearchTerm) return;
-
-      await setMyAnimes((prev) => {
-        const updated = { ...prev };
-        if (updated[malId]) {
-          if (
-            updated[malId].torrentAlias === cleanAlias &&
-            updated[malId].torrentSearchTerm === torrentSearchTerm &&
-            updated[malId].torrentTitle === selectedItem.title &&
-            updated[malId].diskAlias === diskAlias
-          ) {
-            return prev;
-          }
-
-          updated[malId] = {
-            ...updated[malId],
-            torrentAlias: cleanAlias,
-            torrentSearchTerm,
-            torrentTitle: selectedItem.title,
-            diskAlias,
-            lastUpdated: new Date().toISOString(),
-          };
-        }
-        return updated;
-      });
-    } catch (e) {
-      console.error("Error linking alias silently:", e);
-    }
-  };
-
-  const persistDownloadIntent = async () => {
-    if (!malId) return;
-
-    try {
-      await setMyAnimes((prev) => {
-        const current = prev[malId];
-        if (!current) return prev;
-
-        return {
-          ...prev,
-          [malId]: {
-            ...current,
-            downloadIntentAt: new Date().toISOString(),
-            downloadTrackingMode: null,
-            lastUpdated: new Date().toISOString(),
-          },
-        };
-      });
-    } catch (e) {
-      console.error("Error persisting download intent:", e);
-    }
-  };
-
   const handleDownloadAction = async (url, selectedItem) => {
     if (!url) return;
 
-    await persistDownloadIntent();
-    await handleLinkAliasSilently(selectedItem);
-    await performSync();
-
+    // 1. Abrir URL inmediatamente (el usuario ve la descarga empezar)
     try {
       await openUrl(url);
     } catch (e) {
@@ -171,19 +103,36 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
       }
     }
 
-    try {
-      await refreshTorrentFeed();
-    } catch (refreshError) {
-      console.error("[Download] torrent feed refresh failed:", refreshError);
+    // 2. Cerrar modal rápido para evitar flash visual
+    onClose();
+
+    // 3. Escribir intent + alias en una sola operación atómica (un solo re-render)
+    if (malId) {
+      const linkFields = selectedItem?.title ? deriveTorrentLinkFields(selectedItem.title) : null;
+
+      try {
+        await setMyAnimes((prev) => {
+          const current = prev[malId];
+          if (!current) return prev;
+
+          const withIntent = {
+            ...current,
+            downloadIntentAt: new Date().toISOString(),
+            downloadTrackingMode: null,
+            lastUpdated: new Date().toISOString(),
+          };
+
+          if (linkFields) {
+            const withAlias = applyTorrentLinkFields(withIntent, linkFields);
+            return { ...prev, [malId]: withAlias || withIntent };
+          }
+
+          return { ...prev, [malId]: withIntent };
+        });
+      } catch (e) {
+        console.error("[Download] Error persisting download state:", e);
+      }
     }
-
-    setTimeout(() => {
-      void performSync();
-    }, 1500);
-
-    setTimeout(() => {
-      onClose();
-    }, 800);
   };
 
   return (
@@ -210,7 +159,10 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
 
                 <div className={styles.itemList}>
                   {group.items.map((item, idx) => (
-                    <div key={item.info_hash || item.download_url || item.magnet || `${item.title}-${idx}`} className={styles.item}>
+                    <div
+                      key={item.info_hash || item.download_url || item.magnet || `${item.title}-${idx}`}
+                      className={styles.item}
+                    >
                       <div className={styles.itemTitle}>{item.title !== animeTitle && item.title}</div>
 
                       <div className={styles.itemInfo}>

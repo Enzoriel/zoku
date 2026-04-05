@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../../hooks/useStore";
-import { extractBaseTitle } from "../../services/fileSystem";
+import { extractBaseTitle } from "../../utils/titleIdentity";
 import { getAllFansubs, getPrincipalFansub } from "../../utils/torrentConfig";
 import Modal from "./Modal";
 import styles from "./FansubOnboardingModal.module.css";
