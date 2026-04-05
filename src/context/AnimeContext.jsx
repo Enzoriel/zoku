@@ -33,7 +33,6 @@ export function AnimeProvider({ children }) {
     } finally {
       isFetching.current = false;
       setLoading(false);
-      setDiscoverState((prev) => ({ ...prev, page: 1 }));
     }
   }, []);
 

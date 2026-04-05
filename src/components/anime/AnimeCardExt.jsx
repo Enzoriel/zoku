@@ -70,7 +70,7 @@ function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes 
           alt={title} 
           className={styles.image} 
           loading="eager" 
-          decoding="async"
+          decoding="sync"
           width="250"
           height="375"
         />
