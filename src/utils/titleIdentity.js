@@ -91,6 +91,7 @@ export function buildTorrentMatchCandidates({
   torrentTitle = null,
   animeTitleRomaji = null,
   animeTitleEnglish = null,
+  synonyms = [],
 } = {}) {
   return Array.from(
     new Set(
@@ -100,6 +101,7 @@ export function buildTorrentMatchCandidates({
         torrentTitle ? deriveTorrentAliasFromTitle(torrentTitle) : null,
         animeTitleRomaji,
         animeTitleEnglish,
+        ...(Array.isArray(synonyms) ? synonyms : []),
       ].filter(Boolean),
     ),
   );

@@ -91,7 +91,7 @@ function Recent() {
         const localFile = anime.localFiles.find((file) => {
           const number =
             file.episodeNumber ??
-            extractEpisodeNumber(file.name, [anime.title, anime.title_english, anime.storedData?.folderName]);
+            extractEpisodeNumber(file.name, [anime.title, anime.title_english, ...(anime.storedData?.synonyms || []), anime.storedData?.folderName]);
           return number !== null && number === episode;
         });
 
@@ -135,6 +135,7 @@ function Recent() {
           stored?.torrentAlias,
           stored?.torrentSearchTerm,
           stored?.torrentTitle,
+          stored?.synonyms || [],
         );
       });
     });

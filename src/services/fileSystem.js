@@ -189,6 +189,7 @@ function buildAnimeSearchKeys(anime) {
     anime?.diskAlias ? extractBaseTitle(anime.diskAlias) : "",
     anime?.title,
     anime?.title_english,
+    ...(Array.isArray(anime?.synonyms) ? anime.synonyms : []),
     anime?.torrentTitle ? extractBaseTitle(anime.torrentTitle) : "",
     anime?.torrentAlias ? extractBaseTitle(anime.torrentAlias) : "",
   ]);
@@ -199,7 +200,7 @@ function getKeyMatchScore(folderKey, animeKey, lenient = false) {
   if (folderKey === animeKey) return 1;
 
   const shorterLength = Math.min(folderKey.length, animeKey.length);
-  if (shorterLength >= 10 && (folderKey.includes(animeKey) || animeKey.includes(folderKey))) {
+  if (shorterLength >= 7 && (folderKey.includes(animeKey) || animeKey.includes(folderKey))) {
     return 0.96;
   }
 
@@ -211,7 +212,8 @@ function getKeyMatchScore(folderKey, animeKey, lenient = false) {
   const overlapRatio = sharedTokens / Math.max(folderTokens.length, animeTokens.length);
 
   const threshold = lenient ? 0.45 : 0.75;
-  return sharedTokens >= 2 && overlapRatio >= threshold ? overlapRatio : 0;
+  const minTokens = shorterLength >= 5 ? 1 : 2;
+  return sharedTokens >= minTokens && overlapRatio >= threshold ? overlapRatio : 0;
 }
 
 export function findAnimeFolderCandidates(anime, localFiles, options = {}) {

@@ -83,6 +83,7 @@ export function findTorrentMatches(
   torrentAlias = null,
   torrentSearchTerm = null,
   torrentTitle = null,
+  synonyms = [],
 ) {
   if (!torrentItems?.length || !episodeNumber) return [];
 
@@ -93,6 +94,7 @@ export function findTorrentMatches(
       torrentTitle,
       animeTitleRomaji,
       animeTitleEnglish,
+      synonyms,
     }).flatMap((value) => buildTitleVariants(value)),
   );
 

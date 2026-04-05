@@ -111,6 +111,7 @@ function mapMedia(media) {
     anilistId: media.id,
     title: media.title.userPreferred || media.title.english || media.title.romaji,
     title_english: media.title.english,
+    synonyms: media.synonyms || [],
     images: {
       jpg: {
         large_image_url: media.coverImage.extraLarge || media.coverImage.large,
@@ -121,7 +122,10 @@ function mapMedia(media) {
     bannerImage: media.bannerImage,
     synopsis: cleanDescription,
     score: media.averageScore ? media.averageScore / 10 : 0,
-    rank: media.rankings?.find((ranking) => ranking.allTime && ranking.type === "RATED")?.rank || media.rankings?.[0]?.rank || null,
+    rank:
+      media.rankings?.find((ranking) => ranking.allTime && ranking.type === "RATED")?.rank ||
+      media.rankings?.[0]?.rank ||
+      null,
     popularity: media.popularity,
     rating: media.isAdult ? "R18+" : "TV-14",
     type: normalizedType,
@@ -166,6 +170,7 @@ const MEDIA_FIELDS = `
     native
     userPreferred
   }
+  synonyms
   description
   coverImage {
     extraLarge
@@ -254,6 +259,8 @@ export async function getFullSeasonAnime() {
     hasNextPage = result.Page.pageInfo.hasNextPage;
     page += 1;
   }
+
+  console.log("allAnimes", allAnimes);
 
   return allAnimes;
 }

@@ -35,6 +35,7 @@ export function EpisodeList({
           mainAnime.torrentAlias,
           mainAnime.torrentSearchTerm,
           mainAnime.torrentTitle,
+          mainAnime.synonyms || [],
         );
       });
     }
@@ -46,7 +47,7 @@ export function EpisodeList({
     const localFile = animeFilesData.files.find((file) => {
       const detectedEpisode =
         file.episodeNumber ??
-        extractEpisodeNumber(file.name, [mainAnime?.title, mainAnime?.title_english, folderName]);
+        extractEpisodeNumber(file.name, [mainAnime?.title, mainAnime?.title_english, ...(mainAnime?.synonyms || []), folderName]);
       return detectedEpisode !== null && detectedEpisode === epNum;
     });
 

@@ -22,7 +22,7 @@ export function getContinueWatching(myAnimes, localFiles = {}) {
         const animeTitle = anime.title || "";
         const localData = localFiles[animeTitle] || localFiles[anime.folderName] || { files: [] };
         const nextFile = localData.files.find((f) => {
-          const epNum = extractEpisodeNumber(f.name, [animeTitle, anime.folderName]);
+          const epNum = extractEpisodeNumber(f.name, [animeTitle, anime.title_english, ...(anime.synonyms || []), anime.folderName]);
           return epNum !== null && epNum === nextEp;
         });
 
@@ -65,7 +65,7 @@ export function getNewEpisodes(myAnimes, localFiles) {
     const maxWatched = watched.length > 0 ? Math.max(...watched) : 0;
 
     const episodeNumbers = localFilesList
-      .map((f) => extractEpisodeNumber(f.name, [animeTitle, anime.folderName]))
+      .map((f) => extractEpisodeNumber(f.name, [animeTitle, anime.title_english, ...(anime.synonyms || []), anime.folderName]))
       .filter((num) => num !== null);
 
     const maxLocal = episodeNumbers.length > 0 ? Math.max(...episodeNumbers) : 0;
@@ -73,7 +73,7 @@ export function getNewEpisodes(myAnimes, localFiles) {
     if (maxLocal > maxWatched) {
       const nextEp = maxWatched + 1;
       const nextFile = localFilesList.find((f) => {
-        const epNum = extractEpisodeNumber(f.name, [animeTitle, anime.folderName]);
+        const epNum = extractEpisodeNumber(f.name, [animeTitle, anime.title_english, ...(anime.synonyms || []), anime.folderName]);
         return epNum !== null && epNum === nextEp;
       });
 

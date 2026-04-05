@@ -9,6 +9,7 @@ export function getEpisodeTorrentAvailability(
   torrentAlias = null,
   torrentSearchTerm = null,
   torrentTitle = null,
+  synonyms = [],
 ) {
   const matches = findTorrentMatches(
     animeTitle,
@@ -18,6 +19,7 @@ export function getEpisodeTorrentAvailability(
     torrentAlias,
     torrentSearchTerm,
     torrentTitle,
+    synonyms,
   );
   const hasPrincipalMatch = principalFansub ? matches.some((match) => match.fansub === principalFansub) : false;
 
