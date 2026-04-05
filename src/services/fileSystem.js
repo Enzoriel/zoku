@@ -125,9 +125,9 @@ function markFolderDownloadActivity(folder, anime, now = Date.now()) {
 function toUniqueSearchKeys(values) {
   return Array.from(
     new Set(
-      (values || [])
+      (Array.isArray(values) ? values : [])
         .map((value) => normalizeForSearch(value))
-        .filter(Boolean),
+        .filter((val) => val && val.length >= 2),
     ),
   );
 }

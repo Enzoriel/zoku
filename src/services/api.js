@@ -111,6 +111,8 @@ function mapMedia(media) {
     anilistId: media.id,
     title: media.title.userPreferred || media.title.english || media.title.romaji,
     title_english: media.title.english,
+    title_romaji: media.title.romaji,
+    title_native: media.title.native,
     synonyms: media.synonyms || [],
     images: {
       jpg: {
