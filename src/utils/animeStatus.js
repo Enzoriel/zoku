@@ -14,8 +14,8 @@ export function calculateUserStatus(anime) {
   const watchedCount = anime.watchedEpisodes?.length || 0;
   const total = anime.totalEpisodes || anime.episodes || 0;
 
-  // 1. COMPLETADO: Si ha visto todo
-  if (total > 0 && watchedCount >= total) {
+  // 1. COMPLETADO: Si ha visto todo y no hay más episodios programados
+  if (total > 0 && watchedCount >= total && !anime.nextAiringEpisode) {
     return "COMPLETED";
   }
 
