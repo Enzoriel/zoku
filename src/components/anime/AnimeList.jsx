@@ -7,7 +7,7 @@ import { useAnime } from "../../context/AnimeContext";
 const PAGE_SIZE = 12;
 
 function AnimeList({ animes = [], disablePagination = false }) {
-  const { page, setPage } = useAnime();
+  const { discoverState, setDiscoverState } = useAnime();
   const { data, setMyAnimes } = useStore();
 
   useEffect(() => {
@@ -15,16 +15,18 @@ function AnimeList({ animes = [], disablePagination = false }) {
 
     window.scrollTo({
       top: 0,
-      behavior: "smooth",
+      behavior: "instant",
     });
-  }, [page, disablePagination]);
+  }, [discoverState.page, disablePagination]);
 
   if (animes.length === 0) {
     return <div className={styles.empty}>No se encontraron resultados</div>;
   }
 
   const totalPages = disablePagination ? 1 : Math.ceil(animes.length / PAGE_SIZE);
-  const visible = disablePagination ? animes : animes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const visible = disablePagination
+    ? animes
+    : animes.slice((discoverState.page - 1) * PAGE_SIZE, discoverState.page * PAGE_SIZE);
 
   return (
     <div>
@@ -45,23 +47,27 @@ function AnimeList({ animes = [], disablePagination = false }) {
 
       {!disablePagination && totalPages > 1 && (
         <div className={styles.pagination}>
-          <button onClick={() => setPage((current) => current - 1)} disabled={page === 1} className={styles.pageBtn}>
+          <button
+            onClick={() => setDiscoverState((current) => ({ ...current, page: current.page - 1 }))}
+            disabled={discoverState.page === 1}
+            className={styles.pageBtn}
+          >
             ←
           </button>
 
           {Array.from({ length: totalPages }, (_, index) => index + 1).map((currentPage) => (
             <button
               key={currentPage}
-              onClick={() => setPage(currentPage)}
-              className={`${styles.pageBtn} ${page === currentPage ? styles.activePage : ""}`}
+              onClick={() => setDiscoverState((current) => ({ ...current, page: currentPage }))}
+              className={`${styles.pageBtn} ${discoverState.page === currentPage ? styles.activePage : ""}`}
             >
               {currentPage}
             </button>
           ))}
 
           <button
-            onClick={() => setPage((current) => current + 1)}
-            disabled={page === totalPages}
+            onClick={() => setDiscoverState((current) => ({ ...current, page: current.page + 1 }))}
+            disabled={discoverState.page === totalPages}
             className={styles.pageBtn}
           >
             →

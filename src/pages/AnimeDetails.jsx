@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useLibrary } from "../context/LibraryContext";
@@ -26,6 +26,7 @@ import styles from "./AnimeDetails.module.css";
 const AIRING_METADATA_REFRESH_MS = 6 * 60 * 60 * 1000;
 const NON_SEASON_METADATA_REFRESH_MS = 24 * 60 * 60 * 1000;
 
+
 function buildSuggestedLinkLabel(folder) {
   if (!folder?.files?.length) {
     return folder?.folderName || "";
@@ -49,6 +50,10 @@ function AnimeDetails() {
   const { getAnimeById, getFreshAnimeById, refreshAnimeById, loading: animeLoading } = useAnime();
   const { performSync } = useLibrary();
   const { data: torrentData, principalFansub } = useTorrent();
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
 
   const [anime, setAnime] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);

@@ -21,18 +21,7 @@ function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMore]);
 
-  if (!anime) {
-    return (
-      <div className={`${styles.card} pulse`}>
-        <div className={styles.imageSection}>
-          <div className={styles.loadingPulse}></div>
-        </div>
-        <div className={styles.infoSection}>
-          <div className={styles.loadingPulse}></div>
-        </div>
-      </div>
-    );
-  }
+  if (!anime) return null;
 
   const handleClick = () => {
     navigate(`/anime/${malId}`);
@@ -76,7 +65,15 @@ function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes 
   return (
     <div className={styles.card} onClick={handleClick} ref={cardRef}>
       <div className={styles.imageWrapper}>
-        <img src={image} alt={title} className={styles.image} loading="lazy" />
+        <img 
+          src={image} 
+          alt={title} 
+          className={styles.image} 
+          loading="eager" 
+          decoding="async"
+          width="250"
+          height="375"
+        />
         <div className={styles.overlay}></div>
 
         <div className={styles.topBadges}>

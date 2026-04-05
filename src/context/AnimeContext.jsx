@@ -13,11 +13,11 @@ export function AnimeProvider({ children }) {
   const [searchAnimes, setSearchAnimes] = useState([]);
   const [extraAnimeById, setExtraAnimeById] = useState({});
   const lastFetchRef = useRef(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(seasonalAnime.length === 0);
   const [error, setError] = useState(null);
   const isFetching = useRef(false);
   const detailRequestsRef = useRef(new Map());
-  const [page, setPage] = useState(1);
+  const [discoverState, setDiscoverState] = useState({ page: 1, type: "TV" });
 
   const fetchSeasonal = useCallback(async () => {
     if (isFetching.current) return;
@@ -33,7 +33,7 @@ export function AnimeProvider({ children }) {
     } finally {
       isFetching.current = false;
       setLoading(false);
-      setPage(1);
+      setDiscoverState((prev) => ({ ...prev, page: 1 }));
     }
   }, []);
 
@@ -127,8 +127,8 @@ export function AnimeProvider({ children }) {
       getFreshAnimeById,
       refreshAnimeById,
       retryFetch,
-      page,
-      setPage,
+      discoverState,
+      setDiscoverState,
     }),
     [
       seasonalAnime,
@@ -139,8 +139,8 @@ export function AnimeProvider({ children }) {
       getFreshAnimeById,
       refreshAnimeById,
       retryFetch,
-      page,
-      setPage,
+      discoverState,
+      setDiscoverState,
     ],
   );
 

@@ -9,15 +9,18 @@ import Layout from "./components/layout/Layout";
 import { GlobalSync } from "./components/core/GlobalSync";
 import { WelcomeSetupModal } from "./components/core/WelcomeSetupModal";
 
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Discover = lazy(() => import("./pages/Discover"));
+// Importaciones directas para evitar parpadeos
+import Dashboard from "./pages/Dashboard";
+import Discover from "./pages/Discover";
+import MyAnimes from "./pages/MyAnimes";
+import AnimeDetails from "./pages/AnimeDetails";
+import Recent from "./pages/Recent";
+
+// Importaciones lazy para secciones menos frecuentes
 const Search = lazy(() => import("./pages/Search"));
-const MyAnimes = lazy(() => import("./pages/MyAnimes"));
 const Library = lazy(() => import("./pages/Library"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Configuration = lazy(() => import("./pages/Configuration"));
-const AnimeDetails = lazy(() => import("./pages/AnimeDetails"));
-const Recent = lazy(() => import("./pages/Recent"));
 const History = lazy(() => import("./pages/History"));
 const TorrentPage = lazy(() => import("./pages/TorrentPage"));
 

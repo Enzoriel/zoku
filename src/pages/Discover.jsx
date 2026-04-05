@@ -5,26 +5,24 @@ import styles from "./Discover.module.css";
 import { useAnime } from "../context/AnimeContext";
 
 function Discover() {
-  const { seasonalAnime: allAnimes, loading, error, retryFetch, setPage } = useAnime();
-  const [type, setType] = useState("TV");
+  const { seasonalAnime: allAnimes, loading, error, retryFetch, discoverState, setDiscoverState } = useAnime();
   const [pendingType, setPendingType] = useState(null);
   const [isPending, startTransition] = useTransition();
 
   const filteredAnimes = useMemo(() => {
-    return allAnimes.filter((anime) => anime.format === type || anime.type === type);
-  }, [allAnimes, type]);
+    return allAnimes.filter((anime) => anime.format === discoverState.type || anime.type === discoverState.type);
+  }, [allAnimes, discoverState.type]);
 
   const handleTypeChange = (newType) => {
-    if (newType === type || isPending) return;
+    if (newType === discoverState.type || isPending) return;
     setPendingType(newType);
     startTransition(() => {
-      setPage(1);
-      setType(newType);
+      setDiscoverState({ page: 1, type: newType });
       setPendingType(null);
     });
   };
 
-  const visualType = pendingType ?? type;
+  const visualType = pendingType ?? discoverState.type;
 
   const types = [
     { id: "TV", label: "TV" },
@@ -48,7 +46,7 @@ function Discover() {
             {types.map((t) => (
               <button
                 key={t.id}
-                className={`${styles.toggleButton} ${visualType === t.id ? styles.active : ""} ${isPending && type !== t.id ? styles.loading : ""}`}
+                className={`${styles.toggleButton} ${visualType === t.id ? styles.active : ""} ${isPending && discoverState.type !== t.id ? styles.loading : ""}`}
                 onClick={() => handleTypeChange(t.id)}
                 disabled={isPending}
               >
@@ -60,22 +58,21 @@ function Discover() {
       </header>
 
       <div className={styles.content}>
-        {loading ? (
-          <div className={styles.loadingContainer}>
-            <p>CONECTANDO CON ANILIST...</p>
+        {error && !allAnimes.length ? (
+          <div className={styles.errorContainer}>
+            <p className={styles.errorMessage}>{error}</p>
+            <button className={styles.retryButton} onClick={retryFetch}>
+              REINTENTAR
+            </button>
           </div>
-        ) : error ? (
-          <RetryPanel message={error} onRetry={retryFetch} />
         ) : (
-          <div className={styles.resultsArea} style={{ opacity: isPending ? 0.7 : 1 }}>
-            <div className={styles.resultsHeader}>
-              <div className={styles.resultsCount}>
-                [ <span className={styles.countNumber}>{filteredAnimes.length}</span> ] RESULTADOS ENCONTRADOS
-              </div>
+          <div className={`${styles.mainContent} ${isPending ? styles.pending : ""}`}>
+            <div className={styles.header}>
+              <h2 className={styles.sectionTitle}>Descubrir Temporada</h2>
               <div className={styles.accentLine}></div>
             </div>
 
-            <AnimeList animes={filteredAnimes} type={true} />
+            <AnimeList animes={filteredAnimes} />
           </div>
         )}
       </div>
