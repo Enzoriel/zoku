@@ -27,3 +27,6 @@ dist-ssr
 
 # Auditoría
 AUDITORIA_SENTINEL.md
+
+# Tauri
+src-tauri/target
