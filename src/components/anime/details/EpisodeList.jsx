@@ -48,7 +48,9 @@ export function EpisodeList({
       const detectedEpisode =
         file.episodeNumber ??
         extractEpisodeNumber(file.name, [mainAnime?.title, mainAnime?.title_english, ...(mainAnime?.synonyms || []), folderName]);
-      return detectedEpisode !== null && detectedEpisode === epNum;
+      if (detectedEpisode !== null) return detectedEpisode === epNum;
+      // Archivos sin número detectado (típico en películas): asignar al episodio 1
+      return epNum === 1 && episodes.length === 1;
     });
 
     if (isWatched) return { label: "VISTO", type: "tagWatched", file: localFile };

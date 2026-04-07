@@ -400,7 +400,7 @@ function AnimeDetails() {
     setShowSearchApiModal(false);
     await performSync({ ...data.myAnimes, [newMalId]: animeData });
     showToast("Serie vinculada con exito.", "success");
-    navigate(`/anime/${newMalId}`);
+    navigate(`/anime/${newMalId}`, { replace: true });
   };
 
   const handleRemoveFromLibrary = useCallback(() => {
@@ -496,12 +496,17 @@ function AnimeDetails() {
     return <div className={styles.container}>No encontrado</div>;
   }
 
-  const totalEps = Math.max(
+  const apiTotal = Math.max(
     mainAnime.totalEpisodes || 0,
     getReleasedEpisodeCount(mainAnime),
     mainAnime.episodeList?.length || 0,
-    animeFilesData.files.length > 0 ? Math.max(...animeFilesData.files.map((file) => file.episodeNumber || 0)) : 0,
   );
+  const localMaxEp = animeFilesData.files.length > 0
+    ? Math.max(...animeFilesData.files.map((file) => file.episodeNumber || 0))
+    : 0;
+  // Solo permitir que archivos locales inflen el total si la API no reporta un conteo concreto.
+  // Evita que películas (1 ep) muestren 3 episodios por números residuales en nombres de archivo.
+  const totalEps = apiTotal > 0 ? Math.max(apiTotal, Math.min(localMaxEp, apiTotal)) : Math.max(apiTotal, localMaxEp);
   const episodes = Array.from({ length: totalEps || 1 }, (_, index) => index + 1);
 
   return (

@@ -17,6 +17,10 @@ export function extractEpisodeNumber(fileName, ignoreContext = []) {
   // Elimina tags de Fansub como [Erai-raws] o [Subs]
   cleanName = cleanName.replace(/^\[[^\]]+\]\s*/, "");
 
+  // Elimina TODOS los bloques [metadata] restantes (codec, audio, resolución, subs, etc.)
+  // En naming de anime, los [...] nunca contienen el número de episodio
+  cleanName = cleanName.replace(/\[[^\]]*\]/g, " ");
+
   const noise = [
     "1080p",
     "720p",
