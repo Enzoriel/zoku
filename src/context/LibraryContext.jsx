@@ -71,6 +71,7 @@ export function LibraryProvider({ children }) {
         const autoLinkResult = applyAutoLinkLogic(nextMyAnimes, suggestionMap, {
           nowMs,
           windowMs: DOWNLOAD_INTENT_WINDOW_MS,
+          localFiles,
         });
         nextMyAnimes = autoLinkResult.myAnimes;
         if (autoLinkResult.changed) {

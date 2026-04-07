@@ -1,4 +1,5 @@
 import { acceptSuggestedFolder, clearLinkingMetadata, syncAnimeSuggestion } from "./linkingState";
+import { findAnimeFolderCandidates } from "../services/fileSystem";
 
 export function hasRecentDownloadIntent(anime = {}, nowMs, windowMs) {
   if (!anime?.downloadIntentAt) return false;
@@ -72,7 +73,7 @@ export function applySuggestionState(myAnimes = {}, suggestionMap, nowIso) {
 }
 
 export function applyAutoLinkLogic(myAnimes = {}, suggestionMap, config) {
-  const { nowMs, windowMs } = config;
+  const { nowMs, windowMs, localFiles } = config;
   let changed = false;
 
   const nextMyAnimes = Object.fromEntries(
@@ -81,10 +82,33 @@ export function applyAutoLinkLogic(myAnimes = {}, suggestionMap, config) {
       if (!hasRecentDownloadIntent(anime, nowMs, windowMs)) return [id, anime];
 
       const suggestedFolderName = suggestionMap.get(String(id)) || null;
-      if (!suggestedFolderName) return [id, anime];
+      if (suggestedFolderName) {
+        changed = true;
+        return [id, acceptSuggestedFolder(anime, suggestedFolderName)];
+      }
 
-      changed = true;
-      return [id, acceptSuggestedFolder(anime, suggestedFolderName)];
+      // Fallback: búsqueda directa de candidatos cuando el suggestionMap
+      // no tiene entradas (por rejectedSuggestion u otro motivo).
+      // Solo auto-vincula si hay archivos modificados tras el downloadIntent.
+      if (!localFiles) return [id, anime];
+
+      const intentAt = anime.downloadIntentAt ? new Date(anime.downloadIntentAt).getTime() : 0;
+      if (!intentAt) return [id, anime];
+
+      const candidates = findAnimeFolderCandidates(anime, localFiles, { onlyWithFiles: true });
+      const recentCandidates = candidates.filter(([, folder]) =>
+        (folder.files || []).some((file) => {
+          const modifiedAtMs = Number(file.modifiedAtMs || 0);
+          return modifiedAtMs > 0 && modifiedAtMs >= intentAt - 30000;
+        }),
+      );
+
+      if (recentCandidates.length === 1) {
+        changed = true;
+        return [id, acceptSuggestedFolder(anime, recentCandidates[0][0])];
+      }
+
+      return [id, anime];
     }),
   );
 

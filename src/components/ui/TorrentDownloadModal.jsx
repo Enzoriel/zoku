@@ -119,6 +119,7 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
             ...current,
             downloadIntentAt: new Date().toISOString(),
             downloadTrackingMode: null,
+            rejectedSuggestion: null,
             lastUpdated: new Date().toISOString(),
           };
 

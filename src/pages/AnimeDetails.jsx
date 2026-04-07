@@ -28,16 +28,8 @@ const NON_SEASON_METADATA_REFRESH_MS = 24 * 60 * 60 * 1000;
 
 
 function buildSuggestedLinkLabel(folder) {
-  if (!folder?.files?.length) {
-    return folder?.folderName || "";
-  }
-
-  const firstFile = folder.files[0]?.name || folder.folderName || "";
-  return firstFile
-    .replace(/\.[^/.]+$/, "")
-    .replace(/\s*-\s*\d{1,4}.*$/i, "")
-    .replace(/\s+\d{1,4}.*$/i, "")
-    .trim();
+  if (!folder) return "";
+  return folder.folderName || "";
 }
 
 function AnimeDetails() {
@@ -600,9 +592,9 @@ function AnimeDetails() {
 
       {!confirmModal && suggestedFolder && (
         <ConfirmModal
-          title="Aceptar vinculacion automatica"
-          message={`Se ha vinculado esta serie con ${suggestedFolder.files?.length || 0} archivos locales con el siguiente nombre: ${buildSuggestedLinkLabel(suggestedFolder)}. ¿Aceptar vinculacion?`}
-          confirmLabel="ACEPTAR"
+          title="Vincular carpeta detectada"
+          message={`Se detectó la carpeta "${buildSuggestedLinkLabel(suggestedFolder)}" con ${suggestedFolder.files?.length || 0} archivos locales. ¿Vincular esta carpeta con la serie?`}
+          confirmLabel="VINCULAR"
           onConfirm={handleAcceptSuggestedLink}
           onCancel={handleRejectSuggestedLink}
         />
