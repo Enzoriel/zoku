@@ -7,9 +7,9 @@
   --sb-text-hover: var(--px-yellow);
 
   position: fixed;
-  top: 0;
+  top: var(--titlebar-height);
   left: 0;
-  height: 100vh;
+  height: calc(100vh - var(--titlebar-height));
   width: var(--sb-width);
   background: var(--sb-bg);
   border-right: 2px solid var(--sb-border);

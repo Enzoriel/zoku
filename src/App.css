@@ -69,6 +69,7 @@
   --font-pixel: "Press Start 2P", monospace;
   --font-vt: "VT323", monospace;
   --font-text: "Share Tech Mono", monospace;
+  --titlebar-height: 46px;
 
   /* Pixel-cut corner clip (chamfered, not rounded) */
   --clip-sm: polygon(
@@ -269,6 +270,13 @@ body {
   background-attachment: fixed;
   position: relative;
   z-index: 0;
+  overflow: hidden;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body::before {

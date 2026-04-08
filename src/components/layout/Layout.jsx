@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Suspense, useMemo } from "react";
 import { Sidebar } from "./Sidebar";
+import { TitleBar } from "./TitleBar";
 import styles from "./Layout.module.css";
 
 const Layout = () => {
@@ -22,6 +23,7 @@ const Layout = () => {
 
   return (
     <div className={styles.layout}>
+      <TitleBar />
       <div className={styles.ambient}>{ambientParticles}</div>
       <Sidebar />
       <div className={styles.main}>
