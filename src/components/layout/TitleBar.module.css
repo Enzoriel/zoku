@@ -139,7 +139,7 @@
 }
 
 [data-tauri-drag-region] {
-  app-region: drag;
+  -webkit-app-region: drag;
 }
 
 .controlButton {
@@ -156,7 +156,7 @@
     background-color var(--tx-fast),
     color var(--tx-fast),
     transform var(--tx-fast);
-  app-region: no-drag;
+  -webkit-app-region: no-drag;
 }
 
 .controlButton svg {
