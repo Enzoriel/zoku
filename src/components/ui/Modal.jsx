@@ -12,7 +12,7 @@ import styles from "./Modal.module.css";
  * @param {string} size - sm, md, lg, full (opcional).
  * @param {boolean} hideClose - Si se debe ocultar la X de cierre.
  */
-function Modal({ isOpen, onClose, title, subtitle, children, footer, size = "md", hideClose = false }) {
+function Modal({ isOpen, onClose, title, subtitle, children, footer, size = "md", hideClose = false, ariaDescribedBy }) {
   const modalRef = useRef(null);
 
   useEffect(() => {
@@ -51,7 +51,13 @@ function Modal({ isOpen, onClose, title, subtitle, children, footer, size = "md"
   }, [isOpen, onClose]);
 
   useEffect(() => {
-    if (isOpen && modalRef.current) {
+    if (!isOpen || !modalRef.current) return;
+    const focusable = modalRef.current.querySelector(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]'
+    );
+    if (focusable) {
+      focusable.focus();
+    } else {
       modalRef.current.focus();
     }
   }, [isOpen]);
@@ -70,6 +76,7 @@ function Modal({ isOpen, onClose, title, subtitle, children, footer, size = "md"
         ref={modalRef}
         role="dialog"
         aria-modal="true"
+        aria-describedby={ariaDescribedBy}
       >
         <div className={styles.header}>
           <div className={styles.titleArea}>

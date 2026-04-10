@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import AnimeCardExt from "./AnimeCardExt";
 import styles from "./AnimeList.module.css";
 import { useStore } from "../../hooks/useStore";
@@ -9,15 +9,6 @@ const PAGE_SIZE = 12;
 function AnimeList({ animes = [], disablePagination = false }) {
   const { discoverState, setDiscoverState } = useAnime();
   const { data, setMyAnimes } = useStore();
-
-  useEffect(() => {
-    if (disablePagination) return;
-
-    window.scrollTo({
-      top: 0,
-      behavior: "instant",
-    });
-  }, [discoverState.page, disablePagination]);
 
   if (animes.length === 0) {
     return <div className={styles.empty}>No se encontraron resultados</div>;

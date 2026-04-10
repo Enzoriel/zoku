@@ -39,7 +39,7 @@ function Carousel({ title, animes = [], loading = false, playback = null }) {
       </h2>
       <div className={styles.wrapper}>
         {(loading || animes.length > 4) && (
-          <button className={`${styles.arrow} ${styles.left}`} onClick={() => scroll("left")}>
+          <button className={`${styles.arrow} ${styles.left}`} onClick={() => scroll("left")} aria-label="Desplazar a la izquierda">
             ‹
           </button>
         )}
@@ -62,7 +62,7 @@ function Carousel({ title, animes = [], loading = false, playback = null }) {
               })}
         </div>
         {(loading || animes.length > 4) && (
-          <button className={`${styles.arrow} ${styles.right}`} onClick={() => scroll("right")}>
+          <button className={`${styles.arrow} ${styles.right}`} onClick={() => scroll("right")} aria-label="Desplazar a la derecha">
             ›
           </button>
         )}

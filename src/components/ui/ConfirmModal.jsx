@@ -19,6 +19,7 @@ function ConfirmModal({
       title={variant === "danger" ? "PELIGRO" : "CONFIRMAR"}
       subtitle={title}
       hideClose={isLoading}
+      ariaDescribedBy="confirm-modal-message"
       footer={
         <>
           {!hideCancel && (
@@ -36,7 +37,7 @@ function ConfirmModal({
         </>
       }
     >
-      <p className={styles.message}>{message}</p>
+      <p id="confirm-modal-message" className={styles.message}>{message}</p>
     </Modal>
   );
 }

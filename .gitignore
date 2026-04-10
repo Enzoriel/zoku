@@ -13,6 +13,7 @@ dist-ssr
 *.local
 .agent/
 .env
+.qwen/
 
 # Editor directories and files
 .vscode/
@@ -27,6 +28,8 @@ dist-ssr
 
 # Auditoría
 AUDITORIA_SENTINEL.md
+AUDITORIA.md
+
 
 # Tauri
 src-tauri/target

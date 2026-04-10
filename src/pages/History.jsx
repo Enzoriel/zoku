@@ -199,6 +199,7 @@ function History() {
                       }}
                       role="button"
                       tabIndex={0}
+                      aria-label={`Ir a ${event.animeTitle}${event.episode ? ` - Episodio ${event.episode}` : ""}`}
                     >
                       <div className={styles.eventPoster}>
                         <img src={event.coverImage} alt={event.animeTitle} loading="lazy" />

@@ -5,6 +5,7 @@ import { StoreProvider } from "./context/StoreContext";
 import { AnimeProvider } from "./context/AnimeContext";
 import { LibraryProvider } from "./context/LibraryContext";
 import { TorrentProvider } from "./context/TorrentContext";
+import { RecentAnimeProvider } from "./context/RecentAnimeContext";
 import Layout from "./components/layout/Layout";
 import { GlobalSync } from "./components/core/GlobalSync";
 import { WelcomeSetupModal } from "./components/core/WelcomeSetupModal";
@@ -29,25 +30,27 @@ function App() {
       <AnimeProvider>
         <TorrentProvider>
           <LibraryProvider>
-            <BrowserRouter>
-              <GlobalSync />
-              <WelcomeSetupModal />
-              <Routes>
-                <Route path="/" element={<Layout />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="discover" element={<Discover />} />
-                  <Route path="search" element={<Search />} />
-                  <Route path="my-animes" element={<Navigate to="/library" replace />} />
-                  <Route path="library" element={<Library />} />
-                  <Route path="recent" element={<Recent />} />
-                  <Route path="history" element={<History />} />
-                  <Route path="torrents" element={<TorrentPage />} />
-                  <Route path="stats" element={<Stats />} />
-                  <Route path="configuration" element={<Configuration />} />
-                  <Route path="anime/:id" element={<AnimeDetails />} />
-                </Route>
-              </Routes>
-            </BrowserRouter>
+            <RecentAnimeProvider>
+              <BrowserRouter>
+                <GlobalSync />
+                <WelcomeSetupModal />
+                <Routes>
+                  <Route path="/" element={<Layout />}>
+                    <Route index element={<Dashboard />} />
+                    <Route path="discover" element={<Discover />} />
+                    <Route path="search" element={<Search />} />
+                    <Route path="my-animes" element={<Navigate to="/library" replace />} />
+                    <Route path="library" element={<Library />} />
+                    <Route path="recent" element={<Recent />} />
+                    <Route path="history" element={<History />} />
+                    <Route path="torrents" element={<TorrentPage />} />
+                    <Route path="stats" element={<Stats />} />
+                    <Route path="configuration" element={<Configuration />} />
+                    <Route path="anime/:id" element={<AnimeDetails />} />
+                  </Route>
+                </Routes>
+              </BrowserRouter>
+            </RecentAnimeProvider>
           </LibraryProvider>
         </TorrentProvider>
       </AnimeProvider>

@@ -92,7 +92,9 @@ function isDirectDownloadActivity(file, intentAt, now = Date.now()) {
   const modifiedAtMs = Number(file?.modifiedAtMs || 0);
   if (!intentAt || !modifiedAtMs) return false;
 
-  return modifiedAtMs >= intentAt - DOWNLOAD_ACTIVITY_GRACE_MS && now - modifiedAtMs <= DIRECT_DOWNLOAD_ACTIVITY_WINDOW_MS;
+  return (
+    modifiedAtMs >= intentAt - DOWNLOAD_ACTIVITY_GRACE_MS && now - modifiedAtMs <= DIRECT_DOWNLOAD_ACTIVITY_WINDOW_MS
+  );
 }
 
 export function folderHasActiveDownload(folder, downloadIntentAt, now = Date.now()) {
@@ -136,11 +138,7 @@ function extractSeasonNumber(text) {
   if (!text) return null;
 
   const normalized = String(text).toLowerCase();
-  const patterns = [
-    /\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i,
-    /\bseason\s+(\d{1,2})\b/i,
-    /\bs(\d{1,2})\b/i,
-  ];
+  const patterns = [/\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i, /\bseason\s+(\d{1,2})\b/i, /\bs(\d{1,2})\b/i];
 
   for (const pattern of patterns) {
     const match = normalized.match(pattern);
@@ -159,10 +157,9 @@ function isSeasonCompatible(folder, anime) {
     return true;
   }
 
-  const folderSeasons = [
-    extractSeasonNumber(folder?.folderName),
-    extractSeasonNumber(folder?.files?.[0]?.name),
-  ].filter(Number.isFinite);
+  const folderSeasons = [extractSeasonNumber(folder?.folderName), extractSeasonNumber(folder?.files?.[0]?.name)].filter(
+    Number.isFinite,
+  );
 
   if (folderSeasons.length === 0) {
     // Si no logramos extraer la temporada del archivo explícitamente (ej: no dice "Season 2"),
@@ -241,10 +238,10 @@ export function findAnimeFolderCandidates(anime, localFiles, options = {}) {
     .map(([folderName, folder]) => {
       const folderKeys = buildFolderSearchKeys(folder);
       const isLenient = isRecentToIntent(folder);
-      
+
       let score = Math.max(
-        ...folderKeys.map((folderKey) => 
-          Math.max(...animeKeys.map((animeKey) => getKeyMatchScore(folderKey, animeKey, isLenient)))
+        ...folderKeys.map((folderKey) =>
+          Math.max(...animeKeys.map((animeKey) => getKeyMatchScore(folderKey, animeKey, isLenient))),
         ),
       );
 
@@ -274,12 +271,6 @@ function tokenizeSearchKey(value) {
     .map((part) => part.trim())
     .filter((part) => part.length >= 3);
 }
-
-function keysMatch(folderKey, animeKey) {
-  return getKeyMatchScore(folderKey, animeKey, false) > 0;
-}
-
-
 
 export async function deleteFolderFromDisk(folderPath, basePath) {
   if (!folderPath) return false;
@@ -483,7 +474,8 @@ export async function scanLibrary(basePath, myAnimes) {
 
     unlinkedAnimes.forEach((anime) => {
       const candidates = findAnimeFolderCandidates(anime, virtualLibrary, { onlyWithFiles: true }).filter(
-        ([folderName]) => String(anime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderName.toLowerCase(),
+        ([folderName]) =>
+          String(anime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderName.toLowerCase(),
       );
 
       if (candidates.length === 1) {
@@ -526,9 +518,7 @@ export async function scanLibrary(basePath, myAnimes) {
       }
 
       // Seguimiento puro (sin carpeta)
-      const inVirtual = Object.values(virtualLibrary).some(
-        (f) => String(f.resolvedMalId) === String(anime.malId)
-      );
+      const inVirtual = Object.values(virtualLibrary).some((f) => String(f.resolvedMalId) === String(anime.malId));
       if (!inVirtual && !isCompletedAnime(anime)) {
         virtualLibrary[`__tracking__${anime.malId}`] = {
           files: [],

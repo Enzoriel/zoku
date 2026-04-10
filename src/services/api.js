@@ -262,8 +262,6 @@ export async function getFullSeasonAnime() {
     page += 1;
   }
 
-  console.log("allAnimes", allAnimes);
-
   return allAnimes;
 }
 

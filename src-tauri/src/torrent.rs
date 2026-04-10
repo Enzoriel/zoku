@@ -1,6 +1,7 @@
 use regex::Regex;
 use rss::Channel;
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TorrentItem {
@@ -20,17 +21,27 @@ pub struct TorrentItem {
     pub info_hash: String,
 }
 
+fn fansub_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^\[([^\]]+)\]").unwrap())
+}
+
+fn resolution_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\b(2160p|1080p|720p|480p|360p)\b").unwrap())
+}
+
 fn extract_fansub(title: &str) -> String {
-    let re = Regex::new(r"^\[([^\]]+)\]").unwrap();
-    re.captures(title)
+    fansub_re()
+        .captures(title)
         .and_then(|captures| captures.get(1))
         .map(|match_group| match_group.as_str().to_string())
         .unwrap_or_else(|| "Unknown".to_string())
 }
 
 fn extract_resolution(title: &str) -> String {
-    let re = Regex::new(r"\b(2160p|1080p|720p|480p|360p)\b").unwrap();
-    re.find(title)
+    resolution_re()
+        .find(title)
         .map(|match_group| match_group.as_str().to_string())
         .unwrap_or_else(|| "Unknown".to_string())
 }

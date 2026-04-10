@@ -72,6 +72,7 @@ function AnimeDetails() {
     return id || anime?.malId || anime?.mal_id || null;
   }, [id, anime]);
 
+  const storedAnime = data.myAnimes[animeId];
   const mainAnime = useMemo(() => {
     if (!animeId) {
       if (anime) return { ...anime, malId: null, isInLibrary: false, watchedEpisodes: [] };
@@ -81,9 +82,8 @@ function AnimeDetails() {
       return null;
     }
 
-    const stored = data.myAnimes[animeId];
-    if (stored) {
-      return { ...stored, malId: animeId, isInLibrary: true, watchedEpisodes: stored.watchedEpisodes || [] };
+    if (storedAnime) {
+      return { ...storedAnime, malId: animeId, isInLibrary: true, watchedEpisodes: storedAnime.watchedEpisodes || [] };
     }
 
     const contextAnime = getAnimeById(animeId);
@@ -92,7 +92,7 @@ function AnimeDetails() {
     }
 
     return anime ? { ...anime, malId: animeId, isInLibrary: false, watchedEpisodes: [] } : null;
-  }, [animeId, data.myAnimes, getAnimeById, anime, folderName]);
+  }, [animeId, storedAnime, getAnimeById, anime, folderName]);
 
   const linkedFolder = useMemo(() => {
     if (!mainAnime) return null;
@@ -294,10 +294,10 @@ function AnimeDetails() {
       setAnime({ title: folderName, isUnknown: true, episodeList: [] });
     }
 
-    if (animeId && data.myAnimes[animeId]) {
+    if (animeId && dataMyAnimesRef.current[animeId]) {
       autoRefreshMetadata(animeId);
     }
-  }, [folderName, mainAnime, animeId, autoRefreshMetadata, data.myAnimes]);
+  }, [folderName, mainAnime, animeId, autoRefreshMetadata]);
 
   useEffect(() => {
     if (!data.folderPath || !libraryScopeReady) return;

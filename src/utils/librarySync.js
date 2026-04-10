@@ -50,24 +50,33 @@ export function buildSuggestionMap(localFiles = {}) {
 
 export function applySuggestionState(myAnimes = {}, suggestionMap, nowIso) {
   let changed = false;
-  const nextMyAnimes = Object.fromEntries(
-    Object.entries(myAnimes).map(([id, anime]) => {
-      const nextSuggestionName = suggestionMap.get(String(id)) || null;
-      const normalizedAnime = anime?.folderName ? clearLinkingMetadata(anime) : syncAnimeSuggestion(anime, nextSuggestionName);
-      const currentSuggestionName = anime?.linkSuggestion?.folderName || null;
+  const nextMyAnimes = { ...myAnimes };
 
-      if (
-        normalizedAnime.folderName !== anime.folderName ||
-        (normalizedAnime.linkSuggestion?.folderName || null) !== currentSuggestionName ||
-        normalizedAnime.rejectedSuggestion !== anime.rejectedSuggestion
-      ) {
-        changed = true;
-        return [id, { ...normalizedAnime, lastUpdated: normalizedAnime.lastUpdated || nowIso }];
-      }
+  // Procesar animes que están en el suggestionMap O que tienen folderName (para clearLinkingMetadata)
+  const idsToProcess = new Set(suggestionMap.keys());
+  for (const [id, anime] of Object.entries(myAnimes)) {
+    if (anime?.folderName || anime?.linkSuggestion?.folderName || anime?.rejectedSuggestion) {
+      idsToProcess.add(String(id));
+    }
+  }
 
-      return [id, anime];
-    }),
-  );
+  for (const id of idsToProcess) {
+    const anime = nextMyAnimes[id];
+    if (!anime) continue;
+
+    const nextSuggestionName = suggestionMap.get(String(id)) || null;
+    const normalizedAnime = anime.folderName ? clearLinkingMetadata(anime) : syncAnimeSuggestion(anime, nextSuggestionName);
+    const currentSuggestionName = anime.linkSuggestion?.folderName || null;
+
+    if (
+      normalizedAnime.folderName !== anime.folderName ||
+      (normalizedAnime.linkSuggestion?.folderName || null) !== currentSuggestionName ||
+      normalizedAnime.rejectedSuggestion !== anime.rejectedSuggestion
+    ) {
+      changed = true;
+      nextMyAnimes[id] = { ...normalizedAnime, lastUpdated: normalizedAnime.lastUpdated || nowIso };
+    }
+  }
 
   return { myAnimes: nextMyAnimes, changed };
 }

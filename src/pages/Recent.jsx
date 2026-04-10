@@ -1,8 +1,8 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useAnime } from "../context/AnimeContext";
-import { useRecentAnime } from "../hooks/useRecentAnime";
+import { useRecentAnimeContext } from "../context/RecentAnimeContext";
 import { extractBaseTitle } from "../utils/titleIdentity";
 import { useTorrent } from "../context/TorrentContext";
 import { useToast } from "../hooks/useToast";
@@ -19,16 +19,12 @@ import { DAY_NAMES, DAY_NAMES_SHORT } from "../utils/constants";
 
 function Recent() {
   const { data } = useStore();
-  const { seasonalAnime, loading, error, retryFetch } = useAnime();
+  const { loading, error, retryFetch } = useAnime();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("recientes");
   const [activeDay, setActiveDay] = useState(new Date().getDay());
 
-  const { allAiringAnime, loadingExtra, errorExtra, retryExtra } = useRecentAnime(
-    seasonalAnime,
-    data.myAnimes,
-    data.localFiles,
-  );
+  const { allAiringAnime, loadingExtra, errorExtra, retryExtra } = useRecentAnimeContext();
   const { data: torrentData, isLoading: torrentLoading, principalFansub } = useTorrent();
 
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
@@ -91,7 +87,12 @@ function Recent() {
         const localFile = anime.localFiles.find((file) => {
           const number =
             file.episodeNumber ??
-            extractEpisodeNumber(file.name, [anime.title, anime.title_english, ...(anime.storedData?.synonyms || []), anime.storedData?.folderName]);
+            extractEpisodeNumber(file.name, [
+              anime.title,
+              anime.title_english,
+              ...(anime.storedData?.synonyms || []),
+              anime.storedData?.folderName,
+            ]);
           return number !== null && number === episode;
         });
 
@@ -118,28 +119,44 @@ function Recent() {
       }));
   }, [myAiringAnime]);
 
-  const torrentMatchesMap = useMemo(() => {
-    if (!torrentData || torrentData.length === 0 || groupedByDay.length === 0) return {};
+  const [torrentMatchesMap, setTorrentMatchesMap] = useState({});
+  const [isCalculatingTorrents, setIsCalculatingTorrents] = useState(true);
 
-    const matchesMap = {};
-    groupedByDay.forEach(({ episodes }) => {
-      episodes.forEach(({ anime, ep }) => {
-        const stored = myAnimeMap[anime.malId] || myAnimeMap[anime.mal_id];
-        const key = `${anime.malId || anime.mal_id}-${ep}`;
-        matchesMap[key] = getEpisodeTorrentAvailability(
-          anime.title,
-          anime.title_english || null,
-          ep,
-          torrentData,
-          principalFansub,
-          stored?.torrentAlias,
-          stored?.torrentSearchTerm,
-          stored?.torrentTitle,
-          stored?.synonyms || [],
-        );
+  useEffect(() => {
+    if (!torrentData || torrentData.length === 0 || groupedByDay.length === 0) {
+      setTorrentMatchesMap({});
+      setIsCalculatingTorrents(false);
+      return;
+    }
+
+    setIsCalculatingTorrents(true);
+
+    // Usar setTimeout para ceder el control al hilo principal y que cambie la pagina rápido.
+    // Especialmente importante para calculos pesados de Jaro-Winkler cuando hay muchos torrents.
+    const timerId = setTimeout(() => {
+      const matchesMap = {};
+      groupedByDay.forEach(({ episodes }) => {
+        episodes.forEach(({ anime, ep }) => {
+          const stored = myAnimeMap[anime.malId] || myAnimeMap[anime.mal_id];
+          const key = `${anime.malId || anime.mal_id}-${ep}`;
+          matchesMap[key] = getEpisodeTorrentAvailability(
+            anime.title,
+            anime.title_english || null,
+            ep,
+            torrentData,
+            principalFansub,
+            stored?.torrentAlias,
+            stored?.torrentSearchTerm,
+            stored?.torrentTitle,
+            stored?.synonyms || [],
+          );
+        });
       });
-    });
-    return matchesMap;
+      setTorrentMatchesMap(matchesMap);
+      setIsCalculatingTorrents(false);
+    }, 10);
+
+    return () => clearTimeout(timerId);
   }, [groupedByDay, torrentData, myAnimeMap, principalFansub]);
 
   const scheduleByDay = useMemo(() => {
@@ -161,7 +178,7 @@ function Recent() {
   }, [myAiringAnime]);
 
   const shouldShowApiUnavailableState =
-    hasTrackedAnime && seasonalAnime.length === 0 && allAiringAnime.length === 0 && !loading && !loadingExtra;
+    hasTrackedAnime && allAiringAnime.length === 0 && !loading && !loadingExtra;
 
   const handleRetryAll = useCallback(async () => {
     await retryFetch();
@@ -275,6 +292,7 @@ function Recent() {
                       onClick={() => navigate(`/anime/${anime.malId || anime.mal_id}`)}
                       role="button"
                       tabIndex={0}
+                      aria-label={`Ir a ${anime.title} - Episodio ${ep}`}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
@@ -305,7 +323,7 @@ function Recent() {
                           const matches = availability.matches;
                           const hasPrincipalMatch = availability.hasPrincipalMatch;
 
-                          if (torrentLoading) return <div className={styles.torrentSpinner}></div>;
+                          if (torrentLoading || isCalculatingTorrents) return <div className={styles.torrentSpinner}></div>;
                           if (matches.length > 0) {
                             return (
                               <button

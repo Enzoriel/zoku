@@ -83,6 +83,19 @@ export function useRecentAnime(seasonalAnime, myAnimes) {
       }
 
       recentAnimeCache.set(cacheKey, { data: filteredResults, timestamp: Date.now() });
+
+      // GC: limpiar entries expiradas cada vez que se escribe
+      if (recentAnimeCache.size > 20) {
+        const nowGC = Date.now();
+        for (const [key, entry] of recentAnimeCache) {
+          if (!entry.timestamp || nowGC - entry.timestamp > EXTRA_CACHE_MS) {
+            recentAnimeCache.delete(key);
+          }
+        }
+      }
+
+
+
       setExtraAnime(filteredResults);
       return filteredResults;
     } catch (e) {
