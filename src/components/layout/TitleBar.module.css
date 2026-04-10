@@ -165,20 +165,24 @@
   image-rendering: pixelated;
 }
 
-.controlButton:hover {
+.controls[data-hoverable="true"] .controlButton:hover {
   color: var(--px-yellow);
   background:
     linear-gradient(180deg, rgba(232, 240, 0, 0.16) 0%, rgba(232, 240, 0, 0.05) 100%), rgba(255, 255, 255, 0.02);
 }
 
-.controlButton:active {
+.controlButton[data-active="true"] {
   transform: translateY(1px);
 }
 
-.closeButton:hover {
+.controls[data-hoverable="true"] .closeButton:hover {
   color: #fff;
   background:
     linear-gradient(180deg, rgba(255, 45, 120, 0.38) 0%, rgba(153, 25, 63, 0.9) 100%), rgba(255, 45, 120, 0.2);
+}
+
+.closeButton[data-active="true"] {
+  transform: translateY(1px);
 }
 
 @media (max-width: 900px) {

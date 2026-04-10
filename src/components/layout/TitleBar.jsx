@@ -42,13 +42,16 @@ function PixelCloseIcon() {
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
+  const [activeControl, setActiveControl] = useState(null);
+  const [canHover, setCanHover] = useState(true);
   const windowRef = useRef(null);
 
   useEffect(() => {
     const appWindow = Window.getCurrent();
     windowRef.current = appWindow;
 
-    let unlisten = null;
+    let unlistenResize = null;
+    let unlistenFocus = null;
     let mounted = true;
 
     const syncWindowState = async () => {
@@ -67,16 +70,49 @@ export function TitleBar() {
         syncWindowState();
       })
       .then((dispose) => {
-        unlisten = dispose;
+        unlistenResize = dispose;
       })
       .catch(() => {});
+
+    appWindow
+      .listen("tauri://focus", () => {
+        setActiveControl(null);
+        syncWindowState();
+      })
+      .then((dispose) => {
+        unlistenFocus = dispose;
+      })
+      .catch(() => {});
+
+    const clearPressedState = () => {
+      setActiveControl(null);
+    };
+
+    const handleBlur = () => {
+      setActiveControl(null);
+      setCanHover(false);
+    };
+
+    const handleMouseMove = () => {
+      setCanHover(true);
+    };
+
+    window.addEventListener("mouseup", clearPressedState);
+    window.addEventListener("pointerup", clearPressedState);
+    window.addEventListener("blur", handleBlur);
+    document.addEventListener("visibilitychange", clearPressedState);
+    window.addEventListener("mousemove", handleMouseMove);
 
     return () => {
       mounted = false;
       windowRef.current = null;
-      if (typeof unlisten === "function") {
-        unlisten();
-      }
+      window.removeEventListener("mouseup", clearPressedState);
+      window.removeEventListener("pointerup", clearPressedState);
+      window.removeEventListener("blur", handleBlur);
+      document.removeEventListener("visibilitychange", clearPressedState);
+      window.removeEventListener("mousemove", handleMouseMove);
+      if (typeof unlistenResize === "function") unlistenResize();
+      if (typeof unlistenFocus === "function") unlistenFocus();
     };
   }, []);
 
@@ -92,17 +128,23 @@ export function TitleBar() {
   };
 
   const handleMinimize = async () => {
+    setActiveControl(null);
+    setCanHover(false);
     await withWindow((appWindow) => appWindow.minimize());
   };
 
   const handleToggleMaximize = async () => {
     await withWindow(async (appWindow) => {
+      setActiveControl(null);
+      setCanHover(false);
       await appWindow.toggleMaximize();
       setIsMaximized(await appWindow.isMaximized());
     });
   };
 
   const handleClose = async () => {
+    setActiveControl(null);
+    setCanHover(false);
     await withWindow((appWindow) => appWindow.close());
   };
 
@@ -126,13 +168,28 @@ export function TitleBar() {
         </div>
       </div>
 
-      <div className={styles.controls}>
-        <button type="button" className={styles.controlButton} onClick={handleMinimize} aria-label="Minimizar">
+      <div className={styles.controls} data-hoverable={canHover}>
+        <button
+          type="button"
+          className={styles.controlButton}
+          data-active={activeControl === "minimize"}
+          onPointerDown={() => setActiveControl("minimize")}
+          onPointerUp={() => setActiveControl(null)}
+          onPointerLeave={() => setActiveControl(null)}
+          onBlur={() => setActiveControl(null)}
+          onClick={handleMinimize}
+          aria-label="Minimizar"
+        >
           <PixelMinimizeIcon />
         </button>
         <button
           type="button"
           className={styles.controlButton}
+          data-active={activeControl === "maximize"}
+          onPointerDown={() => setActiveControl("maximize")}
+          onPointerUp={() => setActiveControl(null)}
+          onPointerLeave={() => setActiveControl(null)}
+          onBlur={() => setActiveControl(null)}
           onClick={handleToggleMaximize}
           aria-label={isMaximized ? "Restaurar" : "Maximizar"}
         >
@@ -141,6 +198,11 @@ export function TitleBar() {
         <button
           type="button"
           className={`${styles.controlButton} ${styles.closeButton}`}
+          data-active={activeControl === "close"}
+          onPointerDown={() => setActiveControl("close")}
+          onPointerUp={() => setActiveControl(null)}
+          onPointerLeave={() => setActiveControl(null)}
+          onBlur={() => setActiveControl(null)}
           onClick={handleClose}
           aria-label="Cerrar"
         >

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy } from "react";
 import "./App.css";
 import { StoreProvider } from "./context/StoreContext";
@@ -12,7 +12,6 @@ import { WelcomeSetupModal } from "./components/core/WelcomeSetupModal";
 // Importaciones directas para evitar parpadeos
 import Dashboard from "./pages/Dashboard";
 import Discover from "./pages/Discover";
-import MyAnimes from "./pages/MyAnimes";
 import AnimeDetails from "./pages/AnimeDetails";
 import Recent from "./pages/Recent";
 
@@ -38,7 +37,7 @@ function App() {
                   <Route index element={<Dashboard />} />
                   <Route path="discover" element={<Discover />} />
                   <Route path="search" element={<Search />} />
-                  <Route path="my-animes" element={<MyAnimes />} />
+                  <Route path="my-animes" element={<Navigate to="/library" replace />} />
                   <Route path="library" element={<Library />} />
                   <Route path="recent" element={<Recent />} />
                   <Route path="history" element={<History />} />

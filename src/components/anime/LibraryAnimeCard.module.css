@@ -1,0 +1,227 @@
+.cardShell {
+  display: flex;
+  flex-direction: column;
+}
+
+.card {
+  background: var(--px-card);
+  border: 2px solid var(--px-border);
+  clip-path: var(--clip-md);
+  overflow: hidden;
+  transition: var(--tx-normal);
+  cursor: pointer;
+}
+
+.card:hover,
+.card:focus-within {
+  border-color: var(--px-cyan);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0, 217, 255, 0.12);
+}
+
+.posterFrame {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: #12131d;
+}
+
+.poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.posterFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--px-text-dim);
+}
+
+.posterShade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(8, 10, 14, 0.88), rgba(8, 10, 14, 0.18) 34%, rgba(8, 10, 14, 0.95) 100%);
+}
+
+.topRow {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  z-index: 2;
+}
+
+.badgeStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.badge {
+  align-self: flex-start;
+  padding: 5px 8px;
+  clip-path: var(--clip-sm);
+  border: 1px solid transparent;
+  background: rgba(8, 10, 14, 0.88);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.badge[data-tone="user"] {
+  color: var(--px-yellow);
+  border-color: rgba(232, 240, 0, 0.32);
+}
+
+.badge[data-tone="library"] {
+  color: var(--px-cyan);
+  border-color: rgba(0, 217, 255, 0.32);
+}
+
+.progressPill {
+  min-width: 54px;
+  padding: 7px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  clip-path: var(--clip-sm);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 10, 14, 0.82);
+  z-index: 2;
+}
+
+.progressValue {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--px-text);
+  line-height: 1;
+}
+
+.progressLabel {
+  font-family: var(--font-vt);
+  font-size: 0.72rem;
+  color: var(--px-text-dim);
+  letter-spacing: 0.8px;
+}
+
+.hoverContent {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: var(--tx-normal);
+  z-index: 2;
+}
+
+.card:hover .hoverContent,
+.card:focus-within .hoverContent {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hoverHeader {
+  display: flex;
+  align-items: flex-end;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  line-height: 1.45;
+  color: var(--px-text);
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.metaChip {
+  padding: 5px 8px;
+  clip-path: var(--clip-sm);
+  background: rgba(8, 10, 14, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--px-text-dim);
+  text-transform: uppercase;
+}
+
+.actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(100%);
+  transition: var(--tx-normal);
+  z-index: 3;
+  background: linear-gradient(to top, rgba(8, 10, 14, 0.98), rgba(8, 10, 14, 0.9));
+}
+
+.card:hover .actions,
+.card:focus-within .actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.actionButton {
+  flex: 1;
+  border: 1px solid var(--px-border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--px-text);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  padding: 9px 10px;
+  clip-path: var(--clip-sm);
+  cursor: pointer;
+  transition: var(--tx-fast);
+}
+
+.actionButton:hover {
+  border-color: var(--px-yellow);
+  color: var(--px-yellow);
+  background: rgba(232, 240, 0, 0.08);
+}
+
+.danger:hover {
+  border-color: var(--px-pink);
+  color: var(--px-pink);
+  background: rgba(255, 74, 141, 0.08);
+}
+
+@media (max-width: 640px) {
+  .hoverContent {
+    bottom: 108px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+}
