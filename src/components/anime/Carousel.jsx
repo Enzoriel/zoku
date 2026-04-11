@@ -6,7 +6,7 @@ import PixelReveal from "../common/PixelReveal";
 
 function Carousel({ title, animes = [], loading = false, playback = null }) {
   const scrollRef = useRef(null);
-  const { data, setMyAnimes } = useStore();
+  const { data } = useStore();
 
   const scroll = (direction) => {
     if (scrollRef.current) {
@@ -55,7 +55,6 @@ function Carousel({ title, animes = [], loading = false, playback = null }) {
                     key={uniqueKey}
                     anime={anime}
                     inLibraryData={inLibraryData}
-                    setMyAnimes={setMyAnimes}
                     playback={playback}
                   />
                 );

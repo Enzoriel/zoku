@@ -312,7 +312,6 @@ function TorrentPage() {
         animeTitle={targetAnimeTitle || modalTitle}
         items={modalItems}
         malId={targetAnimeId}
-        showToast={showToast}
       />
 
       {toast && (

@@ -1,5 +1,5 @@
 import { extractEpisodeNumber } from "./fileParsing";
-import { buildTorrentMatchCandidates, deriveTorrentAliasFromTitle, extractBaseTitle } from "./titleIdentity";
+import { buildTorrentMatchCandidates, extractBaseTitle } from "./titleIdentity";
 
 function jaro(s1, s2) {
   if (s1 === s2) return 1;
@@ -145,8 +145,4 @@ export function findTorrentMatches(
     .filter(Boolean)
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);
-}
-
-export function extractAliasFromTitle(rawTitle) {
-  return deriveTorrentAliasFromTitle(rawTitle);
 }

@@ -94,7 +94,6 @@ function TorrentDownloadModal({ isOpen, onClose, animeTitle, items = [], malId }
       if (url.startsWith("magnet:")) {
         try {
           await navigator.clipboard.writeText(url);
-          console.log("[Download] Magnet copiado al portapapeles debido a fallo de openUrl.");
         } catch (clipError) {
           console.error("[Download] Clipboard fallback failed:", clipError);
         }

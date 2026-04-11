@@ -73,7 +73,6 @@ export function TorrentProvider({ children }) {
   }, [principalFansub, preferredRes, storeLoading, fetchPrincipal]);
 
   const refresh = useCallback(() => fetchPrincipal(true), [fetchPrincipal]);
-  const isStale = lastFetch === null || Date.now() - lastFetch > CACHE_DURATION;
 
   const value = useMemo(
     () => ({
@@ -81,12 +80,11 @@ export function TorrentProvider({ children }) {
       isLoading,
       error,
       lastFetch,
-      isStale,
       principalFansub,
       preferredRes,
       refresh,
     }),
-    [data, isLoading, error, lastFetch, isStale, principalFansub, preferredRes, refresh],
+    [data, isLoading, error, lastFetch, principalFansub, preferredRes, refresh],
   );
 
   return <TorrentContext.Provider value={value}>{children}</TorrentContext.Provider>;

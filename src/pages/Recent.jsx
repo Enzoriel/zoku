@@ -25,7 +25,7 @@ function Recent() {
   const [activeDay, setActiveDay] = useState(new Date().getDay());
 
   const { allAiringAnime, loadingExtra, errorExtra, retryExtra } = useRecentAnimeContext();
-  const { data: torrentData, isLoading: torrentLoading, principalFansub } = useTorrent();
+  const { data: torrentData, principalFansub } = useTorrent();
 
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
@@ -44,6 +44,33 @@ function Recent() {
       map[Number(id)] = anime;
     });
     return map;
+  }, [data.myAnimes]);
+
+  // Memoize only torrent-relevant fields to avoid unnecessary recalculations
+  // Fields like downloadIntentAt, lastUpdated change frequently but don't affect torrent matching
+  const torrentRelevantMyAnimeMap = useMemo(() => {
+    const map = {};
+    Object.entries(data.myAnimes || {}).forEach(([id, anime]) => {
+      map[id] = {
+        torrentAlias: anime.torrentAlias,
+        torrentSearchTerm: anime.torrentSearchTerm,
+        torrentTitle: anime.torrentTitle,
+        synonyms: anime.synonyms,
+        watchedEpisodes: anime.watchedEpisodes,
+        folderName: anime.folderName,
+      };
+      map[Number(id)] = map[id];
+    });
+    return map;
+  }, [data.myAnimes]);
+
+  // Create a stable key for torrentRelevantMyAnimeMap to prevent unnecessary recalculations
+  const torrentRelevantKey = useMemo(() => {
+    return Object.entries(data.myAnimes || {})
+      .map(([id, anime]) =>
+        `${id}:${anime.torrentAlias || ''}:${anime.torrentSearchTerm || ''}:${anime.torrentTitle || ''}:${JSON.stringify(anime.synonyms || [])}:${JSON.stringify(anime.watchedEpisodes || [])}:${anime.folderName || ''}`
+      )
+      .join('|');
   }, [data.myAnimes]);
 
   const hasTrackedAnime = useMemo(() => Object.keys(data.myAnimes || {}).length > 0, [data.myAnimes]);
@@ -120,16 +147,21 @@ function Recent() {
   }, [myAiringAnime]);
 
   const [torrentMatchesMap, setTorrentMatchesMap] = useState({});
-  const [isCalculatingTorrents, setIsCalculatingTorrents] = useState(true);
+  const [showTorrentSpinner, setShowTorrentSpinner] = useState(false);
 
   useEffect(() => {
     if (!torrentData || torrentData.length === 0 || groupedByDay.length === 0) {
       setTorrentMatchesMap({});
-      setIsCalculatingTorrents(false);
+      setShowTorrentSpinner(false);
       return;
     }
 
-    setIsCalculatingTorrents(true);
+    setShowTorrentSpinner(false);
+
+    // Delay showing spinner to avoid flash for fast calculations
+    const spinnerTimer = setTimeout(() => {
+      setShowTorrentSpinner(true);
+    }, 150);
 
     // Usar setTimeout para ceder el control al hilo principal y que cambie la pagina rápido.
     // Especialmente importante para calculos pesados de Jaro-Winkler cuando hay muchos torrents.
@@ -137,7 +169,7 @@ function Recent() {
       const matchesMap = {};
       groupedByDay.forEach(({ episodes }) => {
         episodes.forEach(({ anime, ep }) => {
-          const stored = myAnimeMap[anime.malId] || myAnimeMap[anime.mal_id];
+          const stored = torrentRelevantMyAnimeMap[anime.malId] || torrentRelevantMyAnimeMap[anime.mal_id];
           const key = `${anime.malId || anime.mal_id}-${ep}`;
           matchesMap[key] = getEpisodeTorrentAvailability(
             anime.title,
@@ -153,11 +185,15 @@ function Recent() {
         });
       });
       setTorrentMatchesMap(matchesMap);
-      setIsCalculatingTorrents(false);
+      setShowTorrentSpinner(false);
+      clearTimeout(spinnerTimer);
     }, 10);
 
-    return () => clearTimeout(timerId);
-  }, [groupedByDay, torrentData, myAnimeMap, principalFansub]);
+    return () => {
+      clearTimeout(timerId);
+      clearTimeout(spinnerTimer);
+    };
+  }, [groupedByDay, torrentData, torrentRelevantKey, principalFansub]);
 
   const scheduleByDay = useMemo(() => {
     const groups = Array.from({ length: 7 }, () => []);
@@ -177,8 +213,7 @@ function Recent() {
     return groups;
   }, [myAiringAnime]);
 
-  const shouldShowApiUnavailableState =
-    hasTrackedAnime && allAiringAnime.length === 0 && !loading && !loadingExtra;
+  const shouldShowApiUnavailableState = hasTrackedAnime && allAiringAnime.length === 0 && !loading && !loadingExtra;
 
   const handleRetryAll = useCallback(async () => {
     await retryFetch();
@@ -323,7 +358,7 @@ function Recent() {
                           const matches = availability.matches;
                           const hasPrincipalMatch = availability.hasPrincipalMatch;
 
-                          if (torrentLoading || isCalculatingTorrents) return <div className={styles.torrentSpinner}></div>;
+                          if (showTorrentSpinner) return <div className={styles.torrentSpinner}></div>;
                           if (matches.length > 0) {
                             return (
                               <button
@@ -354,7 +389,7 @@ function Recent() {
                               title="Buscar torrent manualmente en otras pestanas"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                const stored = myAnimeMap[anime.malId || anime.mal_id];
+                                const stored = torrentRelevantMyAnimeMap[anime.malId || anime.mal_id];
                                 const query =
                                   stored?.torrentSearchTerm ||
                                   extractBaseTitle(stored?.torrentTitle || stored?.torrentAlias || anime.title);

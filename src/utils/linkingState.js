@@ -66,12 +66,3 @@ export function syncAnimeSuggestion(anime = {}, suggestedFolderName = null) {
     lastUpdated: previousSuggestionName !== (suggestedFolderName || null) ? buildTimestamp() : anime.lastUpdated,
   };
 }
-
-export function isSuggestionRejected(anime = {}, folderName) {
-  if (!folderName) return false;
-  return String(anime?.rejectedSuggestion?.folderName || "").toLowerCase() === String(folderName).toLowerCase();
-}
-
-export function getRejectedFolderName(anime = {}) {
-  return anime?.rejectedSuggestion?.folderName || null;
-}

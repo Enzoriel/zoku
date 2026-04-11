@@ -56,7 +56,7 @@ export async function isPlayerStillOpen(playerName) {
   return false;
 }
 
-export function normalizeForSearch(text) {
+function normalizeForSearch(text) {
   return normalizeTitleForSearch(text);
 }
 
@@ -258,11 +258,6 @@ export function findAnimeFolderCandidates(anime, localFiles, options = {}) {
       if (second[2] !== first[2]) return second[2] - first[2];
       return (second[1]?.files?.length || 0) - (first[1]?.files?.length || 0);
     });
-}
-
-export function findBestAnimeFolderMatch(anime, localFiles, options = {}) {
-  const [bestMatch] = findAnimeFolderCandidates(anime, localFiles, options);
-  return bestMatch ? [bestMatch[0], bestMatch[1]] : null;
 }
 
 function tokenizeSearchKey(value) {

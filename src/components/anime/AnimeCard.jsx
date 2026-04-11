@@ -1,17 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { memo } from "react";
 import { calculateUserStatus } from "../../utils/animeStatus";
-import { buildStoredAnimeEntry } from "../../utils/animeEntry";
 import styles from "./AnimeCard.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
 function AnimeCard({
   anime,
-  showAddButton = false,
-  onAdd,
-  type = false,
   inLibraryData,
-  setMyAnimes,
   playback = null,
 }) {
   const navigate = useNavigate();
@@ -50,15 +45,6 @@ function AnimeCard({
     playback?.cancelPlay?.();
   };
 
-  const handleAddToLibrary = async (e) => {
-    e.stopPropagation();
-
-    const animeData = buildStoredAnimeEntry(anime);
-
-    await setMyAnimes((prev) => ({ ...prev, [animeId]: animeData }));
-    if (onAdd) onAdd(animeData);
-  };
-
   const image = displayAnime.images?.jpg?.large_image_url || displayAnime.coverImage || "";
   const title = displayAnime.title || displayAnime.title_english || "Unknown Title";
 
@@ -87,7 +73,6 @@ function AnimeCard({
 
         {/* Badges superiores dinámicos */}
         <div className={styles.topBadges}>
-          {type && displayAnime.type && <span className={styles.typeBadge}>{displayAnime.type}</span>}
           {isInLibrary && (
             <span className={styles.statusBadge} data-status={userStatus}>
               {userStatus === "PLAN_TO_WATCH"
@@ -141,11 +126,6 @@ function AnimeCard({
               <span className={styles.epCount}>
                 {validWatchedCount}/{total || "?"} EPISODIOS
               </span>
-            )}
-            {showAddButton && !isInLibrary && (
-              <button className={styles.addButton} onClick={handleAddToLibrary}>
-                + AÑADIR A LA BÓVEDA
-              </button>
             )}
           </div>
 

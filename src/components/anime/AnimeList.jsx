@@ -1,4 +1,3 @@
-import { useState } from "react";
 import AnimeCardExt from "./AnimeCardExt";
 import styles from "./AnimeList.module.css";
 import { useStore } from "../../hooks/useStore";

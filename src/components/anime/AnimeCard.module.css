@@ -56,17 +56,6 @@
   z-index: 10;
 }
 
-.typeBadge {
-  background: white;
-  color: black;
-  font-family: "Tektur", sans-serif;
-  font-size: 0.55rem;
-  font-weight: 900;
-  padding: 2px 6px;
-  border-radius: 2px;
-  text-transform: uppercase;
-}
-
 .statusBadge {
   font-family: "Tektur", sans-serif;
   font-size: 0.55rem;
@@ -222,22 +211,6 @@
   font-weight: 800;
   color: var(--primary-color);
   letter-spacing: 1px;
-}
-
-.addButton {
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  font-family: "Tektur", sans-serif;
-  font-size: 0.6rem;
-  font-weight: 900;
-  padding: 4px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.2s ease;
-  pointer-events: auto;
 }
 
 /* Géneros debajo del título */
