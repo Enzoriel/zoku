@@ -46,8 +46,6 @@ function Recent() {
     return map;
   }, [data.myAnimes]);
 
-  // Memoize only torrent-relevant fields to avoid unnecessary recalculations
-  // Fields like downloadIntentAt, lastUpdated change frequently but don't affect torrent matching
   const torrentRelevantMyAnimeMap = useMemo(() => {
     const map = {};
     Object.entries(data.myAnimes || {}).forEach(([id, anime]) => {
@@ -64,13 +62,13 @@ function Recent() {
     return map;
   }, [data.myAnimes]);
 
-  // Create a stable key for torrentRelevantMyAnimeMap to prevent unnecessary recalculations
   const torrentRelevantKey = useMemo(() => {
     return Object.entries(data.myAnimes || {})
-      .map(([id, anime]) =>
-        `${id}:${anime.torrentAlias || ''}:${anime.torrentSearchTerm || ''}:${anime.torrentTitle || ''}:${JSON.stringify(anime.synonyms || [])}:${JSON.stringify(anime.watchedEpisodes || [])}:${anime.folderName || ''}`
+      .map(
+        ([id, anime]) =>
+          `${id}:${anime.torrentAlias || ""}:${anime.torrentSearchTerm || ""}:${anime.torrentTitle || ""}:${JSON.stringify(anime.synonyms || [])}:${JSON.stringify(anime.watchedEpisodes || [])}:${anime.folderName || ""}`,
       )
-      .join('|');
+      .join("|");
   }, [data.myAnimes]);
 
   const hasTrackedAnime = useMemo(() => Object.keys(data.myAnimes || {}).length > 0, [data.myAnimes]);
@@ -158,13 +156,10 @@ function Recent() {
 
     setShowTorrentSpinner(false);
 
-    // Delay showing spinner to avoid flash for fast calculations
     const spinnerTimer = setTimeout(() => {
       setShowTorrentSpinner(true);
     }, 150);
 
-    // Usar setTimeout para ceder el control al hilo principal y que cambie la pagina rápido.
-    // Especialmente importante para calculos pesados de Jaro-Winkler cuando hay muchos torrents.
     const timerId = setTimeout(() => {
       const matchesMap = {};
       groupedByDay.forEach(({ episodes }) => {
@@ -528,7 +523,6 @@ function Recent() {
         isOpen={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}
         animeTitle={searchModalItem?.title}
-        epNumber={searchModalItem?.ep}
         malId={searchModalItem?.malId}
       />
 

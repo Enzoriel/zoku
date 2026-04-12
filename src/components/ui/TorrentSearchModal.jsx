@@ -5,7 +5,7 @@ import { getAllFansubs, getPrincipalFansub } from "../../utils/torrentConfig";
 import Modal from "./Modal";
 import styles from "./FansubOnboardingModal.module.css";
 
-function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
+function TorrentSearchModal({ isOpen, onClose, animeTitle, malId }) {
   const { data: storeData } = useStore();
   const navigate = useNavigate();
 
@@ -15,8 +15,7 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
   const handleSelectFansub = (fansubName) => {
     const sourceTitle = animeTitle || "";
     const cleanTitle = malId ? sourceTitle : extractBaseTitle(sourceTitle);
-    const paddedEpisode = String(epNumber || "").padStart(2, "0");
-    const query = `${cleanTitle || sourceTitle} ${paddedEpisode}`.trim();
+    const query = `${cleanTitle || sourceTitle}`.trim();
     navigate("/torrents", {
       state: {
         activeTab: fansubName,
@@ -35,14 +34,19 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, epNumber, malId }) {
       onClose={onClose}
       size="sm"
       title="BUSQUEDA MANUAL"
-      subtitle={`En que grupo quieres buscar el Episodio ${epNumber} de ${animeTitle}?`}
+      subtitle={`En que grupo quieres buscar ${animeTitle}?`}
     >
       <div className={styles.section} style={{ padding: 0 }}>
         <div className={styles.fansubGrid} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {principalFansub && (
             <button
               className={styles.fansubChip}
-              style={{ justifyContent: "space-between", borderColor: "var(--px-cyan)", color: "var(--px-cyan)", background: "rgba(0, 245, 255, 0.05)" }}
+              style={{
+                justifyContent: "space-between",
+                borderColor: "var(--px-cyan)",
+                color: "var(--px-cyan)",
+                background: "rgba(0, 245, 255, 0.05)",
+              }}
               onClick={() => handleSelectFansub(principalFansub)}
             >
               <span>{principalFansub}</span>
