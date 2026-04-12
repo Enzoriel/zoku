@@ -14,8 +14,8 @@ function TorrentSearchModal({ isOpen, onClose, animeTitle, malId }) {
 
   const handleSelectFansub = (fansubName) => {
     const sourceTitle = animeTitle || "";
-    const cleanTitle = malId ? sourceTitle : extractBaseTitle(sourceTitle);
-    const query = `${cleanTitle || sourceTitle}`.trim();
+    const cleanTitle = extractBaseTitle(sourceTitle) || sourceTitle.trim();
+    const query = cleanTitle.trim();
     navigate("/torrents", {
       state: {
         activeTab: fansubName,

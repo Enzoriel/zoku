@@ -147,28 +147,73 @@
   filter: brightness(1.1);
 }
 
-.searchOptionsBox {
-  display: flex;
-  gap: 12px;
-}
-
-.searchOptionBtn {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--px-border);
-  color: var(--px-text-dim);
-  font-family: var(--font-text);
-  font-size: 0.95rem;
-  padding: 12px;
-  clip-path: var(--clip-sm);
+.clearBtn {
+  background: transparent;
+  border: none;
+  color: var(--px-gray);
+  font-size: 0.9rem;
+  padding: 8px 12px;
   cursor: pointer;
-  transition: var(--tx-fast);
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.searchOptionBtn:hover {
-  border-color: var(--px-cyan-dim);
-  background: rgba(0, 245, 255, 0.05);
+.clearBtn:hover {
   color: var(--px-text);
+}
+
+/* Feature 5: Active search indicator */
+.activeSearchIndicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 245, 255, 0.04);
+  border: 1px solid rgba(0, 245, 255, 0.15);
+  padding: 10px 16px;
+  border-radius: 6px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.indicatorIcon {
+  font-size: 1rem;
+}
+
+.indicatorLabel {
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  color: var(--px-text-dim);
+  flex: 1;
+}
+
+.indicatorQuery {
+  color: var(--px-cyan);
+  font-weight: 600;
+}
+
+.indicatorClearBtn {
+  background: transparent;
+  border: 1px solid rgba(0, 245, 255, 0.3);
+  color: var(--px-cyan);
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.indicatorClearBtn:hover {
+  background: rgba(0, 245, 255, 0.1);
+  border-color: var(--px-cyan);
 }
 
 /* Results */

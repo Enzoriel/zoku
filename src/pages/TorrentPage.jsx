@@ -48,10 +48,10 @@ function TorrentPage() {
 
   const { toast, showToast } = useToast();
   const requestIdRef = useRef(0);
+  const searchInputRef = useRef(null);
 
   const targetAnimeId = location.state?.malId;
   const targetAnimeTitle = location.state?.animeTitle;
-  const showSearchOptions = activeTab !== "general" && searchInput.trim() !== "";
   const isContextBackedTab = activeTab === principalFansub && activeQuery === "";
 
   const fetchTorrents = useCallback(async (tab, query, force = false) => {
@@ -104,16 +104,29 @@ function TorrentPage() {
     isContextBackedTab,
   ]);
 
+  useEffect(() => {
+    if (location.state?.searchInput && searchInputRef.current) {
+      searchInputRef.current.focus();
+      searchInputRef.current.select();
+    }
+  }, []);
+
   const handleTabClick = (tab) => {
     if (tab === activeTab) return;
     setActiveTab(tab);
-    setSearchInput("");
-    setActiveQuery("");
+    if (searchInput.trim()) {
+      setActiveQuery(searchInput.trim());
+    }
   };
 
+  // Feature 4: Enter to search, Escape to clear
   const handleSearchKeyDown = (event) => {
-    if (event.key === "Enter" && !showSearchOptions) {
+    if (event.key === "Enter") {
+      event.preventDefault();
       setActiveQuery(searchInput.trim());
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setSearchInput("");
     }
   };
 
@@ -121,9 +134,14 @@ function TorrentPage() {
     setActiveQuery(searchInput.trim());
   };
 
-  const handleSearchAll = () => {
-    setActiveTab("general");
-    setActiveQuery(searchInput.trim());
+  const handleClearSearch = () => {
+    setSearchInput("");
+  };
+
+  const handleClearActiveQuery = () => {
+    setSearchInput("");
+    setActiveQuery("");
+    searchInputRef.current?.focus();
   };
 
   const handleRefresh = () => {
@@ -178,6 +196,25 @@ function TorrentPage() {
         </button>
       </header>
 
+      {/* Feature 5: Active search indicator */}
+      {activeQuery && (
+        <div className={styles.activeSearchIndicator}>
+          <span className={styles.indicatorIcon}>🔍</span>
+          <span className={styles.indicatorLabel}>
+            Buscando: <strong className={styles.indicatorQuery}>"{activeQuery}"</strong>
+          </span>
+          <button
+            type="button"
+            className={styles.indicatorClearBtn}
+            onClick={handleClearActiveQuery}
+            title="Limpiar busqueda"
+            aria-label="Limpiar busqueda activa"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className={styles.tabsContainer}>
         <button
           className={`${styles.tabBtn} ${activeTab === "general" ? styles.tabActive : ""}`}
@@ -191,7 +228,8 @@ function TorrentPage() {
             className={`${styles.tabBtn} ${activeTab === fansub.name ? styles.tabActive : ""}`}
             onClick={() => handleTabClick(fansub.name)}
           >
-            {fansub.name} {fansub.principal && <span className={styles.starIcon}>⭐</span>}
+            {fansub.name}
+            {fansub.principal && <span className={styles.starIcon}>⭐</span>}
           </button>
         ))}
       </div>
@@ -203,6 +241,7 @@ function TorrentPage() {
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
+            ref={searchInputRef}
             type="text"
             className={styles.searchInput}
             placeholder={activeTab === "general" ? "Buscar en todo Nyaa..." : `Buscar en ${activeTab}...`}
@@ -210,23 +249,25 @@ function TorrentPage() {
             onChange={(event) => setSearchInput(event.target.value)}
             onKeyDown={handleSearchKeyDown}
           />
-          {!showSearchOptions && (
-            <button className={styles.searchBtn} onClick={handleSearchCurrentTab} disabled={!searchInput.trim() || isLoading}>
-              Buscar
+          {searchInput.trim() && (
+            <button
+              type="button"
+              className={styles.clearBtn}
+              onClick={handleClearSearch}
+              title="Limpiar busqueda"
+              aria-label="Limpiar busqueda"
+            >
+              ✕
             </button>
           )}
+          <button
+            className={styles.searchBtn}
+            onClick={handleSearchCurrentTab}
+            disabled={!searchInput.trim() || isLoading}
+          >
+            Buscar
+          </button>
         </div>
-
-        {showSearchOptions && (
-          <div className={styles.searchOptionsBox}>
-            <button className={styles.searchOptionBtn} onClick={handleSearchCurrentTab} disabled={isLoading}>
-              Buscar "{searchInput}" en <strong>{activeTab}</strong>
-            </button>
-            <button className={styles.searchOptionBtn} onClick={handleSearchAll} disabled={isLoading}>
-              Buscar "{searchInput}" en <strong>todo Nyaa</strong>
-            </button>
-          </div>
-        )}
       </div>
 
       <div className={styles.resultsContainer}>
@@ -245,7 +286,16 @@ function TorrentPage() {
           </div>
         ) : items.length === 0 ? (
           <div className={styles.emptyState}>
-            <p>No se encontraron resultados.</p>
+            <p>
+              {activeQuery
+                ? `No se encontraron resultados para "${activeQuery}" en ${activeTab === "general" ? "Nyaa" : activeTab}.`
+                : "No se encontraron resultados."}
+            </p>
+            {activeQuery && (
+              <button className={styles.retryBtn} onClick={() => handleTabClick("general")}>
+                BUSCAR EN TODO NYAA
+              </button>
+            )}
           </div>
         ) : (
           <div className={styles.tableWrapper}>
@@ -254,7 +304,7 @@ function TorrentPage() {
                 <tr>
                   <th className={styles.colTitle}>Titulo</th>
                   <th className={styles.colFansub}>Fansub</th>
-                  <th className={styles.colSize}>Tamaño</th>
+                  <th className={styles.colSize}>Tamanio</th>
                   <th className={styles.colSeeders}>S / L</th>
                   <th className={styles.colDate}>Fecha</th>
                   <th className={styles.colAction}>Descarga</th>
