@@ -62,15 +62,6 @@ function Recent() {
     return map;
   }, [data.myAnimes]);
 
-  const torrentRelevantKey = useMemo(() => {
-    return Object.entries(data.myAnimes || {})
-      .map(
-        ([id, anime]) =>
-          `${id}:${anime.torrentAlias || ""}:${anime.torrentSearchTerm || ""}:${anime.torrentTitle || ""}:${JSON.stringify(anime.synonyms || [])}:${JSON.stringify(anime.watchedEpisodes || [])}:${anime.folderName || ""}`,
-      )
-      .join("|");
-  }, [data.myAnimes]);
-
   const hasTrackedAnime = useMemo(() => Object.keys(data.myAnimes || {}).length > 0, [data.myAnimes]);
 
   const myAiringAnime = useMemo(() => {
@@ -145,20 +136,12 @@ function Recent() {
   }, [myAiringAnime]);
 
   const [torrentMatchesMap, setTorrentMatchesMap] = useState({});
-  const [showTorrentSpinner, setShowTorrentSpinner] = useState(false);
 
   useEffect(() => {
     if (!torrentData || torrentData.length === 0 || groupedByDay.length === 0) {
       setTorrentMatchesMap({});
-      setShowTorrentSpinner(false);
       return;
     }
-
-    setShowTorrentSpinner(false);
-
-    const spinnerTimer = setTimeout(() => {
-      setShowTorrentSpinner(true);
-    }, 150);
 
     const timerId = setTimeout(() => {
       const matchesMap = {};
@@ -180,15 +163,10 @@ function Recent() {
         });
       });
       setTorrentMatchesMap(matchesMap);
-      setShowTorrentSpinner(false);
-      clearTimeout(spinnerTimer);
     }, 10);
 
-    return () => {
-      clearTimeout(timerId);
-      clearTimeout(spinnerTimer);
-    };
-  }, [groupedByDay, torrentData, torrentRelevantKey, principalFansub]);
+    return () => clearTimeout(timerId);
+  }, [groupedByDay, torrentData, torrentRelevantMyAnimeMap, principalFansub]);
 
   const scheduleByDay = useMemo(() => {
     const groups = Array.from({ length: 7 }, () => []);
@@ -208,7 +186,7 @@ function Recent() {
     return groups;
   }, [myAiringAnime]);
 
-  const shouldShowApiUnavailableState = hasTrackedAnime && allAiringAnime.length === 0 && !loading && !loadingExtra;
+  const shouldShowApiUnavailableState = hasTrackedAnime && !!errorExtra && !loadingExtra;
 
   const handleRetryAll = useCallback(async () => {
     await retryFetch();
@@ -353,7 +331,6 @@ function Recent() {
                           const matches = availability.matches;
                           const hasPrincipalMatch = availability.hasPrincipalMatch;
 
-                          if (showTorrentSpinner) return <div className={styles.torrentSpinner}></div>;
                           if (matches.length > 0) {
                             return (
                               <button
@@ -391,7 +368,6 @@ function Recent() {
 
                                 setSearchModalItem({
                                   title: query,
-                                  ep,
                                   malId: anime.malId || anime.mal_id,
                                 });
                                 setSearchModalOpen(true);
@@ -409,7 +385,8 @@ function Recent() {
                             </svg>
                             VISTO
                           </span>
-                        ) : playingEp?.animeId === (anime.malId || anime.mal_id) && playingEp?.epNumber === ep ? (
+                        ) : Number(playingEp?.animeId) === Number(anime.malId || anime.mal_id) &&
+                          playingEp?.epNumber === ep ? (
                           <span className={styles.playingBadge}>REPRODUCIENDO</span>
                         ) : localFile ? (
                           localFile.isDownloading ? (
