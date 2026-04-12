@@ -12,7 +12,7 @@ import TorrentSearchModal from "../components/ui/TorrentSearchModal";
 import RetryPanel from "../components/ui/RetryPanel";
 import { usePlayTracking } from "../hooks/usePlayTracking";
 import { extractEpisodeNumber } from "../utils/fileParsing";
-import { getEpisodeTorrentAvailability } from "../utils/torrentAvailability";
+import { getBatchEpisodeTorrentAvailability } from "../utils/torrentAvailability";
 import { buildRecentEpisodeOccurrences } from "../utils/recentEpisodes";
 import styles from "./Recent.module.css";
 import { DAY_NAMES, DAY_NAMES_SHORT } from "../utils/constants";
@@ -144,24 +144,20 @@ function Recent() {
     }
 
     const timerId = setTimeout(() => {
-      const matchesMap = {};
-      groupedByDay.forEach(({ episodes }) => {
-        episodes.forEach(({ anime, ep }) => {
+      const batchEpisodes = [];
+      groupedByDay.forEach(({ episodes: dayEps }) => {
+        dayEps.forEach(({ anime, ep }) => {
           const stored = torrentRelevantMyAnimeMap[anime.malId] || torrentRelevantMyAnimeMap[anime.mal_id];
-          const key = `${anime.malId || anime.mal_id}-${ep}`;
-          matchesMap[key] = getEpisodeTorrentAvailability(
-            anime.title,
-            anime.title_english || null,
+          batchEpisodes.push({
+            anime,
             ep,
-            torrentData,
-            principalFansub,
-            stored?.torrentAlias,
-            stored?.torrentSearchTerm,
-            stored?.torrentTitle,
-            stored?.synonyms || [],
-          );
+            stored,
+            key: `${anime.malId || anime.mal_id}-${ep}`,
+          });
         });
       });
+
+      const matchesMap = getBatchEpisodeTorrentAvailability(batchEpisodes, torrentData, principalFansub);
       setTorrentMatchesMap(matchesMap);
     }, 10);
 

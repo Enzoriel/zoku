@@ -146,3 +146,58 @@ export function findTorrentMatches(
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);
 }
+
+export function findTorrentMatchesPrecomputed(episodeNumber, filteredTorrents, resolvedCandidates) {
+  if (!filteredTorrents?.length || !episodeNumber || !resolvedCandidates?.length) return [];
+
+  const titlesToMatch = toUniqueTitles(
+    resolvedCandidates.flatMap((value) => buildTitleVariants(value)),
+  );
+  if (titlesToMatch.length === 0) return [];
+
+  return filteredTorrents
+    .map((item) => {
+      const itemEpisode = extractEpisodeNumber(item.title, titlesToMatch);
+      if (itemEpisode !== episodeNumber) return null;
+
+      const cleanTitle = extractBaseTitle(item.title);
+      if (!cleanTitle) return null;
+
+      let score = 0;
+      let matchedTitle = "";
+
+      titlesToMatch.forEach((candidate) => {
+        const jw = jaroWinkler(cleanTitle.toLowerCase(), candidate.toLowerCase());
+        const torrentWords = getWords(cleanTitle);
+        const candidateWords = getWords(candidate);
+
+        let wordScore = 0;
+        if (torrentWords.length > 0 && candidateWords.length > 0) {
+          const shared = candidateWords.filter((word) => torrentWords.includes(word)).length;
+          wordScore = shared / Math.max(candidateWords.length, torrentWords.length);
+        }
+
+        const compositeScore = Math.max(jw, wordScore);
+        if (compositeScore > score) {
+          score = compositeScore;
+          matchedTitle = candidate;
+        }
+      });
+
+      const normTorrent = superNormalize(cleanTitle);
+      const normAnime = superNormalize(extractBaseTitle(matchedTitle) || matchedTitle);
+
+      if (normAnime.length > 5) {
+        const contains = normTorrent.includes(normAnime) || normAnime.includes(normTorrent);
+        if (!contains && score < 0.95) {
+          score *= 0.8;
+        }
+      }
+
+      if (score < MATCH_SCORE_THRESHOLD) return null;
+      return { item, score };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score)
+    .map(({ item }) => item);
+}
