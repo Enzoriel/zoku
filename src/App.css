@@ -257,6 +257,18 @@
   }
 }
 
+/* Disable global text selection for native app feel */
+* {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea {
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
 body {
   margin: 0;
   padding: 0;

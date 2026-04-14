@@ -69,6 +69,11 @@ pub fn run() {
 
             tray.build(app)?;
 
+            // Maximizar la ventana principal programáticamente para evitar bugs con los bordes
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.maximize();
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {
