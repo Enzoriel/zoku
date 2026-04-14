@@ -288,3 +288,52 @@
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ─── Metadata editor para custom fansubs ─── */
+.customMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-top: 4px;
+  margin-left: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 2px solid var(--px-cyan-dim);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metaLabel {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--px-yellow);
+  letter-spacing: 1px;
+  min-width: 70px;
+}
+
+.metaToggle {
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-family: var(--font-text);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--px-border);
+  color: var(--px-text-dim);
+  cursor: pointer;
+  clip-path: var(--clip-sm);
+  transition: var(--tx-fast);
+}
+
+.metaToggle:hover {
+  border-color: var(--px-cyan-dim);
+  color: var(--px-text);
+}
+
+.metaToggleActive {
+  background: rgba(0, 245, 255, 0.1);
+  border-color: var(--px-cyan);
+  color: var(--px-cyan);
+}

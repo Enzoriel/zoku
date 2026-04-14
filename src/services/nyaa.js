@@ -4,12 +4,12 @@ const DEFAULT_TTL_MS = 10 * 60 * 1000;
 const cache = new Map();
 const inFlight = new Map();
 
-function buildKey({ fansub = "", query = "" }) {
-  return `${fansub}::${query}`.toLowerCase();
+function buildKey({ fansub = "", query = "", category = "" }) {
+  return `${fansub}::${query}::${category}`.toLowerCase();
 }
 
-export function getCachedNyaaFeed({ fansub = "", query = "", ttlMs = DEFAULT_TTL_MS }) {
-  const key = buildKey({ fansub, query });
+export function getCachedNyaaFeed({ fansub = "", query = "", category = "", ttlMs = DEFAULT_TTL_MS }) {
+  const key = buildKey({ fansub, query, category });
   const entry = cache.get(key);
   if (!entry) return null;
 
@@ -21,16 +21,16 @@ export function getCachedNyaaFeed({ fansub = "", query = "", ttlMs = DEFAULT_TTL
   return entry;
 }
 
-export async function fetchNyaaFeed({ fansub = "", query = "", force = false, ttlMs = DEFAULT_TTL_MS }) {
-  const key = buildKey({ fansub, query });
+export async function fetchNyaaFeed({ fansub = "", query = "", category = "1_2", force = false, ttlMs = DEFAULT_TTL_MS }) {
+  const key = buildKey({ fansub, query, category });
 
   if (!force) {
-    const cached = getCachedNyaaFeed({ fansub, query, ttlMs });
+    const cached = getCachedNyaaFeed({ fansub, query, category, ttlMs });
     if (cached) return cached;
     if (inFlight.has(key)) return inFlight.get(key);
   }
 
-  const request = invoke("fetch_nyaa", { query, fansub })
+  const request = invoke("fetch_nyaa", { query, fansub, category })
     .then((result) => {
       const entry = {
         data: result || [],

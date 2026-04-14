@@ -19,6 +19,7 @@ const Configuration = () => {
   const [isClearing, setIsClearing] = useState(false);
   const [showFansubModal, setShowFansubModal] = useState(false);
   const [localResolution, setLocalResolution] = useState("1080p");
+  const [language, setLanguage] = useState("en");
   const [infoModal, setInfoModal] = useState(null);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ const Configuration = () => {
     }
 
     setLocalResolution(getPreferredResolution(data?.settings));
+    setLanguage(data?.settings?.torrent?.language || "en");
   }, [data?.settings]);
 
   const handleSaveTrigger = () => {
@@ -68,6 +70,7 @@ const Configuration = () => {
         torrent: {
           ...(data.settings?.torrent || {}),
           resolution: localResolution,
+          language,
         },
       });
       setShowSaveModal(false);
@@ -173,6 +176,59 @@ const Configuration = () => {
           </div>
           <p className={styles.hint}>Los cambios de resolucion se aplicaran despues de guardar.</p>
         </div>
+
+        <div className={styles.settingItem} style={{ marginBottom: "20px" }}>
+          <label>Idioma de busqueda en Nyaa:</label>
+          <div className={styles.langContainer}>
+            <button
+              className={`${styles.langBtn} ${language === "en" ? styles.langBtnActive : ""}`}
+              onClick={() => setLanguage("en")}
+            >
+              🇬🇧 Inglés (english-translated)
+            </button>
+            <button
+              className={`${styles.langBtn} ${language === "es" ? styles.langBtnActive : ""}`}
+              onClick={() => setLanguage("es")}
+            >
+              🇪🇸 Español (non-english)
+            </button>
+          </div>
+          <p className={styles.hint}>
+            {language === "es"
+              ? "Las busquedas se haran en la categoria Non-English. En Torrents podras alternar entre inglés y español con un toggle."
+              : "Las busquedas se haran en la categoria English-Translated. Puedes configurar fansubs en español si lo necesitas."}
+          </p>
+        </div>
+
+        {/* Fansubs configurados — preview */}
+        {data?.settings?.torrent?.fansubs?.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <label>Fansubs configurados:</label>
+            <div className={styles.fansubList}>
+              {data.settings.torrent.fansubs.map((f) => {
+                const lang = f.language || "en";
+                const category = f.nyaaCategory || "1_2";
+                const isPrincipal = f.principal;
+                return (
+                  <div key={f.name} className={styles.fansubListItem}>
+                    <span className={styles.fansubListName}>
+                      {f.name}
+                      {isPrincipal && <span className={styles.fansubListPrincipal}>⭐</span>}
+                    </span>
+                    <span className={styles.fansubListMeta}>
+                      <span className={lang === "es" ? styles.langEs : styles.langEn}>
+                        {lang === "es" ? "🇪🇸 ES" : "🇬🇧 EN"}
+                      </span>
+                      <span className={styles.fansubListCategory}>
+                        {category === "1_3" ? "Non-English" : "English-Translated"}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <button className={styles.secondaryButton} onClick={() => setShowFansubModal(true)}>
           ADMINISTRAR FANSUBS

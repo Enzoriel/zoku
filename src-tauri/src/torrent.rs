@@ -73,10 +73,14 @@ fn build_magnet(info_hash: &str, title: &str) -> String {
     )
 }
 
-async fn fetch_nyaa_inner(query: String, fansub: String) -> Result<Vec<TorrentItem>, String> {
+async fn fetch_nyaa_inner(
+    query: String,
+    fansub: String,
+    category: String,
+) -> Result<Vec<TorrentItem>, String> {
     let mut params = vec![
         "page=rss".to_string(),
-        "c=1_2".to_string(),
+        format!("c={}", category),
         "f=0".to_string(),
     ];
 
@@ -170,8 +174,14 @@ async fn fetch_nyaa_inner(query: String, fansub: String) -> Result<Vec<TorrentIt
 }
 
 #[tauri::command]
-pub async fn fetch_nyaa(query: String, fansub: String) -> Result<Vec<TorrentItem>, String> {
-    fetch_nyaa_inner(query, fansub).await
+pub async fn fetch_nyaa(
+    query: String,
+    fansub: String,
+    category: Option<String>,
+) -> Result<Vec<TorrentItem>, String> {
+    // Default: English-translated (1_2) — mantiene compatibilidad
+    let cat = category.unwrap_or_else(|| "1_2".to_string());
+    fetch_nyaa_inner(query, fansub, cat).await
 }
 
 #[tauri::command]

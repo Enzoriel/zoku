@@ -1,11 +1,18 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { open } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useStore } from "../hooks/useStore";
 import { useTorrent } from "../context/TorrentContext";
 import { useToast } from "../hooks/useToast";
-import { hasConfiguredFansubs, getAllFansubs, getPrincipalFansub, getPreferredResolution } from "../utils/torrentConfig";
-import { fetchNyaaFeed } from "../services/nyaa";
+import {
+  hasConfiguredFansubs,
+  getPrincipalFansub,
+  getPreferredResolution,
+  getFansubsByLanguage,
+  isSpanishUser,
+  getCategoryForTab,
+} from "../utils/torrentConfig";
+import { fetchNyaaFeed, getCachedNyaaFeed } from "../services/nyaa";
 import FansubOnboardingModal from "../components/ui/FansubOnboardingModal";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import styles from "./TorrentPage.module.css";
@@ -22,9 +29,20 @@ function TorrentPage() {
   } = useTorrent();
 
   const hasConfig = hasConfiguredFansubs(storeData.settings);
-  const allFansubs = getAllFansubs(storeData.settings);
+  const userIsSpanish = isSpanishUser(storeData.settings);
   const principalFansub = getPrincipalFansub(storeData.settings);
   const preferredRes = useMemo(() => getPreferredResolution(storeData.settings), [storeData.settings]);
+
+  // English/Spanish mode
+  const [langMode, setLangMode] = useState("en");
+
+  // Spanish suffix toggle: "esp", "spa", or null
+  const [spanishSuffix, setSpanishSuffix] = useState(null);
+
+  // Visible fansubs filtered by language
+  const visibleFansubs = useMemo(() => {
+    return getFansubsByLanguage(storeData.settings, langMode);
+  }, [storeData.settings, langMode]);
 
   const [activeTab, setActiveTab] = useState(location.state?.activeTab || "general");
   const [searchInput, setSearchInput] = useState(location.state?.searchInput || "");
@@ -46,38 +64,74 @@ function TorrentPage() {
   const [modalItems, setModalItems] = useState([]);
   const [modalTitle, setModalTitle] = useState("");
 
-  const { toast, showToast } = useToast();
+  const { toast } = useToast();
   const requestIdRef = useRef(0);
   const searchInputRef = useRef(null);
 
   const targetAnimeId = location.state?.malId;
   const targetAnimeTitle = location.state?.animeTitle;
-  const isContextBackedTab = activeTab === principalFansub && activeQuery === "";
 
-  const fetchTorrents = useCallback(async (tab, query, force = false) => {
-    const requestId = ++requestIdRef.current;
-    setIsLoading(true);
-    setError(null);
+  // Context tab: principal fansub + no query + english mode
+  const isContextBackedTab = activeTab === principalFansub && activeQuery === "" && langMode === "en";
 
-    try {
-      const result = await fetchNyaaFeed({
-        fansub: tab === "general" ? "" : tab,
-        query,
-        force,
-      });
+  // Strip resolution from query for Spanish searches
+  const stripResolution = useCallback((query) => {
+    return query
+      .replace(/\b(?:2160p|1080p|720p|480p|360p)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }, []);
 
-      if (requestId !== requestIdRef.current) return;
-      setItems(result.data);
-      setLastFetchTime(result.timestamp);
-    } catch (fetchError) {
-      if (requestId !== requestIdRef.current) return;
-      console.error("[TorrentPage] Fetch error:", fetchError);
-      setError(typeof fetchError === "string" ? fetchError : "Error de conexion con Nyaa.");
-      setItems([]);
-    } finally {
-      if (requestId !== requestIdRef.current) return;
-      setIsLoading(false);
+  const fetchTorrents = useCallback(
+    async (tab, query, force = false) => {
+      const requestId = ++requestIdRef.current;
+      setIsLoading(true);
+      setError(null);
+
+      const category = getCategoryForTab(storeData.settings, tab, principalFansub, langMode);
+
+      try {
+        const result = await fetchNyaaFeed({
+          fansub: tab === "general" ? "" : tab,
+          query,
+          category,
+          force,
+        });
+
+        if (requestId !== requestIdRef.current) return;
+        setItems(result.data);
+        setLastFetchTime(result.timestamp);
+      } catch (fetchError) {
+        if (requestId !== requestIdRef.current) return;
+        console.error("[TorrentPage] Fetch error:", fetchError);
+        setError(typeof fetchError === "string" ? fetchError : "Error de conexion con Nyaa.");
+        setItems([]);
+      } finally {
+        if (requestId !== requestIdRef.current) return;
+        setIsLoading(false);
+      }
+    },
+    [langMode, principalFansub, storeData.settings],
+  );
+
+  // Build the full query for current mode/tab/suffix
+  const buildFullQuery = useCallback(() => {
+    const baseQuery = langMode === "es" ? stripResolution(activeQuery) : activeQuery;
+    // Spanish mode: add suffix if active on General tab
+    if (langMode === "es" && spanishSuffix && activeTab === "general") {
+      return `${baseQuery} ${spanishSuffix}`.trim();
     }
+    // English mode on principal tab: append resolution if user typed a custom query
+    if (langMode === "en" && activeTab === principalFansub && baseQuery) {
+      return `${baseQuery} ${preferredRes}`.trim();
+    }
+    return baseQuery;
+  }, [langMode, spanishSuffix, activeTab, activeQuery, stripResolution, principalFansub, preferredRes]);
+
+  // Check if there's cached data for a given fetch
+  const checkCached = useCallback((fansub, query, category) => {
+    const cached = getCachedNyaaFeed({ fansub, query, category });
+    return cached ? cached.data : null;
   }, []);
 
   useEffect(() => {
@@ -91,10 +145,25 @@ function TorrentPage() {
       return;
     }
 
-    fetchTorrents(activeTab, activeQuery);
+    const fullQuery = buildFullQuery();
+    const fansub = activeTab === "general" ? "" : activeTab;
+    const category = getCategoryForTab(storeData.settings, activeTab, principalFansub, langMode);
+
+    // Check cache first to avoid unnecessary fetches
+    const cached = checkCached(fansub, fullQuery, category);
+    if (cached) {
+      setItems(cached);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    fetchTorrents(activeTab, fullQuery, false);
   }, [
     activeTab,
     activeQuery,
+    spanishSuffix,
+    langMode,
     contextError,
     contextItems,
     contextLastFetch,
@@ -102,6 +171,10 @@ function TorrentPage() {
     fetchTorrents,
     hasConfig,
     isContextBackedTab,
+    buildFullQuery,
+    checkCached,
+    principalFansub,
+    storeData.settings,
   ]);
 
   useEffect(() => {
@@ -112,36 +185,59 @@ function TorrentPage() {
   }, []);
 
   const handleTabClick = (tab) => {
-    if (tab === activeTab) return;
-    setActiveTab(tab);
-    if (searchInput.trim()) {
+    // Coming from another tab to General in Spanish mode: reset suffix to esp
+    if (tab === "general" && langMode === "es" && activeTab !== "general") {
+      setSpanishSuffix((prev) => (prev === null ? "esp" : prev));
+    }
+
+    // Already on General and clicking again: toggle esp/spa
+    if (tab === "general" && langMode === "es" && activeTab === "general") {
+      setSpanishSuffix((prev) => {
+        if (prev === null) return "esp";
+        return prev === "esp" ? "spa" : "esp";
+      });
+    }
+
+    // Switching tabs: if input is empty, clear activeQuery so tab shows fresh results
+    if (tab !== activeTab && !searchInput.trim()) {
+      setActiveQuery("");
+    } else if (tab === activeTab && searchInput.trim()) {
       setActiveQuery(searchInput.trim());
+    }
+
+    if (tab !== activeTab) {
+      setActiveTab(tab);
     }
   };
 
-  // Feature 4: Enter to search, Escape to clear
   const handleSearchKeyDown = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      setActiveQuery(searchInput.trim());
+      const trimmed = searchInput.trim();
+      setActiveQuery(trimmed);
+      // Custom user query: remove suffix so it searches as-is
+      if (langMode === "es") {
+        setSpanishSuffix(null);
+      }
     } else if (event.key === "Escape") {
       event.preventDefault();
       setSearchInput("");
+      setActiveQuery("");
     }
   };
 
   const handleSearchCurrentTab = () => {
-    setActiveQuery(searchInput.trim());
+    const trimmed = searchInput.trim();
+    setActiveQuery(trimmed);
+    // Custom user query: remove suffix so it searches as-is
+    if (langMode === "es") {
+      setSpanishSuffix(null);
+    }
   };
 
   const handleClearSearch = () => {
     setSearchInput("");
-  };
-
-  const handleClearActiveQuery = () => {
-    setSearchInput("");
     setActiveQuery("");
-    searchInputRef.current?.focus();
   };
 
   const handleRefresh = () => {
@@ -149,13 +245,16 @@ function TorrentPage() {
       contextRefresh();
       return;
     }
-    fetchTorrents(activeTab, activeQuery, true);
+    const fullQuery = buildFullQuery();
+    fetchTorrents(activeTab, fullQuery, true);
   };
 
   const handleOpenLink = async (url) => {
     if (!url) return;
     try {
-      await open(url);
+      const parsed = new URL(url);
+      if (!["http:", "https:"].includes(parsed.protocol)) return;
+      await openUrl(url);
     } catch (openError) {
       console.error("Error opening link:", openError);
     }
@@ -182,6 +281,32 @@ function TorrentPage() {
     }
   };
 
+  // Switch language mode with smart fetch/cache
+  const switchLangMode = useCallback(
+    (newMode) => {
+      setLangMode(newMode);
+      // Reset spanish suffix when leaving Spanish mode
+      if (newMode !== "es") {
+        setSpanishSuffix(null);
+      }
+
+      if (newMode === "en") {
+        // English mode: go to principal fansub tab (or general) with empty query
+        // Resolution is applied internally, not shown in the input
+        setActiveTab(principalFansub || "general");
+        setActiveQuery("");
+        setSearchInput("");
+      } else {
+        // Spanish mode: go to General tab with "esp" suffix
+        setActiveTab("general");
+        setActiveQuery("");
+        setSearchInput("");
+        setSpanishSuffix("esp");
+      }
+    },
+    [principalFansub],
+  );
+
   if (!hasConfig) {
     return <FansubOnboardingModal onComplete={() => {}} />;
   }
@@ -196,33 +321,46 @@ function TorrentPage() {
         </button>
       </header>
 
-      {/* Feature 5: Active search indicator */}
-      {activeQuery && (
-        <div className={styles.activeSearchIndicator}>
-          <span className={styles.indicatorIcon}>🔍</span>
-          <span className={styles.indicatorLabel}>
-            Buscando: <strong className={styles.indicatorQuery}>"{activeQuery}"</strong>
-          </span>
+      {/* Language mode toggle (above tabs, only for Spanish users) */}
+      {userIsSpanish && (
+        <div className={styles.langModeContainer}>
           <button
-            type="button"
-            className={styles.indicatorClearBtn}
-            onClick={handleClearActiveQuery}
-            title="Limpiar busqueda"
-            aria-label="Limpiar busqueda activa"
+            className={`${styles.langModeBtn} ${langMode === "en" ? styles.langModeBtnActive : ""}`}
+            onClick={() => switchLangMode("en")}
           >
-            ✕
+            🇬🇧 Inglés
+          </button>
+          <button
+            className={`${styles.langModeBtn} ${langMode === "es" ? styles.langModeBtnActive : ""}`}
+            onClick={() => switchLangMode("es")}
+          >
+            🇪🇸 Español
           </button>
         </div>
       )}
 
+      {/* Tabs */}
       <div className={styles.tabsContainer}>
-        <button
-          className={`${styles.tabBtn} ${activeTab === "general" ? styles.tabActive : ""}`}
-          onClick={() => handleTabClick("general")}
-        >
-          General
-        </button>
-        {allFansubs.map((fansub) => (
+        {/* General tab wrapper with suffix indicator */}
+        <div className={styles.generalTabWrapper}>
+          {/* Spanish suffix indicator — always visible in ES mode, above General button */}
+          {langMode === "es" && (
+            <span
+              className={`${styles.suffixIndicator} ${!spanishSuffix ? styles.suffixIndicatorInactive : ""}`}
+            >
+              {spanishSuffix ? `[${spanishSuffix.toUpperCase()}]` : "[OFF]"}
+            </span>
+          )}
+          <button
+            className={`${styles.tabBtn} ${activeTab === "general" ? styles.tabActive : ""}`}
+            onClick={() => handleTabClick("general")}
+          >
+            General
+          </button>
+        </div>
+
+        {/* Fansub tabs */}
+        {visibleFansubs.map((fansub) => (
           <button
             key={fansub.name}
             className={`${styles.tabBtn} ${activeTab === fansub.name ? styles.tabActive : ""}`}
@@ -234,6 +372,7 @@ function TorrentPage() {
         ))}
       </div>
 
+      {/* Search bar */}
       <div className={styles.searchSection}>
         <div className={styles.searchBar}>
           <svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -244,7 +383,15 @@ function TorrentPage() {
             ref={searchInputRef}
             type="text"
             className={styles.searchInput}
-            placeholder={activeTab === "general" ? "Buscar en todo Nyaa..." : `Buscar en ${activeTab}...`}
+            placeholder={
+              langMode === "es" && activeTab === "general" && spanishSuffix
+                ? `Buscar`
+                : langMode === "es"
+                  ? "Buscar en español..."
+                  : activeTab === "general"
+                    ? "Buscar en todo Nyaa..."
+                    : `Buscar en ${activeTab}...`
+            }
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
             onKeyDown={handleSearchKeyDown}
@@ -270,6 +417,7 @@ function TorrentPage() {
         </div>
       </div>
 
+      {/* Results */}
       <div className={styles.resultsContainer}>
         {isLoading ? (
           <div className={styles.skeletonContainer} aria-busy="true">
@@ -288,14 +436,11 @@ function TorrentPage() {
           <div className={styles.emptyState}>
             <p>
               {activeQuery
-                ? `No se encontraron resultados para "${activeQuery}" en ${activeTab === "general" ? "Nyaa" : activeTab}.`
-                : "No se encontraron resultados."}
+                ? `No se encontraron resultados para "${activeQuery}" en ${activeTab}.`
+                : langMode === "es" && spanishSuffix
+                  ? `No se encontraron resultados con "${spanishSuffix}".`
+                  : "No se encontraron resultados."}
             </p>
-            {activeQuery && (
-              <button className={styles.retryBtn} onClick={() => handleTabClick("general")}>
-                BUSCAR EN TODO NYAA
-              </button>
-            )}
           </div>
         ) : (
           <div className={styles.tableWrapper}>
@@ -304,7 +449,7 @@ function TorrentPage() {
                 <tr>
                   <th className={styles.colTitle}>Titulo</th>
                   <th className={styles.colFansub}>Fansub</th>
-                  <th className={styles.colSize}>Tamanio</th>
+                  <th className={styles.colSize}>Tamaño</th>
                   <th className={styles.colSeeders}>S / L</th>
                   <th className={styles.colDate}>Fecha</th>
                   <th className={styles.colAction}>Descarga</th>
@@ -312,7 +457,10 @@ function TorrentPage() {
               </thead>
               <tbody>
                 {items.map((item, index) => (
-                  <tr key={item.info_hash || item.download_url || item.magnet || `torrent-${index}`} className={styles.tableRow}>
+                  <tr
+                    key={item.info_hash || item.download_url || item.magnet || `torrent-${index}`}
+                    className={styles.tableRow}
+                  >
                     <td className={styles.colTitle}>
                       <button
                         type="button"
@@ -330,7 +478,11 @@ function TorrentPage() {
                     <td className={styles.colSeeders}>
                       <span
                         className={
-                          item.seeders >= 10 ? styles.seedersHigh : item.seeders > 0 ? styles.seedersMed : styles.seedersLow
+                          item.seeders >= 10
+                            ? styles.seedersHigh
+                            : item.seeders > 0
+                              ? styles.seedersMed
+                              : styles.seedersLow
                         }
                       >
                         {item.seeders}

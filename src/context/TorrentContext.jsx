@@ -21,6 +21,8 @@ export function TorrentProvider({ children }) {
   const intervalRef = useRef(null);
   const requestIdRef = useRef(0);
 
+  // Background feed always uses English-translated (1_2) — fansubs multi-sub como Erai
+  // se suben ahi aunque incluyan subs en espanol
   const fetchPrincipal = useCallback(
     async (force = false) => {
       if (!principalFansub || storeLoading) return;

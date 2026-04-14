@@ -164,3 +164,92 @@
   color: #fff;
   box-shadow: 0 0 10px rgba(255, 30, 30, 0.3);
 }
+
+/* Language selector */
+.langContainer {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.langBtn {
+  flex: 1;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Tektur', sans-serif;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.langBtn:hover {
+  border-color: var(--primary-color);
+  background: rgba(255, 30, 30, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.langBtnActive {
+  background: rgba(255, 30, 30, 0.1);
+  border-color: var(--primary-color);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(255, 30, 30, 0.15);
+}
+
+/* ─── Fansub list preview ─── */
+.fansubList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.fansubListItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+}
+
+.fansubListName {
+  font-family: 'Saira', sans-serif;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.fansubListPrincipal {
+  margin-left: 6px;
+  font-size: 0.8rem;
+}
+
+.fansubListMeta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.langEs {
+  font-size: 0.78rem;
+  color: var(--primary-color);
+  font-family: 'Tektur', sans-serif;
+  font-weight: 600;
+}
+
+.langEn {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'Tektur', sans-serif;
+}
+
+.fansubListCategory {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: 'Saira', sans-serif;
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useStore } from "../../hooks/useStore";
-import { getPreferredResolution } from "../../utils/torrentConfig";
+import { getPreferredResolution, getFansubDetail } from "../../utils/torrentConfig";
 import { PRESET_FANSUBS, SUPPORTED_RESOLUTIONS } from "../../utils/constants";
 import styles from "./FansubOnboardingModal.module.css";
 
@@ -13,6 +13,8 @@ function FansubOnboardingModal({ onComplete }) {
   const [principal, setPrincipal] = useState(null);
   const [resolution, setResolution] = useState("1080p");
   const [saving, setSaving] = useState(false);
+  // Metadata por fansub: { [name]: { language, nyaaCategory } }
+  const [fansubMeta, setFansubMeta] = useState({});
 
   // Precargar si ya hay fansubs configurados (edición)
   useEffect(() => {
@@ -22,13 +24,23 @@ function FansubOnboardingModal({ onComplete }) {
       setSelected(names);
       const principalEntry = existing.find((f) => f.principal);
       if (principalEntry) setPrincipal(principalEntry.name);
-      
+
       const savedRes = getPreferredResolution(data?.settings);
       setResolution(savedRes);
 
-      // Detectar custom fansubs (no están en la lista de presets)
+      // Detectar custom fansubs
       const customs = names.filter((n) => !PRESET_FANSUBS.some((p) => p.toLowerCase() === n.toLowerCase()));
       setCustomFansubs(customs);
+
+      // Cargar metadata existente
+      const meta = {};
+      existing.forEach((f) => {
+        meta[f.name] = {
+          language: f.language || "en",
+          nyaaCategory: f.nyaaCategory || "1_2",
+        };
+      });
+      setFansubMeta(meta);
     }
   }, [data?.settings]);
 
@@ -52,13 +64,31 @@ function FansubOnboardingModal({ onComplete }) {
     if (isDuplicate) return;
     setCustomFansubs((prev) => [...prev, name]);
     setSelected((prev) => [...prev, name]);
+    // Inicializar metadata: default en español (custom fansubs suelen ser .es)
+    setFansubMeta((prev) => ({
+      ...prev,
+      [name]: { language: "es", nyaaCategory: "1_3" },
+    }));
     setCustomInput("");
   };
 
   const handleRemoveCustom = (name) => {
     setCustomFansubs((prev) => prev.filter((c) => c !== name));
     setSelected((prev) => prev.filter((s) => s.toLowerCase() !== name.toLowerCase()));
+    setFansubMeta((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
     if (principal?.toLowerCase() === name.toLowerCase()) setPrincipal(null);
+  };
+
+  /** Actualizar metadata de un fansub (language/nyaaCategory) */
+  const updateFansubMeta = (name, field, value) => {
+    setFansubMeta((prev) => ({
+      ...prev,
+      [name]: { ...(prev[name] || { language: "en", nyaaCategory: "1_2" }), [field]: value },
+    }));
   };
 
   const handleSave = useCallback(async () => {
@@ -68,11 +98,18 @@ function FansubOnboardingModal({ onComplete }) {
       await setSettings({
         ...data.settings,
         torrent: {
+          ...(data.settings?.torrent || {}),
           resolution,
-          fansubs: selected.map((name) => ({
-            name,
-            principal: principal ? name.toLowerCase() === principal.toLowerCase() : false,
-          })),
+          fansubs: selected.map((name) => {
+            const detail = getFansubDetail(name);
+            const meta = fansubMeta[name] || {};
+            return {
+              name,
+              principal: principal ? name.toLowerCase() === principal.toLowerCase() : false,
+              language: meta.language || detail.defaultLang,
+              nyaaCategory: meta.nyaaCategory || detail.nyaaCategory,
+            };
+          }),
         },
       });
       onComplete?.();
@@ -81,7 +118,7 @@ function FansubOnboardingModal({ onComplete }) {
     } finally {
       setSaving(false);
     }
-  }, [selected, principal, resolution, data.settings, setSettings, onComplete]);
+  }, [selected, principal, resolution, fansubMeta, data.settings, setSettings, onComplete]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -106,25 +143,66 @@ function FansubOnboardingModal({ onComplete }) {
             {allOptions.map((name) => {
               const isSelected = selected.some((s) => s.toLowerCase() === name.toLowerCase());
               const isCustom = customFansubs.some((c) => c.toLowerCase() === name.toLowerCase());
+              const meta = fansubMeta[name] || {};
+              const lang = meta.language || (isCustom ? "es" : "en");
+              const category = meta.nyaaCategory || "1_2";
               return (
-                <div
-                  key={name}
-                  className={`${styles.fansubChip} ${isSelected ? styles.chipSelected : ""}`}
-                  onClick={() => toggleFansub(name)}
-                >
-                  <span className={styles.chipCheck}>{isSelected ? "✓" : ""}</span>
-                  <span>{name}</span>
-                  {isCustom && (
-                    <button
-                      className={styles.chipRemove}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveCustom(name);
-                      }}
-                      aria-label={`Eliminar ${name}`}
-                    >
-                      ✕
-                    </button>
+                <div key={name}>
+                  <div
+                    className={`${styles.fansubChip} ${isSelected ? styles.chipSelected : ""}`}
+                    onClick={() => toggleFansub(name)}
+                  >
+                    <span className={styles.chipCheck}>{isSelected ? "✓" : ""}</span>
+                    <span>{name}</span>
+                    {isCustom && (
+                      <button
+                        className={styles.chipRemove}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveCustom(name);
+                        }}
+                        aria-label={`Eliminar ${name}`}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {/* Inline editor para custom fansubs seleccionados */}
+                  {isCustom && isSelected && (
+                    <div className={styles.customMeta}>
+                      <div className={styles.metaRow}>
+                        <span className={styles.metaLabel}>Idioma:</span>
+                        <button
+                          className={`${styles.metaToggle} ${lang === "en" ? styles.metaToggleActive : ""}`}
+                          onClick={(e) => { e.stopPropagation(); updateFansubMeta(name, "language", "en"); }}
+                        >
+                          🇬🇧 EN
+                        </button>
+                        <button
+                          className={`${styles.metaToggle} ${lang === "es" ? styles.metaToggleActive : ""}`}
+                          onClick={(e) => { e.stopPropagation(); updateFansubMeta(name, "language", "es"); }}
+                        >
+                          🇪🇸 ES
+                        </button>
+                      </div>
+                      {lang === "es" && (
+                        <div className={styles.metaRow}>
+                          <span className={styles.metaLabel}>Categoría Nyaa:</span>
+                          <button
+                            className={`${styles.metaToggle} ${category === "1_3" ? styles.metaToggleActive : ""}`}
+                            onClick={(e) => { e.stopPropagation(); updateFansubMeta(name, "nyaaCategory", "1_3"); }}
+                          >
+                            Non-English (1_3)
+                          </button>
+                          <button
+                            className={`${styles.metaToggle} ${category === "1_2" ? styles.metaToggleActive : ""}`}
+                            onClick={(e) => { e.stopPropagation(); updateFansubMeta(name, "nyaaCategory", "1_2"); }}
+                          >
+                            English-Translated (1_2)
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               );

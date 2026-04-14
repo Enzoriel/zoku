@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Modal from "../ui/Modal";
 import { useStore } from "../../hooks/useStore";
 import { selectFolder } from "../../services/fileSystem";
-import { getPreferredResolution } from "../../utils/torrentConfig";
+import { getPreferredResolution, getFansubDetail } from "../../utils/torrentConfig";
 import { KNOWN_PLAYERS, SUPPORTED_RESOLUTIONS, PRESET_FANSUBS } from "../../utils/constants";
 import styles from "./WelcomeSetupModal.module.css";
 
@@ -11,9 +11,16 @@ export function WelcomeSetupModal() {
   const [folderPath, setLocalFolderPath] = useState("");
   const [player, setPlayer] = useState("mpv");
   const [customPlayer, setCustomPlayer] = useState("");
+
+  // PASO 0: idioma del usuario
+  const [userLanguage, setUserLanguage] = useState(null); // "en" | "es" | null
+
+  // Fansub state
   const [selectedFansubs, setSelectedFansubs] = useState([]);
   const [customFansubs, setCustomFansubs] = useState([]);
   const [customFansubInput, setCustomFansubInput] = useState("");
+  // Track language/category for each custom fansub: { name, language, nyaaCategory }
+  const [customFansubMeta, setCustomFansubMeta] = useState({});
   const [principalFansub, setPrincipalFansub] = useState(null);
   const [resolution, setResolution] = useState("1080p");
   const [isSaving, setIsSaving] = useState(false);
@@ -48,6 +55,19 @@ export function WelcomeSetupModal() {
     () => [...PRESET_FANSUBS, ...customFansubs.filter((name) => !PRESET_FANSUBS.some((preset) => preset.toLowerCase() === name.toLowerCase()))],
     [customFansubs],
   );
+
+  /**
+   * Devuelve info de display para cada fansub en el grid.
+   * Si userLanguage === "es", los que tienen hasSpanishSubs se muestran destacados.
+   */
+  const getFansubDisplayInfo = (name) => {
+    const detail = getFansubDetail(name);
+    const isSpanishCapable = detail.hasSpanishSubs;
+    // Para presets, usar su defaultLang. Para custom, usar metadata guardada.
+    const lang = customFansubMeta[name]?.language || detail.defaultLang;
+    const nyaaCategory = customFansubMeta[name]?.nyaaCategory || detail.nyaaCategory;
+    return { ...detail, lang, nyaaCategory, isSpanishCapable };
+  };
 
   const finalPlayer = player === "custom" ? customPlayer.trim() : player;
   const canContinue = Boolean(folderPath) && Boolean(finalPlayer);
@@ -86,6 +106,14 @@ export function WelcomeSetupModal() {
       return;
     }
 
+    // Default metadata: idioma según elección del usuario, categoría por defecto
+    const defaultLang = userLanguage === "es" ? "es" : "en";
+    const defaultCategory = userLanguage === "es" ? "1_3" : "1_2";
+    setCustomFansubMeta((prev) => ({
+      ...prev,
+      [trimmed]: { language: defaultLang, nyaaCategory: defaultCategory },
+    }));
+
     setCustomFansubs((previous) => [...previous, trimmed]);
     setSelectedFansubs((previous) => {
       const next = [...previous, trimmed];
@@ -99,6 +127,11 @@ export function WelcomeSetupModal() {
 
   const handleRemoveCustomFansub = (name) => {
     setCustomFansubs((previous) => previous.filter((entry) => entry !== name));
+    setCustomFansubMeta((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
     setSelectedFansubs((previous) => {
       const next = previous.filter((entry) => entry.toLowerCase() !== name.toLowerCase());
       if (principalFansub?.toLowerCase() === name.toLowerCase()) {
@@ -118,6 +151,19 @@ export function WelcomeSetupModal() {
     setErrorMessage("");
     try {
       await setFolderPath(folderPath);
+
+      // Construir fansubs con metadata de idioma y categoría
+      const fansubsData = selectedFansubs.map((name) => {
+        const detail = getFansubDetail(name);
+        const meta = customFansubMeta[name] || {};
+        return {
+          name,
+          principal: principalFansub ? name.toLowerCase() === principalFansub.toLowerCase() : false,
+          language: meta.language || detail.defaultLang,
+          nyaaCategory: meta.nyaaCategory || detail.nyaaCategory,
+        };
+      });
+
       await setSettings({
         ...data.settings,
         player: finalPlayer,
@@ -125,10 +171,8 @@ export function WelcomeSetupModal() {
         torrent: {
           ...(data.settings?.torrent || {}),
           resolution,
-          fansubs: selectedFansubs.map((name) => ({
-            name,
-            principal: principalFansub ? name.toLowerCase() === principalFansub.toLowerCase() : false,
-          })),
+          language: userLanguage || "en",
+          fansubs: fansubsData,
         },
       });
     } catch (error) {
@@ -184,74 +228,106 @@ export function WelcomeSetupModal() {
         </section>
 
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>3. Torrent y fansubs</h3>
+          <h3 className={styles.sectionTitle}>3. Idioma preferido</h3>
           <p className={styles.sectionText}>
-            Este paso es opcional, pero muy recomendable. Si eliges al menos un fansub, Zoku podra detectar episodios disponibles mas facilmente.
+            ¿En qué idioma querés ver anime? Esto determina en qué categoría de Nyaa se buscan los torrents.
           </p>
-          <div className={styles.fansubGrid}>
-            {allFansubOptions.map((name) => {
-              const selected = selectedFansubs.some((entry) => entry.toLowerCase() === name.toLowerCase());
-              const isCustom = customFansubs.some((entry) => entry.toLowerCase() === name.toLowerCase());
-              return (
-                <button
-                  key={name}
-                  className={`${styles.fansubChip} ${selected ? styles.fansubChipActive : ""}`}
-                  onClick={() => toggleFansub(name)}
-                >
-                  <span>{name}</span>
-                  {isCustom && (
-                    <span
-                      className={styles.removeCustom}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleRemoveCustomFansub(name);
-                      }}
-                    >
-                      X
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <div className={styles.inlineRow}>
-            <input
-              className={styles.input}
-              value={customFansubInput}
-              onChange={(event) => setCustomFansubInput(event.target.value)}
-              placeholder="Agregar fansub personalizado"
-            />
-            <button className={styles.secondaryButton} onClick={handleAddCustomFansub}>
-              AGREGAR
+          <div className={styles.langContainer}>
+            <button
+              className={`${styles.langBtn} ${userLanguage === "en" ? styles.langBtnActive : ""}`}
+              onClick={() => setUserLanguage("en")}
+            >
+              🇬🇧 Inglés (english-translated)
+            </button>
+            <button
+              className={`${styles.langBtn} ${userLanguage === "es" ? styles.langBtnActive : ""}`}
+              onClick={() => setUserLanguage("es")}
+            >
+              🇪🇸 Español (non-english)
             </button>
           </div>
-          {selectedFansubs.length > 0 && (
-            <>
-              <label className={styles.fieldLabel}>Fansub principal</label>
-              <div className={styles.radioGrid}>
-                {selectedFansubs.map((name) => (
-                  <label key={name} className={styles.radioItem}>
-                    <input
-                      type="radio"
-                      checked={principalFansub === name}
-                      onChange={() => setPrincipalFansub(name)}
-                    />
-                    <span>{name}</span>
-                  </label>
-                ))}
-              </div>
-            </>
+          {userLanguage === "es" && (
+            <p className={styles.spanishHint}>
+              Algunos grupos como <strong>Erai-raws</strong> y <strong>DKB</strong> suben en la categoría inglés pero incluyen subtítulos en español. Te los mostramos destacados.
+            </p>
           )}
-          <label className={styles.fieldLabel}>Resolucion preferida</label>
-          <div className={styles.radioGrid}>
-            {SUPPORTED_RESOLUTIONS.map((value) => (
-              <label key={value} className={styles.radioItem}>
-                <input type="radio" checked={resolution === value} onChange={() => setResolution(value)} />
-                <span>{value}</span>
-              </label>
-            ))}
-          </div>
         </section>
+
+        {userLanguage && (
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>4. Torrent y fansubs</h3>
+            <p className={styles.sectionText}>
+              Este paso es opcional, pero muy recomendable. Si elegis al menos un fansub, Zoku podra detectar episodios disponibles mas facilmente.
+            </p>
+            <div className={styles.fansubGrid}>
+              {allFansubOptions.map((name) => {
+                const selected = selectedFansubs.some((entry) => entry.toLowerCase() === name.toLowerCase());
+                const isCustom = customFansubs.some((entry) => entry.toLowerCase() === name.toLowerCase());
+                const display = getFansubDisplayInfo(name);
+                const spanishCapable = userLanguage === "es" && display.isSpanishCapable;
+                return (
+                  <button
+                    key={name}
+                    className={`${styles.fansubChip} ${selected ? styles.fansubChipActive : ""} ${spanishCapable ? styles.fansubChipSpanish : ""}`}
+                    onClick={() => toggleFansub(name)}
+                    title={spanishCapable ? "Tiene subtitulos en espanol internos" : undefined}
+                  >
+                    <span>{name}</span>
+                    {spanishCapable && <span className={styles.spanishBadge}>ES</span>}
+                    {isCustom && (
+                      <span
+                        className={styles.removeCustom}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRemoveCustomFansub(name);
+                        }}
+                      >
+                        X
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={styles.inlineRow}>
+              <input
+                className={styles.input}
+                value={customFansubInput}
+                onChange={(event) => setCustomFansubInput(event.target.value)}
+                placeholder="Agregar fansub personalizado"
+              />
+              <button className={styles.secondaryButton} onClick={handleAddCustomFansub}>
+                AGREGAR
+              </button>
+            </div>
+            {selectedFansubs.length > 0 && (
+              <>
+                <label className={styles.fieldLabel}>Fansub principal</label>
+                <div className={styles.radioGrid}>
+                  {selectedFansubs.map((name) => (
+                    <label key={name} className={styles.radioItem}>
+                      <input
+                        type="radio"
+                        checked={principalFansub === name}
+                        onChange={() => setPrincipalFansub(name)}
+                      />
+                      <span>{name}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+            <label className={styles.fieldLabel}>Resolucion preferida</label>
+            <div className={styles.radioGrid}>
+              {SUPPORTED_RESOLUTIONS.map((value) => (
+                <label key={value} className={styles.radioItem}>
+                  <input type="radio" checked={resolution === value} onChange={() => setResolution(value)} />
+                  <span>{value}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
 
         {errorMessage && <div className={styles.errorBox}>{errorMessage}</div>}
 
