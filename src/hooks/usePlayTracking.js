@@ -19,6 +19,7 @@ export function usePlayTracking(showToast) {
   // Refs para evitar stale closures en el setInterval
   const settingsRef = useRef(data.settings);
   const showToastRef = useRef(showToast);
+  const myAnimesRef = useRef(data.myAnimes);
 
   useEffect(() => {
     settingsRef.current = data.settings;
@@ -26,6 +27,9 @@ export function usePlayTracking(showToast) {
   useEffect(() => {
     showToastRef.current = showToast;
   }, [showToast]);
+  useEffect(() => {
+    myAnimesRef.current = data.myAnimes;
+  }, [data.myAnimes]);
 
   const handleToggleWatched = useCallback(
     async (animeId, epNumber, currentlyWatched) => {
@@ -86,6 +90,8 @@ export function usePlayTracking(showToast) {
 
     if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
 
+    let hasMarkedAsWatched = false;
+
     watchIntervalRef.current = setInterval(async () => {
       const currentPlayer = settingsRef.current?.player || "mpv";
       const stillOpen = await isPlayerStillOpen(currentPlayer);
@@ -102,11 +108,14 @@ export function usePlayTracking(showToast) {
         }
       }
 
-      if (Date.now() - watchStartTimeRef.current >= WATCH_TIMER_MS) {
-        clearInterval(watchIntervalRef.current);
-        setPlayingEp(null);
+      // Lógica de marcado automático (Solo si no se ha marcado ya en esta sesión)
+      if (!hasMarkedAsWatched && Date.now() - watchStartTimeRef.current >= WATCH_TIMER_MS) {
+        hasMarkedAsWatched = true;
 
-        if (handleToggleWatchedRef.current) {
+        const anime = myAnimesRef.current?.[animeId];
+        const alreadyWatched = anime?.watchedEpisodes?.includes(epNumber);
+
+        if (!alreadyWatched && handleToggleWatchedRef.current) {
           await handleToggleWatchedRef.current(animeId, epNumber, false);
           if (showToastRef.current) showToastRef.current(`Episodio ${epNumber} marcado como visto`, "success");
         }
