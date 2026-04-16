@@ -29,31 +29,31 @@ function isPathWithinBase(targetPath, basePath) {
 }
 
 export async function isPlayerStillOpen(playerName) {
-  const tryProcess = async (pName) => {
+  const specificName = PLAYER_PROCESS_NAMES[playerName] || playerName;
+  const allNames = Array.from(new Set([specificName, ...Object.values(PLAYER_PROCESS_NAMES)]));
+
+  // Esta función debe coincidir EXACTAMENTE con el Regex permitido en Tauri:
+  // ^Get-Process -Name "[a-zA-Z0-9_\-]+" -ErrorAction SilentlyContinue \| Select-Object -First 1$
+  const checkSingle = async (pName) => {
     try {
       const output = await Command.create("powershell", [
         "-Command",
         `Get-Process -Name "${pName}" -ErrorAction SilentlyContinue | Select-Object -First 1`,
       ]).execute();
       return output.stdout.trim().length > 0;
-    } catch (err) {
-      // console.error(`[FS] Error verificando proceso ${pName}:`, err);
+    } catch {
       return false;
     }
   };
 
-  // 1. Intentar el proceso específico configurado
-  const specificName = PLAYER_PROCESS_NAMES[playerName] || playerName;
-  if (await tryProcess(specificName)) return true;
-
-  // 2. Si no se encuentra, hacer un barrido rápido por todos los conocidos (Broad check)
-  // Esto ayuda si el sistema abrió un reproductor distinto al configurado
-  for (const knownName of Object.values(PLAYER_PROCESS_NAMES)) {
-    if (knownName === specificName) continue;
-    if (await tryProcess(knownName)) return true;
+  try {
+    // Ejecutamos todas las comprobaciones en paralelo.
+    // Esto es mucho más rápido que el bucle secuencial pero respeta el Scope de seguridad.
+    const results = await Promise.all(allNames.map((n) => checkSingle(n)));
+    return results.includes(true);
+  } catch (err) {
+    return false;
   }
-
-  return false;
 }
 
 function normalizeForSearch(text) {
