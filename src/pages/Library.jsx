@@ -21,7 +21,7 @@ const USER_FILTERS = {
 
 function Library() {
   const { data, libraryScopeReady, libraryScopeError, setMyAnimes, retryLibraryScope } = useStore();
-  const { performSync, syncing } = useLibrary();
+  const { performSync, syncing, localFilesIndex } = useLibrary();
   const [confirmModal, setConfirmModal] = useState(null);
   const [userFilter, setUserFilter] = useState("ALL");
   const [activeCollectionView, setActiveCollectionView] = useState("ANIMES");
@@ -65,8 +65,8 @@ function Library() {
   }, [data.folderPath, libraryScopeReady]);
 
   const { animeEntries, localEntries } = useMemo(
-    () => buildLibraryViewModel(data.myAnimes, data.localFiles),
-    [data.myAnimes, data.localFiles],
+    () => buildLibraryViewModel(data.myAnimes, data.localFiles, localFilesIndex),
+    [data.myAnimes, data.localFiles, localFilesIndex],
   );
 
   const stats = useMemo(() => {

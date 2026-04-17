@@ -4,11 +4,7 @@ import { calculateUserStatus } from "../../utils/animeStatus";
 import styles from "./AnimeCard.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
-function AnimeCard({
-  anime,
-  inLibraryData,
-  playback = null,
-}) {
+function AnimeCard({ anime, inLibraryData, playback = null }) {
   const navigate = useNavigate();
 
   if (!anime) {
@@ -27,7 +23,7 @@ function AnimeCard({
   const animeId = anime.malId || anime.mal_id;
   const isInLibrary = !!inLibraryData;
   const displayAnime = isInLibrary ? { ...anime, ...inLibraryData } : anime;
-  const isPlaying = playback?.playingEp?.animeId === animeId;
+  const isPlaying = String(playback?.playingEp?.animeId || "") === String(animeId || "");
   const userStatus = isInLibrary ? calculateUserStatus(displayAnime) : null;
 
   const handleClick = () => {
@@ -36,28 +32,40 @@ function AnimeCard({
 
   const handleQuickPlay = async (e) => {
     e.stopPropagation();
-    if (!displayAnime.nextEpisodeFile || !playback?.handlePlayEpisode) return;
-    await playback.handlePlayEpisode(animeId, displayAnime.nextEpisode, displayAnime.nextEpisodeFile.path);
+    if (!displayAnime.nextEpisodeFile || !playback?.playEpisode) return;
+    await playback.playEpisode({
+      animeId,
+      episodeNumber: displayAnime.nextEpisode,
+      filePath: displayAnime.nextEpisodeFile.path,
+    });
   };
 
   const handleCancelPlay = (e) => {
     e.stopPropagation();
-    playback?.cancelPlay?.();
+    playback?.cancelPlayback?.();
   };
 
   const image = displayAnime.images?.jpg?.large_image_url || displayAnime.coverImage || "";
   const title = displayAnime.title || displayAnime.title_english || "Unknown Title";
 
-  const total = displayAnime.totalEpisodes || displayAnime.episodes || 0;
+  const total = Number.isFinite(displayAnime.progressTotalEpisodes)
+    ? displayAnime.progressTotalEpisodes
+    : displayAnime.totalEpisodes || displayAnime.episodes || 0;
   const watchedList = Array.isArray(displayAnime.watchedEpisodes) ? displayAnime.watchedEpisodes : [];
-  const validWatchedCount = watchedList.filter((ep) => total === 0 || ep <= total).length;
-  const progress = total > 0 ? Math.round((validWatchedCount / total) * 100) : 0;
+  const validWatchedCount = Number.isFinite(displayAnime.progressWatchedCount)
+    ? displayAnime.progressWatchedCount
+    : watchedList.filter((ep) => total === 0 || ep <= total).length;
+  const progress = Number.isFinite(displayAnime.progress)
+    ? displayAnime.progress
+    : total > 0
+      ? Math.round((validWatchedCount / total) * 100)
+      : 0;
 
   const nextEp = displayAnime.nextEpisode;
 
   return (
-    <div 
-      className={styles.card} 
+    <div
+      className={styles.card}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -104,7 +112,7 @@ function AnimeCard({
 
         {image && <img src={image} alt={title} className={styles.image} loading="lazy" />}
 
-        {displayAnime.nextEpisodeFile && !isPlaying && playback?.handlePlayEpisode && (
+        {displayAnime.nextEpisodeFile && !isPlaying && playback?.playEpisode && (
           <button className={styles.quickPlayButton} onClick={handleQuickPlay} aria-label={`Reproducir ${title}`}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
               <path d="M8 5v14l11-7z" />

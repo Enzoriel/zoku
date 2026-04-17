@@ -3,6 +3,34 @@
   flex-direction: column;
 }
 
+.missing {
+  opacity: 0.7;
+}
+
+.missing .card {
+  border-color: rgba(255, 74, 141, 0.45);
+}
+
+.missing .posterShade {
+  background:
+    linear-gradient(to bottom, rgba(44, 8, 18, 0.88), rgba(44, 8, 18, 0.24) 34%, rgba(44, 8, 18, 0.95) 100%);
+}
+
+.missing::after {
+  content: "CARPETA FALTANTE";
+  margin-top: 8px;
+  align-self: flex-start;
+  padding: 5px 8px;
+  clip-path: var(--clip-sm);
+  border: 1px solid rgba(255, 74, 141, 0.45);
+  background: rgba(44, 8, 18, 0.88);
+  color: var(--px-pink);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
 .card {
   background: var(--px-card);
   border: 2px solid var(--px-border);

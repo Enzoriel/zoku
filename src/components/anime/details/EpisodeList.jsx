@@ -47,7 +47,12 @@ export function EpisodeList({
     const localFile = animeFilesData.files.find((file) => {
       const detectedEpisode =
         file.episodeNumber ??
-        extractEpisodeNumber(file.name, [mainAnime?.title, mainAnime?.title_english, ...(mainAnime?.synonyms || []), folderName]);
+        extractEpisodeNumber(file.name, [
+          mainAnime?.title,
+          mainAnime?.title_english,
+          ...(mainAnime?.synonyms || []),
+          folderName,
+        ]);
       if (detectedEpisode !== null) return detectedEpisode === epNum;
       // Archivos sin número detectado (típico en películas): asignar al episodio 1
       return epNum === 1 && episodes.length === 1;
@@ -71,7 +76,10 @@ export function EpisodeList({
     }
 
     const releasedEpisodes = getReleasedEpisodeCount(mainAnime);
-    if ((mainAnime?.nextAiringEpisode || isAnimeActivelyAiring(mainAnime) || releasedEpisodes > 0) && epNum <= releasedEpisodes) {
+    if (
+      (mainAnime?.nextAiringEpisode || isAnimeActivelyAiring(mainAnime) || releasedEpisodes > 0) &&
+      epNum <= releasedEpisodes
+    ) {
       return { label: "EMITIDO", type: "tagAired", file: null };
     }
     return { label: "PROXIMO", type: "tagNotAired", file: null };
@@ -91,7 +99,9 @@ export function EpisodeList({
       <div className={styles.episodesList}>
         {episodes.map((epNum) => {
           const status = getEpisodeStatus(epNum);
-          const isPlaying = playingEp?.animeId === (mainAnime.malId || mainAnime.mal_id) && playingEp?.epNumber === epNum;
+          const isPlaying =
+            String(playingEp?.animeId || "") === String(mainAnime.malId || mainAnime.mal_id || "") &&
+            playingEp?.epNumber === epNum;
           const isPlayable = !!status.file && status.type !== "tagDownloading";
           const availability = torrentMatchesByEpisode[epNum] || { matches: [], hasPrincipalMatch: false };
           const matches = availability.matches;

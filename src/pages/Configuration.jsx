@@ -1,18 +1,32 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import FansubOnboardingModal from "../components/ui/FansubOnboardingModal";
-import { selectFolder } from "../services/fileSystem";
+import {
+  detectDefaultVideoPlayer,
+  detectKnownPlayer,
+  selectFolder,
+  selectPlayerExecutable,
+} from "../services/fileSystem";
 import { getPreferredResolution } from "../utils/torrentConfig";
+import { SUPPORTED_RESOLUTIONS } from "../utils/constants";
+import {
+  buildPlayerConfig,
+  getInitialPlayerSelection,
+  getPlayerLabel,
+  GUIDED_PLAYER_OPTIONS,
+  isValidPlayerConfig,
+} from "../utils/playerDetection";
 import styles from "./Configuration.module.css";
 
-import { KNOWN_PLAYERS, SUPPORTED_RESOLUTIONS } from "../utils/constants";
 const Configuration = () => {
   const { data, setSettings, setFolderPath, clearAllData } = useStore();
   const navigate = useNavigate();
-  const [player, setPlayer] = useState("mpv");
-  const [customPlayer, setCustomPlayer] = useState("");
+  const [playerKey, setPlayerKey] = useState("other");
+  const [playerConfig, setPlayerConfig] = useState(null);
+  const [playerHint, setPlayerHint] = useState("");
+  const [isResolvingPlayer, setIsResolvingPlayer] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -22,19 +36,113 @@ const Configuration = () => {
   const [language, setLanguage] = useState("en");
   const [infoModal, setInfoModal] = useState(null);
 
-  useEffect(() => {
-    const savedPlayer = data?.settings?.player || "mpv";
-    if (KNOWN_PLAYERS.includes(savedPlayer)) {
-      setPlayer(savedPlayer);
-      setCustomPlayer("");
-    } else {
-      setPlayer("custom");
-      setCustomPlayer(savedPlayer);
+  const applyResolvedPlayer = useCallback((resolvedPlayer, source = "manual") => {
+    if (!resolvedPlayer?.executablePath) {
+      setPlayerConfig(null);
+      return null;
     }
 
+    const nextPlayerConfig = buildPlayerConfig({
+      ...resolvedPlayer,
+      source,
+    });
+
+    setPlayerKey(nextPlayerConfig.key);
+    setPlayerConfig(nextPlayerConfig);
+    return nextPlayerConfig;
+  }, []);
+
+  const handlePickManualExecutable = useCallback(
+    async (preferredKey = playerKey) => {
+      const selectedPath = await selectPlayerExecutable();
+      if (!selectedPath) return null;
+
+      const nextPlayerConfig = buildPlayerConfig({
+        key: preferredKey,
+        executablePath: selectedPath,
+        source: preferredKey === "other" ? "manual" : "preset_manual",
+      });
+
+      setPlayerKey(nextPlayerConfig.key);
+      setPlayerConfig(nextPlayerConfig);
+      setPlayerHint(`Ejecutable seleccionado manualmente: ${nextPlayerConfig.executablePath}`);
+      return nextPlayerConfig;
+    },
+    [playerKey],
+  );
+
+  const resolvePlayerSelection = useCallback(
+    async (nextKey, options = {}) => {
+      const normalizedKey = nextKey || "other";
+      setPlayerKey(normalizedKey);
+      if (options.clearCurrent) {
+        setPlayerConfig(null);
+      }
+      setIsResolvingPlayer(true);
+
+      try {
+        if (normalizedKey === "other") {
+          const manualConfig = await handlePickManualExecutable("other");
+          if (!manualConfig && !options.silentIfMissing) {
+            setPlayerHint("Selecciona manualmente el .exe del reproductor.");
+          }
+          return manualConfig;
+        }
+
+        const detectedPlayer = await detectKnownPlayer(normalizedKey);
+        if (detectedPlayer?.executablePath) {
+          const nextPlayerConfig = applyResolvedPlayer(detectedPlayer, "detected");
+          setPlayerHint(`Se detecto ${getPlayerLabel(nextPlayerConfig.key)} en ${nextPlayerConfig.executablePath}`);
+          return nextPlayerConfig;
+        }
+
+        setPlayerHint(`No se detecto ${getPlayerLabel(normalizedKey)} automaticamente. Selecciona su .exe.`);
+        return await handlePickManualExecutable(normalizedKey);
+      } finally {
+        setIsResolvingPlayer(false);
+      }
+    },
+    [applyResolvedPlayer, handlePickManualExecutable],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydratePlayerState() {
+      if (isValidPlayerConfig(data?.settings?.playerConfig)) {
+        const currentPlayerConfig = buildPlayerConfig(data.settings.playerConfig);
+        if (cancelled) return;
+        setPlayerKey(currentPlayerConfig.key);
+        setPlayerConfig(currentPlayerConfig);
+        setPlayerHint(currentPlayerConfig.executablePath);
+        return;
+      }
+
+      const detectedDefaultPlayer = await detectDefaultVideoPlayer();
+      if (cancelled) return;
+
+      if (detectedDefaultPlayer?.executablePath) {
+        const nextPlayerConfig = applyResolvedPlayer(detectedDefaultPlayer, "detected");
+        setPlayerHint(`Se detecto el reproductor predeterminado. Revisa la ruta antes de guardar.`);
+        setPlayerKey(nextPlayerConfig.key);
+        return;
+      }
+
+      setPlayerKey(getInitialPlayerSelection(data.settings));
+      setPlayerConfig(null);
+      setPlayerHint("No hay un reproductor confirmado. Debes configurarlo para que Zoku pueda reproducir episodios.");
+    }
+
+    void hydratePlayerState();
     setLocalResolution(getPreferredResolution(data?.settings));
     setLanguage(data?.settings?.torrent?.language || "en");
-  }, [data?.settings]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyResolvedPlayer, data?.settings]);
+
+  const canSavePlayerConfig = useMemo(() => isValidPlayerConfig(playerConfig), [playerConfig]);
 
   const handleSaveTrigger = () => {
     setShowSaveModal(true);
@@ -61,12 +169,13 @@ const Configuration = () => {
 
   const handleSaveExecute = async () => {
     setIsSaving(true);
-    const finalPlayer = player === "custom" ? customPlayer : player;
 
     try {
       await setSettings({
         ...data.settings,
-        player: finalPlayer,
+        player: playerConfig?.key || "",
+        playerConfig: canSavePlayerConfig ? playerConfig : null,
+        onboardingComplete: Boolean(data.folderPath) && canSavePlayerConfig,
         torrent: {
           ...(data.settings?.torrent || {}),
           resolution: localResolution,
@@ -78,6 +187,34 @@ const Configuration = () => {
       console.error("Error saving settings:", error);
       setInfoModal({
         title: "No se pudo guardar la configuracion",
+        message: "Intenta de nuevo en unos segundos.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClearPlayerConfig = async () => {
+    setIsSaving(true);
+
+    try {
+      await setSettings({
+        ...data.settings,
+        player: "",
+        playerConfig: null,
+        onboardingComplete: false,
+      });
+      setPlayerConfig(null);
+      setPlayerKey("other");
+      setPlayerHint("Se elimino la configuracion del reproductor. Debes volver a configurarlo.");
+      setInfoModal({
+        title: "Reproductor eliminado",
+        message: "Zoku requerira una configuracion valida del reproductor para seguir funcionando.",
+      });
+    } catch (error) {
+      console.error("Error clearing player settings:", error);
+      setInfoModal({
+        title: "No se pudo limpiar el reproductor",
         message: "Intenta de nuevo en unos segundos.",
       });
     } finally {
@@ -125,37 +262,64 @@ const Configuration = () => {
       <section className={styles.section}>
         <h2>Reproductor de Video</h2>
         <div className={styles.settingItem}>
-          <label htmlFor="player-select">Selecciona tu reproductor preferido:</label>
+          <label htmlFor="player-select">Selecciona el reproductor que Zoku debe controlar:</label>
           <select
             id="player-select"
             className={styles.select}
-            value={player}
-            onChange={(event) => setPlayer(event.target.value)}
+            value={playerKey}
+            disabled={isResolvingPlayer}
+            onChange={(event) => {
+              void resolvePlayerSelection(event.target.value, { clearCurrent: true });
+            }}
           >
-            <option value="mpv">MPV</option>
-            <option value="vlc">VLC</option>
-            <option value="mpc-hc">MPC-HC</option>
-            <option value="mpc-be">MPC-BE</option>
-            <option value="potplayer">PotPlayer</option>
-            <option value="custom">Otro (nombre de proceso manual)</option>
+            {GUIDED_PLAYER_OPTIONS.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
           </select>
 
-          {player === "custom" && (
-            <input
-              type="text"
-              className={styles.select}
-              placeholder="Nombre del ejecutable (sin .exe, ej: vlc)"
-              value={customPlayer}
-              onChange={(event) => setCustomPlayer(event.target.value)}
-              style={{ marginTop: "10px" }}
-            />
+          <div className={styles.buttonRow}>
+            <button
+              className={styles.secondaryButton}
+              disabled={isResolvingPlayer}
+              onClick={() => void resolvePlayerSelection(playerKey, { silentIfMissing: false })}
+            >
+              {isResolvingPlayer ? "BUSCANDO..." : "REDETECTAR"}
+            </button>
+            <button
+              className={styles.secondaryButton}
+              disabled={isResolvingPlayer}
+              onClick={() => void handlePickManualExecutable(playerKey)}
+            >
+              CAMBIAR EJECUTABLE
+            </button>
+            <button
+              className={styles.secondaryButton}
+              disabled={isResolvingPlayer}
+              onClick={() => void handlePickManualExecutable("other")}
+            >
+              BUSCAR MANUALMENTE
+            </button>
+          </div>
+
+          <div className={styles.pathBox}>
+            {playerConfig?.executablePath || "No hay un ejecutable confirmado para reproducir episodios."}
+          </div>
+          <p className={styles.hint}>
+            {playerHint ||
+              "Zoku abre episodios con este ejecutable y solo seguira la reproduccion de ese reproductor."}
+          </p>
+          {playerConfig && (
+            <p className={styles.hint}>
+              {playerConfig.displayName} · proceso {playerConfig.processName} · origen{" "}
+              {playerConfig.source === "detected" ? "detectado" : "manual"}
+            </p>
           )}
 
-          <p className={styles.hint}>
-            <strong>Sistema de deteccion inteligente:</strong> Zoku intentara encontrar el proceso que elijas aqui, pero si
-            el sistema abre un reproductor distinto, Zoku tambien intentara detectarlo automaticamente para no perder el
-            progreso.
-          </p>
+          <button className={styles.dangerButton} onClick={handleClearPlayerConfig} disabled={isSaving}>
+            QUITAR REPRODUCTOR CONFIGURADO
+          </button>
         </div>
       </section>
 
@@ -184,23 +348,22 @@ const Configuration = () => {
               className={`${styles.langBtn} ${language === "en" ? styles.langBtnActive : ""}`}
               onClick={() => setLanguage("en")}
             >
-              🇬🇧 Inglés (english-translated)
+              Ingles (english-translated)
             </button>
             <button
               className={`${styles.langBtn} ${language === "es" ? styles.langBtnActive : ""}`}
               onClick={() => setLanguage("es")}
             >
-              🇪🇸 Español (non-english)
+              Espanol (non-english)
             </button>
           </div>
           <p className={styles.hint}>
             {language === "es"
-              ? "Las busquedas se haran en la categoria Non-English. En Torrents podras alternar entre inglés y español con un toggle."
-              : "Las busquedas se haran en la categoria English-Translated. Puedes configurar fansubs en español si lo necesitas."}
+              ? "Las busquedas se haran en la categoria Non-English. En Torrents podras alternar entre ingles y espanol con un toggle."
+              : "Las busquedas se haran en la categoria English-Translated. Puedes configurar fansubs en espanol si lo necesitas."}
           </p>
         </div>
 
-        {/* Fansubs configurados — preview */}
         {data?.settings?.torrent?.fansubs?.length > 0 && (
           <div style={{ marginBottom: "20px" }}>
             <label>Fansubs configurados:</label>
@@ -213,12 +376,10 @@ const Configuration = () => {
                   <div key={f.name} className={styles.fansubListItem}>
                     <span className={styles.fansubListName}>
                       {f.name}
-                      {isPrincipal && <span className={styles.fansubListPrincipal}>⭐</span>}
+                      {isPrincipal && <span className={styles.fansubListPrincipal}>*</span>}
                     </span>
                     <span className={styles.fansubListMeta}>
-                      <span className={lang === "es" ? styles.langEs : styles.langEn}>
-                        {lang === "es" ? "🇪🇸 ES" : "🇬🇧 EN"}
-                      </span>
+                      <span className={lang === "es" ? styles.langEs : styles.langEn}>{lang === "es" ? "ES" : "EN"}</span>
                       <span className={styles.fansubListCategory}>
                         {category === "1_3" ? "Non-English" : "English-Translated"}
                       </span>
@@ -247,14 +408,14 @@ const Configuration = () => {
         </button>
       </section>
 
-      <button className={styles.saveButton} onClick={handleSaveTrigger} disabled={isSaving}>
+      <button className={styles.saveButton} onClick={handleSaveTrigger} disabled={isSaving || isResolvingPlayer}>
         {isSaving ? "Guardando..." : "Guardar Cambios"}
       </button>
 
       {showClearModal && (
         <ConfirmModal
           title="Eliminar Todos los Datos"
-          message="¿Estas seguro de que quieres eliminar todos tus datos? Esta accion no se puede deshacer."
+          message="Estas seguro de que quieres eliminar todos tus datos? Esta accion no se puede deshacer."
           onConfirm={handleClearAll}
           onCancel={() => setShowClearModal(false)}
           isLoading={isClearing}
@@ -266,7 +427,11 @@ const Configuration = () => {
       {showSaveModal && (
         <ConfirmModal
           title="Guardar Configuracion"
-          message="¿Quieres aplicar los nuevos ajustes a Zoku? Esto podria reiniciar el feed de torrents."
+          message={
+            canSavePlayerConfig
+              ? "Quieres aplicar los nuevos ajustes a Zoku? Esto podria reiniciar el feed de torrents."
+              : "No hay un reproductor valido configurado. Si guardas asi, Zoku volvera a pedir configuracion obligatoria."
+          }
           onConfirm={handleSaveExecute}
           onCancel={() => setShowSaveModal(false)}
           isLoading={isSaving}

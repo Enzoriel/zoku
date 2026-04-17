@@ -13,7 +13,7 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 import TorrentAliasModal from "../components/ui/TorrentAliasModal";
 import FolderLinkModal from "../components/ui/FolderLinkModal";
 import SearchApiModal from "../components/ui/SearchApiModal";
-import { usePlayTracking } from "../hooks/usePlayTracking";
+import { usePlayback } from "../hooks/usePlayback";
 import { AnimeHeader } from "../components/anime/details/AnimeHeader";
 import { AnimeSidebar } from "../components/anime/details/AnimeSidebar";
 import { EpisodeList } from "../components/anime/details/EpisodeList";
@@ -25,7 +25,6 @@ import styles from "./AnimeDetails.module.css";
 
 const AIRING_METADATA_REFRESH_MS = 6 * 60 * 60 * 1000;
 const NON_SEASON_METADATA_REFRESH_MS = 24 * 60 * 60 * 1000;
-
 
 function buildSuggestedLinkLabel(folder) {
   if (!folder) return "";
@@ -61,11 +60,7 @@ function AnimeDetails() {
   const [torrentModalItems, setTorrentModalItems] = useState([]);
 
   const { toast, showToast } = useToast();
-  const {
-    playingEp,
-    handlePlayEpisode: trackPlay,
-    handleToggleWatched,
-  } = usePlayTracking((message, type) => showToast(message, type));
+  const { playingEp, playEpisode, toggleEpisodeWatched } = usePlayback();
 
   const animeId = useMemo(() => {
     if (id === "null" || id === "undefined") return null;
@@ -432,9 +427,14 @@ function AnimeDetails() {
   const handlePlayEpisode = useCallback(
     (epNumber, filePath) => {
       if (!animeId || !mainAnime?.isInLibrary) return;
-      trackPlay(animeId, epNumber, filePath);
+      playEpisode({
+        animeId,
+        episodeNumber: epNumber,
+        filePath,
+        candidateFiles: animeFilesData.files,
+      });
     },
-    [animeId, mainAnime?.isInLibrary, trackPlay],
+    [animeFilesData.files, animeId, mainAnime?.isInLibrary, playEpisode],
   );
 
   const handleContextMenu = useCallback(
@@ -501,9 +501,8 @@ function AnimeDetails() {
     getReleasedEpisodeCount(mainAnime),
     mainAnime.episodeList?.length || 0,
   );
-  const localMaxEp = animeFilesData.files.length > 0
-    ? Math.max(...animeFilesData.files.map((file) => file.episodeNumber || 0))
-    : 0;
+  const localMaxEp =
+    animeFilesData.files.length > 0 ? Math.max(...animeFilesData.files.map((file) => file.episodeNumber || 0)) : 0;
   // Solo permitir que archivos locales inflen el total si la API no reporta un conteo concreto.
   // Evita que películas (1 ep) muestren 3 episodios por números residuales en nombres de archivo.
   const totalEps = apiTotal > 0 ? Math.max(apiTotal, Math.min(localMaxEp, apiTotal)) : Math.max(apiTotal, localMaxEp);
@@ -548,7 +547,7 @@ function AnimeDetails() {
             className={styles.contextMenuItem}
             onClick={(event) => {
               event.stopPropagation();
-              handleToggleWatched(animeId, contextMenu.epNum, contextMenu.isWatched);
+              toggleEpisodeWatched(animeId, contextMenu.epNum, contextMenu.isWatched);
               setContextMenu(null);
             }}
           >

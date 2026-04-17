@@ -1,3 +1,4 @@
+import { isAnimeActivelyAiring } from "../../utils/airingStatus";
 import styles from "./LibraryAnimeCard.module.css";
 
 const USER_STATUS_LABELS = {
@@ -16,17 +17,17 @@ const LIBRARY_STATUS_LABELS = {
 };
 
 function LibraryAnimeCard({ item, onOpen, onUnlink, onDelete, onRemove }) {
-  const { anime, computedStatus, libraryStatus, fileCount } = item;
+  const { anime, computedStatus, libraryStatus, fileCount, isMissing } = item;
   const image = anime?.images?.jpg?.large_image_url || anime?.coverImage || "";
   const title = anime?.title || anime?.title_english || "Unknown Title";
-  const totalEpisodes = anime?.totalEpisodes || anime?.episodes || 0;
+  const totalEpisodes = anime?.totalEpisodes || (!isAnimeActivelyAiring(anime) ? anime?.episodes || 0 : 0);
   const watchedEpisodes = Array.isArray(anime?.watchedEpisodes) ? anime.watchedEpisodes.length : 0;
   const progressLabel = `${watchedEpisodes}/${totalEpisodes || "?"}`;
   const typeLabel = anime?.type ? String(anime.type).replace(/_/g, " ") : null;
-  const canDelete = libraryStatus !== "NO_FILES" || fileCount > 0;
+  const canDelete = (libraryStatus !== "NO_FILES" || fileCount > 0) && !isMissing;
 
   return (
-    <article className={styles.cardShell}>
+    <article className={`${styles.cardShell} ${isMissing ? styles.missing : ""}`}>
       <div
         className={styles.card}
         onClick={onOpen}

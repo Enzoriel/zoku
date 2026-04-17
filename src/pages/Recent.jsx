@@ -10,7 +10,7 @@ import { formatRelativeDate, getLocalDayKey } from "../utils/dateFormat";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import TorrentSearchModal from "../components/ui/TorrentSearchModal";
 import RetryPanel from "../components/ui/RetryPanel";
-import { usePlayTracking } from "../hooks/usePlayTracking";
+import { usePlayback } from "../hooks/usePlayback";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import { getBatchEpisodeTorrentAvailability } from "../utils/torrentAvailability";
 import { buildRecentEpisodeOccurrences } from "../utils/recentEpisodes";
@@ -34,8 +34,8 @@ function Recent() {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalItem, setSearchModalItem] = useState(null);
 
-  const { toast, showToast } = useToast();
-  const { playingEp, handlePlayEpisode: trackPlay } = usePlayTracking((message, type) => showToast(message, type));
+  const { toast } = useToast();
+  const { playingEp, playEpisode } = usePlayback();
 
   const myAnimeMap = useMemo(() => {
     const map = {};
@@ -190,10 +190,15 @@ function Recent() {
   }, [retryFetch, retryExtra]);
 
   const handlePlayEpisode = useCallback(
-    (animeId, epNumber, filePath) => {
-      trackPlay(animeId, epNumber, filePath);
+    (animeId, epNumber, filePath, candidateFiles) => {
+      playEpisode({
+        animeId,
+        episodeNumber: epNumber,
+        filePath,
+        candidateFiles,
+      });
     },
-    [trackPlay],
+    [playEpisode],
   );
 
   const formatTimeUntil = (seconds) => {
@@ -398,7 +403,7 @@ function Recent() {
                               className={styles.playBtn}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                handlePlayEpisode(anime.malId || anime.mal_id, ep, localFile.path);
+                                handlePlayEpisode(anime.malId || anime.mal_id, ep, localFile.path, anime.localFiles);
                               }}
                               title="Reproducir"
                             >

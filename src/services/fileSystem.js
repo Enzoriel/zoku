@@ -1,21 +1,12 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { Command } from "@tauri-apps/plugin-shell";
 import { extractEpisodeNumber, detectConstantNumbers } from "../utils/fileParsing";
 import { extractBaseTitle, normalizeForSearch as normalizeTitleForSearch } from "../utils/titleIdentity";
-
-const PLAYER_PROCESS_NAMES = {
-  mpv: "mpv",
-  vlc: "vlc",
-  "mpc-hc": "mpc-hc64",
-  "mpc-be": "mpc-be64",
-  potplayer: "PotPlayerMini64",
-};
 
 const DOWNLOAD_ACTIVITY_GRACE_MS = 10 * 1000;
 const DIRECT_DOWNLOAD_ACTIVITY_WINDOW_MS = 25 * 1000;
 
-function normalizeComparablePath(path) {
+export function normalizeComparablePath(path) {
   if (!path) return "";
   return path.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }
@@ -26,34 +17,6 @@ function isPathWithinBase(targetPath, basePath) {
 
   if (!normalizedTarget || !normalizedBase) return false;
   return normalizedTarget.startsWith(`${normalizedBase}/`);
-}
-
-export async function isPlayerStillOpen(playerName) {
-  const specificName = PLAYER_PROCESS_NAMES[playerName] || playerName;
-  const allNames = Array.from(new Set([specificName, ...Object.values(PLAYER_PROCESS_NAMES)]));
-
-  // Esta función debe coincidir EXACTAMENTE con el Regex permitido en Tauri:
-  // ^Get-Process -Name "[a-zA-Z0-9_\-]+" -ErrorAction SilentlyContinue \| Select-Object -First 1$
-  const checkSingle = async (pName) => {
-    try {
-      const output = await Command.create("powershell", [
-        "-Command",
-        `Get-Process -Name "${pName}" -ErrorAction SilentlyContinue | Select-Object -First 1`,
-      ]).execute();
-      return output.stdout.trim().length > 0;
-    } catch {
-      return false;
-    }
-  };
-
-  try {
-    // Ejecutamos todas las comprobaciones en paralelo.
-    // Esto es mucho más rápido que el bucle secuencial pero respeta el Scope de seguridad.
-    const results = await Promise.all(allNames.map((n) => checkSingle(n)));
-    return results.includes(true);
-  } catch (err) {
-    return false;
-  }
 }
 
 function normalizeForSearch(text) {
@@ -162,8 +125,6 @@ function isSeasonCompatible(folder, anime) {
   );
 
   if (folderSeasons.length === 0) {
-    // Si no logramos extraer la temporada del archivo explícitamente (ej: no dice "Season 2"),
-    // NO rechazamos. Dejamos que la similitud de texto decida el match.
     return true;
   }
 
@@ -245,8 +206,6 @@ export function findAnimeFolderCandidates(anime, localFiles, options = {}) {
         ),
       );
 
-      // Dar un gran impulso a la puntuación si sabemos que el archivo acaba de ser descargado
-      // justo después de que el usuario hizo click en 'Descargar'
       if (score > 0 && isLenient) {
         score = Math.min(1.0, score + 0.4);
       }
@@ -337,7 +296,7 @@ export async function deleteVirtualFolderFiles(files, basePath) {
       errors.push({
         code: isLocked ? "FILE_IN_USE" : "DELETE_FAILED",
         error: isLocked
-          ? `No se pudo borrar "${file.name}" porque esta siendo usado por otra aplicación.`
+          ? `No se pudo borrar "${file.name}" porque esta siendo usado por otra aplicacion.`
           : `No se pudo borrar "${file.name}".`,
         details: message,
       });
@@ -351,14 +310,89 @@ export async function selectFolder() {
   return await open({ directory: true, multiple: false, title: "Seleccionar carpeta de anime" });
 }
 
-export async function openFile(filePath) {
-  if (!filePath) return false;
+export async function selectPlayerExecutable() {
+  const result = await open({
+    directory: false,
+    multiple: false,
+    title: "Seleccionar reproductor de video (.exe)",
+    filters: [{ name: "Ejecutable de Windows", extensions: ["exe"] }],
+  });
+
+  return Array.isArray(result) ? result[0] || null : result;
+}
+
+export async function launchConfiguredPlayer(executablePath, mediaPath) {
+  if (!executablePath || !mediaPath) return { ok: false, error: "Configuracion de reproductor invalida." };
+
   try {
-    await invoke("secure_open_path", { path: filePath });
-    return true;
+    await invoke("launch_configured_player", {
+      executablePath,
+      mediaPath,
+    });
+    return { ok: true };
   } catch (error) {
-    console.error("[Opener] Falló openPath:", error);
-    return false;
+    console.error("[Playback] Fallo launchConfiguredPlayer:", error);
+    return {
+      ok: false,
+      error: String(error || "No se pudo abrir el episodio con el reproductor configurado."),
+    };
+  }
+}
+
+function normalizeDetectedPlayer(result) {
+  if (!result?.executablePath) return null;
+
+  return {
+    key: result.key || "other",
+    executablePath: result.executablePath,
+    processName: result.processName || "",
+    displayName: result.displayName || "",
+  };
+}
+
+export async function detectDefaultVideoPlayer() {
+  try {
+    const result = await invoke("detect_default_video_player");
+    return normalizeDetectedPlayer(result);
+  } catch (error) {
+    console.error("[PlayerConfig] Error detectando reproductor predeterminado:", error);
+    return null;
+  }
+}
+
+export async function detectKnownPlayer(playerKey) {
+  if (!playerKey) return null;
+
+  try {
+    const result = await invoke("detect_known_player", { playerKey });
+    return normalizeDetectedPlayer(result);
+  } catch (error) {
+    console.error("[PlayerConfig] Error detectando reproductor conocido:", error);
+    return null;
+  }
+}
+
+export async function checkPlayerStatus(candidatePaths, preferredProcessNames) {
+  if (!preferredProcessNames?.length) return { isRunning: false, activeFile: null };
+
+  try {
+    const result = await invoke("check_player_status", {
+      candidatePaths: candidatePaths || [],
+      preferredProcessNames,
+    });
+
+    return {
+      isRunning: Boolean(result?.isRunning),
+      activeFile: result?.activeFile
+        ? {
+            path: normalizeComparablePath(result.activeFile.path),
+            processName: result.activeFile.processName || "",
+          }
+        : null,
+    };
+  } catch (error) {
+    console.error("[Playback] Error en checkPlayerStatus:", error);
+    return { isRunning: false, activeFile: null };
   }
 }
 
@@ -405,7 +439,6 @@ export async function scanLibrary(basePath, myAnimes) {
       };
     });
 
-    // Archivos en raíz
     const videoExts = [".mkv", ".mp4", ".avi", ".webm", ".mov"];
     const dlExts = [".!qb", ".part", ".bc!"];
     scanResult.rootFiles.forEach((entry) => {
@@ -441,8 +474,6 @@ export async function scanLibrary(basePath, myAnimes) {
       }
     });
 
-    // Regla única: una carpeta está vinculada SOLO si hay un anime
-    // con folderName === nombreCarpeta (coincidencia exacta, sin auto-matching)
     Object.keys(virtualLibrary).forEach((key) => {
       const folder = virtualLibrary[key];
       const matchedAnime = animeList.find((a) => a.folderName === key);
@@ -457,7 +488,6 @@ export async function scanLibrary(basePath, myAnimes) {
       }
     });
 
-    // Auto-Linker heurístico: solo sugiere coincidencias en memoria.
     const unlinkedAnimes = animeList
       .filter((a) => !a.folderName)
       .sort((first, second) => {
@@ -491,9 +521,7 @@ export async function scanLibrary(basePath, myAnimes) {
       folder.resolvedAnimeData = match;
     });
 
-    // Animes en la biblioteca sin carpeta física
     animeList.forEach((anime) => {
-      // Si tiene folderName, verificar si la carpeta existe físicamente
       if (anime.folderName) {
         const exists = Object.keys(virtualLibrary).includes(anime.folderName);
         if (!exists) {
@@ -512,7 +540,6 @@ export async function scanLibrary(basePath, myAnimes) {
         return;
       }
 
-      // Seguimiento puro (sin carpeta)
       const inVirtual = Object.values(virtualLibrary).some((f) => String(f.resolvedMalId) === String(anime.malId));
       if (!inVirtual && !isCompletedAnime(anime)) {
         virtualLibrary[`__tracking__${anime.malId}`] = {
@@ -529,7 +556,7 @@ export async function scanLibrary(basePath, myAnimes) {
       }
     });
   } catch (error) {
-    console.error("[FS] Fallo en el escáner virtual:", error);
+    console.error("[FS] Fallo en el escaner virtual:", error);
     return { __scanError: true, __errorMessage: error.message || "Error desconocido" };
   }
 

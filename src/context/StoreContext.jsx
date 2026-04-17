@@ -1,23 +1,28 @@
 import { createContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getStore, setStore, clearStore } from "../services/store";
+import { buildPlayerConfig, isValidPlayerConfig } from "../utils/playerDetection";
 
 export const StoreContext = createContext();
 
 const DEFAULT_SETTINGS = {
-  player: "mpv",
+  player: "",
+  playerConfig: null,
   onboardingComplete: false,
 };
 
 function normalizeSettings(settings, folderPath) {
   const nextSettings = settings || DEFAULT_SETTINGS;
-  const hasTorrentConfig = Array.isArray(nextSettings?.torrent?.fansubs) && nextSettings.torrent.fansubs.length > 0;
-  const hasLegacySetup = Boolean(folderPath) || hasTorrentConfig;
+  const normalizedPlayerConfig = isValidPlayerConfig(nextSettings?.playerConfig)
+    ? buildPlayerConfig(nextSettings.playerConfig)
+    : null;
+  const hasValidSetup = Boolean(folderPath) && isValidPlayerConfig(normalizedPlayerConfig);
 
   return {
     ...DEFAULT_SETTINGS,
     ...nextSettings,
-    onboardingComplete: nextSettings?.onboardingComplete ?? hasLegacySetup,
+    playerConfig: normalizedPlayerConfig,
+    onboardingComplete: Boolean(nextSettings?.onboardingComplete && hasValidSetup),
   };
 }
 

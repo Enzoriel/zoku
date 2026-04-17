@@ -6,20 +6,25 @@ import Carousel from "../components/anime/Carousel";
 import Button from "../components/ui/Button";
 import styles from "./Dashboard.module.css";
 import { useAnime } from "../context/AnimeContext";
-import { usePlayTracking } from "../hooks/usePlayTracking";
+import { useLibrary } from "../context/LibraryContext";
+import { usePlayback } from "../hooks/usePlayback";
 
 function Dashboard() {
   const { data } = useStore();
   const { seasonalAnime, loading } = useAnime();
-  const playback = usePlayTracking();
+  const { localFilesIndex } = useLibrary();
+  const playback = usePlayback();
 
   const isEmpty = Object.keys(data.myAnimes).length === 0;
 
   const continueWatching = useMemo(
-    () => getContinueWatching(data.myAnimes, data.localFiles),
-    [data.myAnimes, data.localFiles],
+    () => getContinueWatching(data.myAnimes, data.localFiles, localFilesIndex),
+    [data.myAnimes, data.localFiles, localFilesIndex],
   );
-  const newEpisodes = useMemo(() => getNewEpisodes(data.myAnimes, data.localFiles), [data.myAnimes, data.localFiles]);
+  const newEpisodes = useMemo(
+    () => getNewEpisodes(data.myAnimes, data.localFiles, localFilesIndex),
+    [data.myAnimes, data.localFiles, localFilesIndex],
+  );
   const recentlyAdded = useMemo(() => getRecentlyAdded(data.myAnimes), [data.myAnimes]);
 
   return (

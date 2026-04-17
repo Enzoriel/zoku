@@ -24,6 +24,19 @@ function normalizeLibraryPath(path) {
   return String(path).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }
 
+function buildLocalFilesIndex(localFiles) {
+  const byMalId = {};
+
+  Object.values(localFiles || {}).forEach((folder) => {
+    const malId = folder?.resolvedMalId ?? folder?.malId ?? folder?.suggestedMalId ?? null;
+    if (malId !== null && malId !== undefined && !(String(malId) in byMalId)) {
+      byMalId[String(malId)] = folder;
+    }
+  });
+
+  return byMalId;
+}
+
 export function LibraryProvider({ children }) {
   const { data, setLocalFiles, setMyAnimes, libraryScopeReady } = useStore();
   const [syncing, setSyncing] = useState(false);
@@ -37,6 +50,8 @@ export function LibraryProvider({ children }) {
   const debounceRef = useRef(null);
   const activeDownloadPollRef = useRef(null);
   const syncRunIdRef = useRef(0);
+  const initialSyncKeyRef = useRef("");
+  const localFilesIndex = useMemo(() => buildLocalFilesIndex(data.localFiles), [data.localFiles]);
 
   const performSync = useCallback(
     async (myAnimesOverride = null, settingsOverride = null) => {
@@ -175,13 +190,21 @@ export function LibraryProvider({ children }) {
   );
 
   useEffect(() => {
-    const folderPath = dataRef.current.folderPath;
+    const folderPath = data.folderPath;
     if (!folderPath || !libraryScopeReady) {
+      initialSyncKeyRef.current = "";
       stopWatcher();
       return;
     }
+
+    const normalizedFolderPath = normalizeLibraryPath(folderPath);
+    if (initialSyncKeyRef.current === normalizedFolderPath) {
+      return;
+    }
+
+    initialSyncKeyRef.current = normalizedFolderPath;
     startWatcher(folderPath);
-    return () => stopWatcher();
+    performSyncRef.current();
   }, [data.folderPath, libraryScopeReady, startWatcher, stopWatcher]);
 
   useEffect(() => {
@@ -216,7 +239,7 @@ export function LibraryProvider({ children }) {
     };
   }, [data.myAnimes, data.folderPath, libraryScopeReady]);
 
-  const value = useMemo(() => ({ performSync, syncing }), [performSync, syncing]);
+  const value = useMemo(() => ({ performSync, syncing, localFilesIndex }), [performSync, syncing, localFilesIndex]);
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
 }

@@ -1,99 +1,137 @@
+import { isAnimeActivelyAiring } from "./airingStatus";
 import { extractEpisodeNumber } from "./fileParsing";
+import { getBestFolderMatch } from "./libraryView";
+
+function getComparableEpisodeNumber(anime, file) {
+  if (Number.isFinite(file?.episodeNumber)) {
+    return file.episodeNumber;
+  }
+
+  return extractEpisodeNumber(file?.name, [
+    anime?.title || "",
+    anime?.title_english,
+    ...(anime?.synonyms || []),
+    anime?.folderName,
+  ]);
+}
+
+function getKnownTotalEpisodes(anime) {
+  const totalEpisodes = Number.parseInt(anime?.totalEpisodes, 10);
+  if (Number.isFinite(totalEpisodes) && totalEpisodes > 0) {
+    return totalEpisodes;
+  }
+
+  if (isAnimeActivelyAiring(anime)) {
+    return 0;
+  }
+
+  const fallbackTotal = Number.parseInt(anime?.episodes, 10);
+  if (Number.isFinite(fallbackTotal) && fallbackTotal > 0) {
+    return fallbackTotal;
+  }
+
+  const listedEpisodes = Array.isArray(anime?.episodeList) ? anime.episodeList.length : 0;
+  return listedEpisodes > 0 ? listedEpisodes : 0;
+}
+
+function buildDashboardEpisodeState(anime, folderMatch) {
+  const localFilesList = Array.isArray(folderMatch?.files)
+    ? folderMatch.files.filter((file) => !file.isDownloading)
+    : [];
+  const watchedEpisodes = Array.isArray(anime?.watchedEpisodes) ? anime.watchedEpisodes.filter(Number.isFinite) : [];
+  const maxWatched = watchedEpisodes.length > 0 ? Math.max(...watchedEpisodes) : 0;
+  const nextEpisode = maxWatched + 1;
+  const episodeNumbers = localFilesList.map((file) => getComparableEpisodeNumber(anime, file)).filter(Number.isFinite);
+  const maxLocalEpisode = episodeNumbers.length > 0 ? Math.max(...episodeNumbers) : 0;
+  const nextEpisodeFile =
+    localFilesList.find((file) => getComparableEpisodeNumber(anime, file) === nextEpisode) || null;
+  const knownTotalEpisodes = getKnownTotalEpisodes(anime);
+  const progressTotalEpisodes = knownTotalEpisodes || maxLocalEpisode || 0;
+  const validWatchedCount = watchedEpisodes.filter(
+    (episode) => progressTotalEpisodes === 0 || episode <= progressTotalEpisodes,
+  ).length;
+  const progress = progressTotalEpisodes > 0 ? Math.round((validWatchedCount / progressTotalEpisodes) * 100) : 0;
+
+  return {
+    watchedEpisodes,
+    maxWatched,
+    nextEpisode,
+    nextEpisodeFile,
+    episodeNumbers,
+    maxLocalEpisode,
+    knownTotalEpisodes,
+    progressTotalEpisodes,
+    validWatchedCount,
+    progress,
+  };
+}
 
 // Continuar viendo: animes con progreso guardado y episodios locales listos
 
-export function getContinueWatching(myAnimes, localFiles = {}) {
+export function getContinueWatching(myAnimes, localFiles = {}, localFilesIndex = null) {
   if (!myAnimes) return [];
 
-  return (
-    Object.values(myAnimes)
-      .filter((anime) => {
-        const watched = anime.watchedEpisodes?.length || 0;
-        const total = anime.totalEpisodes || anime.episodes || 0;
-        // Tiene progreso y no está completo
-        return watched > 0 && (total === 0 || watched < total);
-      })
-      .map((anime) => {
-        const watched = anime.watchedEpisodes || [];
-        const lastEp = watched.length > 0 ? Math.max(...watched) : 0;
-        const nextEp = lastEp + 1;
-        const total = anime.totalEpisodes || anime.episodes || 0;
+  return Object.values(myAnimes)
+    .map((anime) => {
+      const folderMatch = getBestFolderMatch(anime, localFiles, localFilesIndex);
+      const episodeState = buildDashboardEpisodeState(anime, folderMatch);
+      const watchedCount = episodeState.watchedEpisodes.length;
+      const isCompleteByKnownTotal =
+        episodeState.knownTotalEpisodes > 0 && episodeState.maxWatched >= episodeState.knownTotalEpisodes;
 
-        const animeTitle = anime.title || "";
-        const localData = localFiles[animeTitle] || localFiles[anime.folderName] || { files: [] };
-        const nextFile = localData.files.find((f) => {
-          const epNum = extractEpisodeNumber(f.name, [animeTitle, anime.title_english, ...(anime.synonyms || []), anime.folderName]);
-          return epNum !== null && epNum === nextEp;
-        });
+      if (watchedCount === 0 || !episodeState.nextEpisodeFile || isCompleteByKnownTotal) {
+        return null;
+      }
 
-        const validWatched = watched.filter((ep) => total === 0 || ep <= total);
-
-        return {
-          ...anime,
-          nextEpisode: nextEp,
-          nextEpisodeFile: nextFile,
-          progress: total > 0 ? Math.round((validWatched.length / total) * 100) : 0,
-        };
-      })
-      // El usuario pidió que si no está descargado no aparezca allí (en Continuar viendo)
-      .filter((anime) => !!anime.nextEpisodeFile)
-      .sort((a, b) => {
-        const getLastWatch = (anime) => {
-          if (!anime.watchHistory?.length) return 0;
-          return new Date(anime.watchHistory[anime.watchHistory.length - 1]?.watchedAt || 0).getTime();
-        };
-        return getLastWatch(b) - getLastWatch(a);
-      })
-      .slice(0, 20)
-  );
+      return {
+        ...anime,
+        nextEpisode: episodeState.nextEpisode,
+        nextEpisodeFile: episodeState.nextEpisodeFile,
+        progressTotalEpisodes: episodeState.progressTotalEpisodes,
+        progressWatchedCount: episodeState.validWatchedCount,
+        progress: episodeState.progress,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const getLastWatch = (anime) => {
+        if (!anime.watchHistory?.length) return 0;
+        return new Date(anime.watchHistory[anime.watchHistory.length - 1]?.watchedAt || 0).getTime();
+      };
+      return getLastWatch(b) - getLastWatch(a);
+    })
+    .slice(0, 20);
 }
 
-// Nuevos episodios: animes con capítulos locales superiores al último visto
+// Nuevos episodios: animes con capitulos locales superiores al ultimo visto
 
-export function getNewEpisodes(myAnimes, localFiles) {
+export function getNewEpisodes(myAnimes, localFiles, localFilesIndex = null) {
   if (!myAnimes || !localFiles) return [];
   const result = [];
 
   Object.values(myAnimes).forEach((anime) => {
-    const animeTitle = anime.title;
-    const localData = localFiles[animeTitle] || localFiles[anime.folderName];
-    const localFilesList = localData && Array.isArray(localData.files) ? localData.files : [];
+    const folderMatch = getBestFolderMatch(anime, localFiles, localFilesIndex);
+    const episodeState = buildDashboardEpisodeState(anime, folderMatch);
 
-    if (localFilesList.length === 0) return;
-
-    const watched = anime.watchedEpisodes || [];
-    const maxWatched = watched.length > 0 ? Math.max(...watched) : 0;
-
-    const episodeNumbers = localFilesList
-      .map((f) => extractEpisodeNumber(f.name, [animeTitle, anime.title_english, ...(anime.synonyms || []), anime.folderName]))
-      .filter((num) => num !== null);
-
-    const maxLocal = episodeNumbers.length > 0 ? Math.max(...episodeNumbers) : 0;
-
-    if (maxLocal > maxWatched) {
-      const nextEp = maxWatched + 1;
-      const nextFile = localFilesList.find((f) => {
-        const epNum = extractEpisodeNumber(f.name, [animeTitle, anime.title_english, ...(anime.synonyms || []), anime.folderName]);
-        return epNum !== null && epNum === nextEp;
-      });
-
-      // Solo lo añadimos si no está "terminado"
-      const total = anime.totalEpisodes || anime.episodes || 0;
-      if (total === 0 || maxWatched < total) {
-        result.push({
-          ...anime,
-          newEpisodesCount: maxLocal - maxWatched,
-          nextEpisode: nextEp,
-          nextEpisodeFile: nextFile,
-        });
-      }
+    if (!episodeState.nextEpisodeFile || episodeState.maxLocalEpisode <= episodeState.maxWatched) {
+      return;
     }
+
+    result.push({
+      ...anime,
+      newEpisodesCount: episodeState.episodeNumbers.filter((episode) => episode > episodeState.maxWatched).length,
+      nextEpisode: episodeState.nextEpisode,
+      nextEpisodeFile: episodeState.nextEpisodeFile,
+      progressTotalEpisodes: episodeState.progressTotalEpisodes,
+      progressWatchedCount: episodeState.validWatchedCount,
+      progress: episodeState.progress,
+    });
   });
 
   return result;
 }
 
-// Añadidos recientemente a la biblioteca
+// Anadidos recientemente a la biblioteca
 
 export function getRecentlyAdded(myAnimes) {
   if (!myAnimes) return [];
@@ -101,4 +139,3 @@ export function getRecentlyAdded(myAnimes) {
     .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt))
     .slice(0, 10);
 }
-

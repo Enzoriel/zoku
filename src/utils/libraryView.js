@@ -11,7 +11,16 @@ function isRejectedSuggestion(anime, folder) {
   return Boolean(rejectedFolderName) && rejectedFolderName === folderName;
 }
 
-function getBestFolderMatch(anime, localFiles) {
+export function getBestFolderMatch(anime, localFiles, localFilesIndex = null) {
+  if (!anime || !localFiles) return null;
+
+  if (localFilesIndex) {
+    const indexed = localFilesIndex[String(anime.malId)];
+    if (indexed && !isRejectedSuggestion(anime, indexed)) {
+      return indexed;
+    }
+  }
+
   const directMatch = Object.values(localFiles || {}).find(
     (folder) =>
       String(folder?.resolvedMalId || folder?.malId || "") === String(anime?.malId || "") &&
@@ -21,7 +30,7 @@ function getBestFolderMatch(anime, localFiles) {
   if (directMatch) return directMatch;
 
   const candidate = findAnimeFolderCandidates(anime, localFiles, { onlyWithFiles: true }).find(
-    ([folderKey]) => String(anime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderKey.toLowerCase()
+    ([folderKey]) => String(anime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderKey.toLowerCase(),
   );
 
   return candidate?.[1] || null;
@@ -37,10 +46,10 @@ function getLibraryStatus(anime, folderMatch) {
   return "NO_FILES";
 }
 
-export function buildLibraryViewModel(myAnimes = {}, localFiles = {}) {
+export function buildLibraryViewModel(myAnimes = {}, localFiles = {}, localFilesIndex = null) {
   const animeEntries = Object.values(myAnimes || {})
     .map((anime) => {
-      const folderMatch = getBestFolderMatch(anime, localFiles);
+      const folderMatch = getBestFolderMatch(anime, localFiles, localFilesIndex);
       const computedStatus = calculateUserStatus(anime);
       const libraryStatus = getLibraryStatus(anime, folderMatch);
       const fileCount = normalizeFileCount(folderMatch);
@@ -58,6 +67,7 @@ export function buildLibraryViewModel(myAnimes = {}, localFiles = {}) {
         fileCount,
         resolvedFolderName: folderMatch?.folderName || anime.folderName || null,
         folderMatch,
+        isMissing: Boolean(folderMatch?.isMissing),
         sortTitle: String(anime?.title || anime?.title_english || "").toLowerCase(),
       };
     })

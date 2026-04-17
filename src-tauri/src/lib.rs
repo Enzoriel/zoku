@@ -1,3 +1,4 @@
+mod playback;
 mod secure_fs;
 mod torrent;
 
@@ -89,9 +90,14 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            playback::check_player_status,
+            playback::detect_locked_media_file,
+            playback::detect_default_video_player,
+            playback::detect_known_player,
+            playback::is_process_running,
+            playback::launch_configured_player,
             secure_fs::ensure_library_scope,
             secure_fs::scan_library_entries,
-            secure_fs::secure_open_path,
             secure_fs::secure_delete_path,
             torrent::fetch_nyaa,
             torrent::query_anilist,

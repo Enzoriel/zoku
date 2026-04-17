@@ -31,7 +31,6 @@ use notify::{
 };
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime, State};
-use tauri_plugin_opener::OpenerExt;
 
 const WATCH_DEBOUNCE_MS: u64 = 800;
 const VIDEO_EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "webm", "mov"];
@@ -91,7 +90,7 @@ pub struct LibraryFileEntry {
     modified_at_ms: Option<u64>,
 }
 
-fn canonicalize_directory(path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn canonicalize_directory(path: &Path) -> Result<PathBuf, String> {
     if path.as_os_str().is_empty() {
         return Err("La ruta de la biblioteca esta vacia.".into());
     }
@@ -105,7 +104,7 @@ fn canonicalize_directory(path: &Path) -> Result<PathBuf, String> {
     Ok(canonical)
 }
 
-fn canonicalize_existing_path(path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn canonicalize_existing_path(path: &Path) -> Result<PathBuf, String> {
     if path.as_os_str().is_empty() {
         return Err("La ruta objetivo esta vacia.".into());
     }
@@ -114,7 +113,7 @@ fn canonicalize_existing_path(path: &Path) -> Result<PathBuf, String> {
         .map_err(|_| "La ruta objetivo no existe o no se pudo resolver.".to_string())
 }
 
-fn ensure_within_root(root: &Path, target: &Path) -> Result<PathBuf, String> {
+pub(crate) fn ensure_within_root(root: &Path, target: &Path) -> Result<PathBuf, String> {
     let canonical_root = canonicalize_directory(root)?;
     let canonical_target = canonicalize_existing_path(target)?;
 
@@ -125,7 +124,7 @@ fn ensure_within_root(root: &Path, target: &Path) -> Result<PathBuf, String> {
     Ok(canonical_target)
 }
 
-fn current_root(state: &State<'_, LibraryState>) -> Result<PathBuf, String> {
+pub(crate) fn current_root(state: &State<'_, LibraryState>) -> Result<PathBuf, String> {
     let guard = state
         .root
         .lock()
@@ -518,26 +517,6 @@ pub fn scan_library_entries(state: State<'_, LibraryState>) -> Result<LibrarySca
         directories,
         root_files,
     })
-}
-
-#[tauri::command]
-pub async fn secure_open_path<R: Runtime>(
-    app: AppHandle<R>,
-    path: String,
-    state: State<'_, LibraryState>,
-) -> Result<(), String> {
-    let root = current_root(&state)?;
-    let target = ensure_within_root(&root, Path::new(&path))?;
-
-    if !target.is_file() {
-        return Err("Solo se pueden abrir archivos dentro de la biblioteca.".into());
-    }
-
-    app.opener()
-        .open_path(target.to_string_lossy().to_string(), None::<String>)
-        .map_err(|error| format!("No se pudo abrir el archivo: {error}"))?;
-
-    Ok(())
 }
 
 #[tauri::command]
