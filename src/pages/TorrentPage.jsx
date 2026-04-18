@@ -284,8 +284,22 @@ function TorrentPage() {
   // Switch language mode with smart fetch/cache
   const switchLangMode = useCallback(
     (newMode) => {
+      const committedQuery = activeQuery.trim() || searchInput.trim();
+      const hasQuery = committedQuery.length > 0;
+      const targetVisibleFansubs = getFansubsByLanguage(storeData.settings, newMode);
+      const nextTab =
+        activeTab === "general" || targetVisibleFansubs.some((fansub) => fansub.name === activeTab) ? activeTab : "general";
+
       setLangMode(newMode);
-      // Reset spanish suffix when leaving Spanish mode
+
+      if (hasQuery) {
+        setActiveTab(nextTab);
+        setActiveQuery(committedQuery);
+        setSearchInput(committedQuery);
+        setSpanishSuffix(null);
+        return;
+      }
+
       if (newMode !== "es") {
         setSpanishSuffix(null);
       }
@@ -304,7 +318,7 @@ function TorrentPage() {
         setSpanishSuffix("esp");
       }
     },
-    [principalFansub],
+    [activeQuery, searchInput, storeData.settings, activeTab, principalFansub],
   );
 
   if (!hasConfig) {
