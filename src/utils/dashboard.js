@@ -2,6 +2,10 @@ import { isAnimeActivelyAiring } from "./airingStatus";
 import { extractEpisodeNumber } from "./fileParsing";
 import { getBestFolderMatch } from "./libraryView";
 
+function getAnimeIdentity(anime) {
+  return String(anime?.malId || anime?.mal_id || anime?.id || anime?.anilistId || "");
+}
+
 function getComparableEpisodeNumber(anime, file) {
   if (Number.isFinite(file?.episodeNumber)) {
     return file.episodeNumber;
@@ -105,11 +109,18 @@ export function getContinueWatching(myAnimes, localFiles = {}, localFilesIndex =
 
 // Nuevos episodios: animes con capitulos locales superiores al ultimo visto
 
-export function getNewEpisodes(myAnimes, localFiles, localFilesIndex = null) {
+export function getNewEpisodes(myAnimes, localFiles, localFilesIndex = null, excludedAnimeIds = new Set()) {
   if (!myAnimes || !localFiles) return [];
   const result = [];
+  const excludedIds =
+    excludedAnimeIds instanceof Set ? excludedAnimeIds : new Set(Array.isArray(excludedAnimeIds) ? excludedAnimeIds : []);
 
   Object.values(myAnimes).forEach((anime) => {
+    const animeId = getAnimeIdentity(anime);
+    if (animeId && excludedIds.has(animeId)) {
+      return;
+    }
+
     const folderMatch = getBestFolderMatch(anime, localFiles, localFilesIndex);
     const episodeState = buildDashboardEpisodeState(anime, folderMatch);
 

@@ -21,9 +21,20 @@ function Dashboard() {
     () => getContinueWatching(data.myAnimes, data.localFiles, localFilesIndex),
     [data.myAnimes, data.localFiles, localFilesIndex],
   );
+
+  const continueWatchingIds = useMemo(
+    () =>
+      new Set(
+        continueWatching.map((anime) =>
+          String(anime.malId || anime.mal_id || anime.id || anime.anilistId || ""),
+        ),
+      ),
+    [continueWatching],
+  );
+
   const newEpisodes = useMemo(
-    () => getNewEpisodes(data.myAnimes, data.localFiles, localFilesIndex),
-    [data.myAnimes, data.localFiles, localFilesIndex],
+    () => getNewEpisodes(data.myAnimes, data.localFiles, localFilesIndex, continueWatchingIds),
+    [data.myAnimes, data.localFiles, localFilesIndex, continueWatchingIds],
   );
   const recentlyAdded = useMemo(() => getRecentlyAdded(data.myAnimes), [data.myAnimes]);
 
