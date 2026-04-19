@@ -4,7 +4,7 @@ import { extractEpisodeNumber, detectConstantNumbers } from "../utils/fileParsin
 import { extractBaseTitle, normalizeForSearch as normalizeTitleForSearch } from "../utils/titleIdentity";
 
 const DOWNLOAD_ACTIVITY_GRACE_MS = 10 * 1000;
-const DIRECT_DOWNLOAD_ACTIVITY_WINDOW_MS = 25 * 1000;
+const DIRECT_DOWNLOAD_ACTIVITY_WINDOW_MS = 10 * 1000;
 
 export function normalizeComparablePath(path) {
   if (!path) return "";
@@ -485,6 +485,51 @@ export async function scanLibrary(basePath, myAnimes) {
         folder.resolvedMalId = matchedAnime.malId;
         folder.resolvedAnimeData = matchedAnime;
         markFolderDownloadActivity(folder, matchedAnime);
+      }
+    });
+
+    const linkedAnimes = animeList.filter((a) => !!a.folderName);
+
+    Object.keys(virtualLibrary).forEach((key) => {
+      const folder = virtualLibrary[key];
+      if (folder.isLinked) return;
+
+      for (const anime of linkedAnimes) {
+        const intentAt = anime.downloadIntentAt ? new Date(anime.downloadIntentAt).getTime() : 0;
+        const candidates = findAnimeFolderCandidates(anime, { [key]: folder }, { onlyWithFiles: true });
+        
+        if (candidates.length > 0) {
+          const score = candidates[0][2];
+          // Solo fusionamos si es un nombre exacto (>= 0.9) O SI la descarga acaba de iniciar (intent reciente)
+          if (score >= 0.9 || (intentAt > 0 && Date.now() - intentAt < 24 * 60 * 60 * 1000)) {
+            if (!virtualLibrary[anime.folderName]) {
+              virtualLibrary[anime.folderName] = {
+                files: [],
+                isLinked: true,
+                isSuggested: false,
+                malId: anime.malId,
+                animeData: anime,
+                resolvedMalId: anime.malId,
+                resolvedAnimeData: anime,
+                folderName: anime.folderName,
+                isMissing: false,
+              };
+            }
+            
+            const targetFolder = virtualLibrary[anime.folderName];
+            targetFolder.isMissing = false;
+            
+            folder.files.forEach((f) => {
+              if (!targetFolder.files.some((ext) => ext.path === f.path)) {
+                targetFolder.files.push(f);
+              }
+            });
+            
+            markFolderDownloadActivity(targetFolder, anime);
+            delete virtualLibrary[key];
+            break;
+          }
+        }
       }
     });
 
