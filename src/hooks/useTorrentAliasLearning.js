@@ -13,7 +13,7 @@ import { deriveTorrentLinkFields, applyTorrentLinkFields } from "../utils/torren
  */
 export function useTorrentAliasLearning(allAiringAnime) {
   const { data, setMyAnimes } = useStore();
-  const { data: torrentData, isLoading: torrentLoading } = useTorrent();
+  const { data: torrentData, isLoading: torrentLoading, getItemsForAnime } = useTorrent();
 
   const dataRef = useRef(data.myAnimes);
   useEffect(() => { dataRef.current = data.myAnimes; }, [data.myAnimes]);
@@ -35,11 +35,12 @@ export function useTorrentAliasLearning(allAiringAnime) {
         const lastAiredEp = getReleasedEpisodeCount(anime);
         
         if (lastAiredEp > 0) {
+          const torrentItems = getItemsForAnime(stored);
           const matches = findTorrentMatches(
             anime.title,
             anime.title_english || null,
             lastAiredEp,
-            torrentData,
+            torrentItems,
           );
 
           if (matches.length > 0) {
@@ -70,5 +71,5 @@ export function useTorrentAliasLearning(allAiringAnime) {
         return changed ? next : prev;
       });
     }
-  }, [torrentData, allAiringAnime, torrentLoading, setMyAnimes]);
+  }, [torrentData, allAiringAnime, torrentLoading, setMyAnimes, getItemsForAnime]);
 }

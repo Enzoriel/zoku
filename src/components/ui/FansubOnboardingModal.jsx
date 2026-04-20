@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useStore } from "../../hooks/useStore";
-import { getPreferredResolution, getFansubDetail } from "../../utils/torrentConfig";
+import { getPreferredResolution, getFansubDetail, buildPersistedFansubConfig } from "../../utils/torrentConfig";
 import { PRESET_FANSUBS, SUPPORTED_RESOLUTIONS } from "../../utils/constants";
 import styles from "./FansubOnboardingModal.module.css";
 
@@ -13,7 +13,7 @@ function FansubOnboardingModal({ onComplete }) {
   const [principal, setPrincipal] = useState(null);
   const [resolution, setResolution] = useState("1080p");
   const [saving, setSaving] = useState(false);
-  // Metadata por fansub: { [name]: { language, nyaaCategory } }
+  // Metadata por fansub: { [name]: { language, nyaaCategory, useResolutionFilter } }
   const [fansubMeta, setFansubMeta] = useState({});
 
   // Precargar si ya hay fansubs configurados (edición)
@@ -38,6 +38,7 @@ function FansubOnboardingModal({ onComplete }) {
         meta[f.name] = {
           language: f.language || "en",
           nyaaCategory: f.nyaaCategory || "1_2",
+          useResolutionFilter: f.nyaaCategory === "1_3" ? false : typeof f.useResolutionFilter === "boolean" ? f.useResolutionFilter : true,
         };
       });
       setFansubMeta(meta);
@@ -67,7 +68,7 @@ function FansubOnboardingModal({ onComplete }) {
     // Inicializar metadata: default en español (custom fansubs suelen ser .es)
     setFansubMeta((prev) => ({
       ...prev,
-      [name]: { language: "es", nyaaCategory: "1_3" },
+      [name]: { language: "es", nyaaCategory: "1_3", useResolutionFilter: false },
     }));
     setCustomInput("");
   };
@@ -87,7 +88,15 @@ function FansubOnboardingModal({ onComplete }) {
   const updateFansubMeta = (name, field, value) => {
     setFansubMeta((prev) => ({
       ...prev,
-      [name]: { ...(prev[name] || { language: "en", nyaaCategory: "1_2" }), [field]: value },
+      [name]: {
+        ...(prev[name] || { language: "en", nyaaCategory: "1_2", useResolutionFilter: true }),
+        [field]: value,
+        ...(field === "nyaaCategory"
+          ? value === "1_3"
+            ? { useResolutionFilter: false }
+            : { useResolutionFilter: true }
+          : {}),
+      },
     }));
   };
 
@@ -101,14 +110,11 @@ function FansubOnboardingModal({ onComplete }) {
           ...(data.settings?.torrent || {}),
           resolution,
           fansubs: selected.map((name) => {
-            const detail = getFansubDetail(name);
             const meta = fansubMeta[name] || {};
-            return {
-              name,
+            return buildPersistedFansubConfig(name, {
+              ...meta,
               principal: principal ? name.toLowerCase() === principal.toLowerCase() : false,
-              language: meta.language || detail.defaultLang,
-              nyaaCategory: meta.nyaaCategory || detail.nyaaCategory,
-            };
+            });
           }),
         },
       });
@@ -146,6 +152,7 @@ function FansubOnboardingModal({ onComplete }) {
               const meta = fansubMeta[name] || {};
               const lang = meta.language || (isCustom ? "es" : "en");
               const category = meta.nyaaCategory || "1_2";
+              const useResolutionFilter = category === "1_3" ? false : meta.useResolutionFilter !== false;
               return (
                 <div key={name}>
                   <div
@@ -199,6 +206,23 @@ function FansubOnboardingModal({ onComplete }) {
                             onClick={(e) => { e.stopPropagation(); updateFansubMeta(name, "nyaaCategory", "1_2"); }}
                           >
                             English-Translated (1_2)
+                          </button>
+                        </div>
+                      )}
+                      {category === "1_2" && (
+                        <div className={styles.metaRow}>
+                          <span className={styles.metaLabel}>Resolución:</span>
+                          <button
+                            className={`${styles.metaToggle} ${useResolutionFilter ? styles.metaToggleActive : ""}`}
+                            onClick={(e) => { e.stopPropagation(); updateFansubMeta(name, "useResolutionFilter", true); }}
+                          >
+                            Filtrar
+                          </button>
+                          <button
+                            className={`${styles.metaToggle} ${!useResolutionFilter ? styles.metaToggleActive : ""}`}
+                            onClick={(e) => { e.stopPropagation(); updateFansubMeta(name, "useResolutionFilter", false); }}
+                          >
+                            Sin filtro
                           </button>
                         </div>
                       )}

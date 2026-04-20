@@ -13,8 +13,9 @@ export function deriveTorrentLinkFields(nyaaTitle) {
   const torrentAlias = deriveTorrentAliasFromTitle(nyaaTitle);
   const diskAlias = extractBaseTitle(nyaaTitle);
   const torrentSearchTerm = torrentAlias || diskAlias;
+  const hasUsefulValue = [torrentAlias, diskAlias, torrentSearchTerm].some((value) => /[a-z0-9]/i.test(String(value || "")));
 
-  if (!torrentAlias && !diskAlias && !torrentSearchTerm) return null;
+  if (!hasUsefulValue) return null;
 
   return {
     torrentAlias,

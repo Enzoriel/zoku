@@ -4,6 +4,28 @@
 
 import { PRESET_FANSUBS_DETAIL } from "./constants";
 
+function normalizeFansubEntry(entry = {}, fallback = null) {
+  const detail = fallback || getFansubDetail(entry.name);
+  const nyaaCategory = entry.nyaaCategory || detail.nyaaCategory;
+  const language = entry.language || detail.defaultLang;
+  const useResolutionFilter =
+    nyaaCategory === "1_3"
+      ? false
+      : typeof entry.useResolutionFilter === "boolean"
+        ? entry.useResolutionFilter
+        : typeof detail.useResolutionFilter === "boolean"
+          ? detail.useResolutionFilter
+          : true;
+
+  return {
+    ...entry,
+    name: entry.name || detail.name,
+    language,
+    nyaaCategory,
+    useResolutionFilter,
+  };
+}
+
 /**
  * Devuelve el nombre del fansub principal, o null si no hay ninguno.
  * @param {object} settings
@@ -15,11 +37,19 @@ export function getPrincipalFansub(settings) {
 
 /**
  * Devuelve el array completo de fansubs configurados.
+ * Incluye cache de última referencia para evitar re-normalización
+ * cuando múltiples funciones llaman a getAllFansubs en el mismo ciclo.
  * @param {object} settings
  * @returns {Array<{name: string, principal: boolean, language?: string}>}
  */
+let _lastRawFansubs = null;
+let _lastNormalized = [];
 export function getAllFansubs(settings) {
-  return settings?.torrent?.fansubs ?? [];
+  const raw = settings?.torrent?.fansubs ?? [];
+  if (raw === _lastRawFansubs) return _lastNormalized;
+  _lastRawFansubs = raw;
+  _lastNormalized = raw.map((fansub) => normalizeFansubEntry(fansub));
+  return _lastNormalized;
 }
 
 /**
@@ -30,9 +60,7 @@ export function getAllFansubs(settings) {
  * @returns {Array<{name: string, principal: boolean, language?: string}>}
  */
 export function getFansubsByLanguage(settings, lang) {
-  return (settings?.torrent?.fansubs ?? []).filter(
-    (f) => (f.language || "en") === lang,
-  );
+  return getAllFansubs(settings).filter((f) => (f.language || "en") === lang);
 }
 
 /**
@@ -71,7 +99,7 @@ export function hasConfiguredFansubs(settings) {
  * @returns {"1_2"|"1_3"}
  */
 export function getNyaaCategoryForFansub(settings, fansubName, langMode = "en") {
-  const fansubs = settings?.torrent?.fansubs ?? [];
+  const fansubs = getAllFansubs(settings);
   const fansub = fansubs.find((f) => f.name.toLowerCase() === fansubName.toLowerCase());
 
   // 1. Si el fansub tiene nyaaCategory definido, usarlo
@@ -94,7 +122,7 @@ export function getNyaaCategoryForFansub(settings, fansubName, langMode = "en") 
  * @returns {boolean}
  */
 export function isSpanishCapableFansub(settings, fansubName) {
-  const fansubs = settings?.torrent?.fansubs ?? [];
+  const fansubs = getAllFansubs(settings);
   const fansub = fansubs.find((f) => f.name.toLowerCase() === fansubName.toLowerCase());
 
   // Si el fansub está marcado como español directamente
@@ -119,7 +147,7 @@ export function isSpanishCapableFansub(settings, fansubName) {
  * @returns {Array}
  */
 export function getFansubsForCategory(settings, category) {
-  return (settings?.torrent?.fansubs ?? []).filter((f) => {
+  return getAllFansubs(settings).filter((f) => {
     const cat = getNyaaCategoryForFansub(settings, f.name);
     return cat === category;
   });
@@ -129,14 +157,116 @@ export function getFansubsForCategory(settings, category) {
  * Obtiene el detalle de un fansub desde presets o valores default.
  * Centralizado aquí para evitar duplicación en WelcomeSetupModal y FansubOnboardingModal.
  * @param {string} name
- * @returns {{ name: string, defaultLang: string, nyaaCategory: string, hasSpanishSubs: boolean }}
+ * @returns {{ name: string, defaultLang: string, nyaaCategory: string, hasSpanishSubs: boolean, useResolutionFilter: boolean }}
  */
 export function getFansubDetail(name) {
   const preset = PRESET_FANSUBS_DETAIL.find(
     (p) => p.name.toLowerCase() === name.toLowerCase(),
   );
   if (preset) return preset;
-  return { name, defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false };
+  return { name, defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false, useResolutionFilter: true };
+}
+
+export function getFansubConfig(settings, fansubName) {
+  if (!fansubName) return null;
+  return getAllFansubs(settings).find((fansub) => fansub.name.toLowerCase() === fansubName.toLowerCase()) || null;
+}
+
+export function getFansubUseResolutionFilter(settings, fansubName) {
+  const config = getFansubConfig(settings, fansubName);
+  if (config) {
+    return config.nyaaCategory === "1_3" ? false : Boolean(config.useResolutionFilter);
+  }
+
+  const detail = getFansubDetail(fansubName);
+  return detail.nyaaCategory === "1_3" ? false : Boolean(detail.useResolutionFilter);
+}
+
+/**
+ * Devuelve true si un anime se considera finalizado para propósitos de feeds.
+ * Se usa para evitar generar feeds de fansubs secundarios cuando el anime ya no emite.
+ * @param {object} anime
+ * @returns {boolean}
+ */
+function isAnimeFinishedForFeeds(anime) {
+  if (!anime) return false;
+  const userStatus = (anime.userStatus || "").toUpperCase();
+  if (userStatus === "COMPLETED") return true;
+  const animeStatus = (anime.status || "").toUpperCase();
+  return animeStatus === "FINISHED AIRING" || animeStatus === "FINISHED" || animeStatus === "FINALIZADO";
+}
+
+export function getEffectiveTorrentSourceFansub(anime, principalFansub = null) {
+  return anime?.torrentSourceFansub || principalFansub || null;
+}
+
+export function buildFeedQueryForFansub(settings, fansubName, preferredResolution = "") {
+  const category = getNyaaCategoryForFansub(settings, fansubName);
+  if (category === "1_3") {
+    return "";
+  }
+
+  return getFansubUseResolutionFilter(settings, fansubName) ? preferredResolution || "" : "";
+}
+
+export function buildTorrentFeedDefinition(settings, fansubName, preferredResolution = "") {
+  if (!fansubName) return null;
+
+  const fansub = getFansubConfig(settings, fansubName) || normalizeFansubEntry({ name: fansubName });
+  const category = getNyaaCategoryForFansub(settings, fansubName, fansub.language || "en");
+  const query = buildFeedQueryForFansub(settings, fansubName, preferredResolution);
+
+  return {
+    fansub: fansub.name,
+    category,
+    query,
+    key: `${fansub.name}::${query}::${category}`.toLowerCase(),
+    language: fansub.language || "en",
+    useResolutionFilter: getFansubUseResolutionFilter(settings, fansubName),
+    principal: Boolean(fansub.principal),
+  };
+}
+
+export function getRequiredTorrentFeeds(myAnimes, settings, principalFansub, preferredResolution = "") {
+  const feeds = new Map();
+
+  if (principalFansub) {
+    const principalFeed = buildTorrentFeedDefinition(settings, principalFansub, preferredResolution);
+    if (principalFeed) {
+      feeds.set(principalFeed.key, principalFeed);
+    }
+  }
+
+  Object.values(myAnimes || {}).forEach((anime) => {
+    // No generar feeds secundarios para animes completados/finalizados
+    if (isAnimeFinishedForFeeds(anime)) return;
+
+    const sourceFansub = getEffectiveTorrentSourceFansub(anime, principalFansub);
+    if (!sourceFansub) return;
+
+    const feed = buildTorrentFeedDefinition(settings, sourceFansub, preferredResolution);
+    if (feed) {
+      feeds.set(feed.key, feed);
+    }
+  });
+
+  return Array.from(feeds.values()).sort((a, b) => {
+    if (a.fansub === principalFansub) return -1;
+    if (b.fansub === principalFansub) return 1;
+    return a.fansub.localeCompare(b.fansub);
+  });
+}
+
+export function buildPersistedFansubConfig(name, meta = {}, fallbackDetail = null) {
+  const detail = fallbackDetail || getFansubDetail(name);
+  return normalizeFansubEntry({
+    name,
+    principal: Boolean(meta.principal),
+    language: meta.language || detail.defaultLang,
+    nyaaCategory: meta.nyaaCategory || detail.nyaaCategory,
+    useResolutionFilter:
+      typeof meta.useResolutionFilter === "boolean" ? meta.useResolutionFilter : detail.useResolutionFilter,
+  }, detail);
 }
 
 /**

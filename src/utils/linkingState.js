@@ -3,16 +3,18 @@ function buildTimestamp() {
 }
 
 export function clearLinkingMetadata(anime = {}) {
+  const sourceAnime = anime ?? {};
   return {
-    ...anime,
+    ...sourceAnime,
     linkSuggestion: null,
     rejectedSuggestion: null,
   };
 }
 
 export function acceptSuggestedFolder(anime = {}, folderName) {
+  const sourceAnime = anime ?? {};
   return {
-    ...anime,
+    ...sourceAnime,
     folderName: folderName || null,
     linkSuggestion: null,
     rejectedSuggestion: null,
@@ -21,8 +23,9 @@ export function acceptSuggestedFolder(anime = {}, folderName) {
 }
 
 export function rejectSuggestedFolder(anime = {}, folderName) {
+  const sourceAnime = anime ?? {};
   return {
-    ...anime,
+    ...sourceAnime,
     folderName: null,
     linkSuggestion: null,
     rejectedSuggestion: folderName
@@ -30,15 +33,16 @@ export function rejectSuggestedFolder(anime = {}, folderName) {
           folderName,
           rejectedAt: buildTimestamp(),
         }
-      : anime.rejectedSuggestion || null,
+      : sourceAnime.rejectedSuggestion || null,
     lastUpdated: buildTimestamp(),
   };
 }
 
 export function unlinkAnimeFolder(anime = {}) {
-  const currentFolderName = anime.folderName || anime.linkSuggestion?.folderName || null;
+  const sourceAnime = anime ?? {};
+  const currentFolderName = sourceAnime.folderName || sourceAnime.linkSuggestion?.folderName || null;
   return {
-    ...anime,
+    ...sourceAnime,
     folderName: null,
     linkSuggestion: null,
     rejectedSuggestion: currentFolderName
@@ -46,23 +50,32 @@ export function unlinkAnimeFolder(anime = {}) {
           folderName: currentFolderName,
           rejectedAt: buildTimestamp(),
         }
-      : anime.rejectedSuggestion || null,
+      : sourceAnime.rejectedSuggestion || null,
     lastUpdated: buildTimestamp(),
   };
 }
 
-export function syncAnimeSuggestion(anime = {}, suggestedFolderName = null) {
-  const previousSuggestionName = anime?.linkSuggestion?.folderName || null;
+export function syncAnimeSuggestion(anime, suggestedFolderName = null) {
+  if (!anime) {
+    return {
+      linkSuggestion: null,
+      lastUpdated: buildTimestamp(),
+    };
+  }
+
+  const sourceAnime = anime ?? {};
+  const previousSuggestionName = sourceAnime.linkSuggestion?.folderName || null;
   const nextSuggestion = suggestedFolderName
     ? {
         folderName: suggestedFolderName,
-        detectedAt: previousSuggestionName === suggestedFolderName ? anime.linkSuggestion.detectedAt : buildTimestamp(),
+        detectedAt:
+          previousSuggestionName === suggestedFolderName ? sourceAnime.linkSuggestion.detectedAt : buildTimestamp(),
       }
     : null;
 
   return {
-    ...anime,
-    linkSuggestion: anime.folderName ? null : nextSuggestion,
-    lastUpdated: previousSuggestionName !== (suggestedFolderName || null) ? buildTimestamp() : anime.lastUpdated,
+    ...sourceAnime,
+    linkSuggestion: sourceAnime.folderName ? null : nextSuggestion,
+    lastUpdated: previousSuggestionName !== (suggestedFolderName || null) ? buildTimestamp() : sourceAnime.lastUpdated,
   };
 }

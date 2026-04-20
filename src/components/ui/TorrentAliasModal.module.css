@@ -52,6 +52,14 @@
   gap: 10px;
 }
 
+.label {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--px-cyan);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
 .input {
   background: var(--px-dark);
   border: 1px solid var(--px-border);
@@ -79,6 +87,67 @@
   color: var(--px-gray);
   line-height: 1.4;
   font-style: italic;
+}
+
+.select {
+  background: var(--px-dark);
+  border: 1px solid var(--px-border);
+  color: var(--px-text);
+  padding: 14px;
+  font-family: var(--font-text);
+  font-size: 0.95rem;
+  clip-path: var(--clip-sm);
+  outline: none;
+}
+
+.metaBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--px-border);
+  clip-path: var(--clip-sm);
+}
+
+.metaTitle {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--px-yellow);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.metaRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metaToggle {
+  padding: 10px 12px;
+  border: 1px solid var(--px-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--px-text-dim);
+  clip-path: var(--clip-sm);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.metaToggleActive {
+  color: var(--px-dark);
+  background: var(--px-cyan);
+  border-color: var(--px-cyan);
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--px-text);
+  font-family: var(--font-text);
+  font-size: 0.85rem;
 }
 
 .footer {
