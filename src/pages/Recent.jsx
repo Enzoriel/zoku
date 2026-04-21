@@ -6,6 +6,8 @@ import { useRecentAnimeContext } from "../context/RecentAnimeContext";
 import { extractBaseTitle } from "../utils/titleIdentity";
 import { useTorrent } from "../context/TorrentContext";
 import { useToast } from "../hooks/useToast";
+import { useLibrary } from "../context/LibraryContext";
+import { getBestFolderMatch } from "../utils/libraryView";
 import { formatRelativeDate, getLocalDayKey } from "../utils/dateFormat";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import TorrentSearchModal from "../components/ui/TorrentSearchModal";
@@ -14,18 +16,20 @@ import { usePlayback } from "../hooks/usePlayback";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import { getBatchEpisodeTorrentAvailability } from "../utils/torrentAvailability";
 import { buildRecentEpisodeOccurrences } from "../utils/recentEpisodes";
+import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
 import styles from "./Recent.module.css";
 import { DAY_NAMES, DAY_NAMES_SHORT } from "../utils/constants";
 
 function Recent() {
-  const { data } = useStore();
+  const { data, libraryScopeReady } = useStore();
   const { loading, error, retryFetch } = useAnime();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("recientes");
   const [activeDay, setActiveDay] = useState(new Date().getDay());
 
   const { allAiringAnime, loadingExtra, errorExtra, retryExtra } = useRecentAnimeContext();
-  const { data: torrentData, principalFansub } = useTorrent();
+  const { data: torrentData, principalFansub, getItemsForFansub } = useTorrent();
+  const { localFilesIndex, performSync } = useLibrary();
 
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
@@ -33,8 +37,14 @@ function Recent() {
   const [torrentModalMalId, setTorrentModalMalId] = useState(null);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalItem, setSearchModalItem] = useState(null);
+  const [fansubFilter, setFansubFilter] = useState("all");
 
   const { toast } = useToast();
+  useEffect(() => {
+    if (data.folderPath && libraryScopeReady) {
+      performSync();
+    }
+  }, [data.folderPath, libraryScopeReady, performSync]);
   const { playingEp, playEpisode } = usePlayback();
 
   const myAnimeMap = useMemo(() => {
@@ -53,6 +63,7 @@ function Recent() {
         torrentAlias: anime.torrentAlias,
         torrentSearchTerm: anime.torrentSearchTerm,
         torrentTitle: anime.torrentTitle,
+        torrentSourceFansub: anime.torrentSourceFansub || null,
         synonyms: anime.synonyms,
         watchedEpisodes: anime.watchedEpisodes,
         folderName: anime.folderName,
@@ -74,27 +85,55 @@ function Recent() {
         const animeId = anime.malId || anime.mal_id;
         const stored = myAnimeMap[animeId] || myAnimeMap[Number(animeId)] || myAnimeMap[String(animeId)];
         const watchedEps = stored?.watchedEpisodes || [];
-        const localFolder = Object.values(data.localFiles || {}).find((folder) => {
-          if (stored?.folderName && folder.folderName === stored.folderName) return true;
-          const id = String(animeId);
-          if (folder.resolvedMalId && String(folder.resolvedMalId) === id) return true;
-          return false;
-        });
+        const localFolder = getBestFolderMatch({ ...stored, malId: animeId }, data.localFiles, localFilesIndex);
         const localFiles = localFolder?.files || [];
 
         return {
           ...anime,
           storedData: stored,
+          assignedFansub: getEffectiveTorrentSourceFansub(stored, principalFansub),
           watchedEps,
           localFiles,
         };
       });
-  }, [allAiringAnime, myAnimeMap, data.localFiles]);
+  }, [allAiringAnime, myAnimeMap, data.localFiles, principalFansub, localFilesIndex]);
+
+  const availableFansubFilters = useMemo(() => {
+    const counts = new Map();
+    myAiringAnime.forEach((anime) => {
+      if (!anime.assignedFansub) return;
+      counts.set(anime.assignedFansub, (counts.get(anime.assignedFansub) || 0) + 1);
+    });
+
+    const options = [{ key: "all", label: "TODOS" }];
+    if (principalFansub && counts.has(principalFansub)) {
+      options.push({ key: principalFansub, label: principalFansub });
+    }
+
+    Array.from(counts.keys())
+      .filter((fansub) => fansub !== principalFansub)
+      .sort((a, b) => a.localeCompare(b))
+      .forEach((fansub) => {
+        options.push({ key: fansub, label: fansub });
+      });
+
+    return options;
+  }, [myAiringAnime, principalFansub]);
+
+  useEffect(() => {
+    if (availableFansubFilters.some((option) => option.key === fansubFilter)) return;
+    setFansubFilter("all");
+  }, [availableFansubFilters, fansubFilter]);
+
+  const filteredAiringAnime = useMemo(() => {
+    if (fansubFilter === "all") return myAiringAnime;
+    return myAiringAnime.filter((anime) => anime.assignedFansub === fansubFilter);
+  }, [myAiringAnime, fansubFilter]);
 
   const groupedByDay = useMemo(() => {
     const groups = {};
 
-    myAiringAnime.forEach((anime) => {
+    filteredAiringAnime.forEach((anime) => {
       buildRecentEpisodeOccurrences(anime).forEach(({ ep: episode, airedAt, isEstimated }) => {
         const date = new Date(airedAt);
         const dayKey = getLocalDayKey(date);
@@ -133,7 +172,7 @@ function Recent() {
           return second.ep - first.ep;
         }),
       }));
-  }, [myAiringAnime]);
+  }, [filteredAiringAnime]);
 
   const [torrentMatchesMap, setTorrentMatchesMap] = useState({});
 
@@ -148,11 +187,14 @@ function Recent() {
       groupedByDay.forEach(({ episodes: dayEps }) => {
         dayEps.forEach(({ anime, ep }) => {
           const stored = torrentRelevantMyAnimeMap[anime.malId] || torrentRelevantMyAnimeMap[anime.mal_id];
+          const assignedFansub = getEffectiveTorrentSourceFansub(stored, principalFansub);
           batchEpisodes.push({
             anime,
             ep,
             stored,
+            torrentItems: getItemsForFansub(assignedFansub),
             key: `${anime.malId || anime.mal_id}-${ep}`,
+            assignedFansub,
           });
         });
       });
@@ -162,7 +204,7 @@ function Recent() {
     }, 10);
 
     return () => clearTimeout(timerId);
-  }, [groupedByDay, torrentData, torrentRelevantMyAnimeMap, principalFansub]);
+  }, [groupedByDay, torrentData, torrentRelevantMyAnimeMap, principalFansub, getItemsForFansub]);
 
   const scheduleByDay = useMemo(() => {
     const groups = Array.from({ length: 7 }, () => []);
@@ -201,13 +243,23 @@ function Recent() {
     [playEpisode],
   );
 
-  const formatTimeUntil = (seconds) => {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (activeTab !== "horario") return;
+    const interval = setInterval(() => setTick((t) => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
+  const formatTimeUntil = (airingAt) => {
+    const seconds = Math.floor((airingAt - Date.now()) / 1000);
+    if (seconds <= 0) return "YA EMITIDO";
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    if (days > 0) return `EN ${days}d ${hours}h`;
+    if (hours > 0) return `EN ${hours}h ${minutes}m`;
+    return `EN ${minutes}m`;
   };
 
   if (error) {
@@ -218,7 +270,7 @@ function Recent() {
     );
   }
 
-  if (loading || loadingExtra) {
+  if ((loading || loadingExtra) && allAiringAnime.length === 0) {
     return (
       <div className={styles.page}>
         <div className={styles.loadingState} aria-busy="true">
@@ -262,166 +314,187 @@ function Recent() {
             HORARIO
           </button>
         </div>
+        {activeTab === "recientes" && availableFansubFilters.length > 1 && (
+          <div>
+            <select
+              className={styles.fansubFilterSelect}
+              value={fansubFilter}
+              onChange={(event) => setFansubFilter(event.target.value)}
+              aria-label="Filtrar por fansub asignado"
+            >
+              {availableFansubFilters.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
       {activeTab === "recientes" ? (
         <div className={styles.recentContent}>
-          {shouldShowApiUnavailableState ? (
-            <RetryPanel
-              message="No se pudo cargar la programacion reciente desde AniList. Tus series siguen en tu lista, pero la API no respondio."
-              onRetry={handleRetryAll}
-            />
-          ) : groupedByDay.length === 0 ? (
-            <div className={styles.emptyState}>
-              <p>No hay episodios recientes de tus series en emision.</p>
-              <span>
-                {hasTrackedAnime ? "Vuelve a revisar mas tarde." : "Anade series a tu lista desde Descubrir."}
-              </span>
-            </div>
+          {errorExtra && allAiringAnime.length === 0 ? (
+            <RetryPanel message={errorExtra} onRetry={retryExtra} />
           ) : (
-            groupedByDay.map(({ key, date, episodes }) => (
-              <div key={key} className={styles.dayGroup}>
-                <div className={styles.dayHeader}>
-                  <span className={styles.dayLabel}>{formatRelativeDate(date)}</span>
-                  <span className={styles.dayDate}>
-                    {date
-                      .toLocaleDateString("es", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                      })
-                      .toUpperCase()}
+            <>
+              {errorExtra && (
+                <div className={styles.warningBanner}>
+                  Algunas series adicionales no pudieron cargarse.{" "}
+                  <button onClick={retryExtra}>Reintentar</button>
+                </div>
+              )}
+              {groupedByDay.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <p>No hay episodios recientes de tus series en emision.</p>
+                  <span>
+                    {hasTrackedAnime ? "Vuelve a revisar mas tarde." : "Anade series a tu lista desde Descubrir."}
                   </span>
                 </div>
-                <div className={styles.episodeList}>
-                  {episodes.map(({ anime, ep, isWatched, localFile, isEstimated }) => (
-                    <div
-                      key={`${anime.malId}-${ep}`}
-                      className={`${styles.episodeRow} ${isWatched ? styles.watched : ""}`}
-                      onClick={() => navigate(`/anime/${anime.malId || anime.mal_id}`)}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Ir a ${anime.title} - Episodio ${ep}`}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          navigate(`/anime/${anime.malId || anime.mal_id}`);
-                        }
-                      }}
-                    >
-                      <div className={styles.animePoster}>
-                        <img
-                          src={anime.coverImage || anime.images?.jpg?.small_image_url}
-                          alt={anime.title}
-                          loading="lazy"
-                        />
-                      </div>
-                      <div className={styles.episodeInfo}>
-                        <span className={styles.animeTitle}>{anime.title}</span>
-                        <span className={styles.epNumber}>Episodio {ep}</span>
-                      </div>
-                      <div className={styles.episodeActions} onClick={(event) => event.stopPropagation()}>
-                        {(() => {
-                          if (localFile || isWatched) return null;
-                          const keyForEpisode = `${anime.malId || anime.mal_id}-${ep}`;
-                          const availability = torrentMatchesMap[keyForEpisode] || {
-                            matches: [],
-                            hasPrincipalMatch: false,
-                            status: "missing",
-                          };
-                          const matches = availability.matches;
-                          const hasPrincipalMatch = availability.hasPrincipalMatch;
-
-                          if (matches.length > 0) {
-                            return (
-                              <button
-                                className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
-                                title={
-                                  principalFansub && hasPrincipalMatch
-                                    ? `Descargar en ${principalFansub}`
-                                    : principalFansub
-                                      ? `No disponible en ${principalFansub}. Hay alternativas de otros grupos.`
-                                      : "Se encontraron torrents disponibles."
-                                }
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setTorrentModalItems(matches);
-                                  setTorrentModalAnimeTitle(anime.title);
-                                  setTorrentModalMalId(anime.malId || anime.mal_id);
-                                  setTorrentModalOpen(true);
-                                }}
-                              >
-                                {principalFansub ? (hasPrincipalMatch ? "DISPONIBLE" : "ALTERNATIVA") : "DISPONIBLE"}
-                              </button>
-                            );
-                          }
-
-                          return (
-                            <button
-                              className={`${styles.torrentBtn} ${styles.torrentBtnAlt}`}
-                              title="Buscar torrent manualmente en otras pestanas"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                const stored = torrentRelevantMyAnimeMap[anime.malId || anime.mal_id];
-                                const query =
-                                  stored?.torrentSearchTerm ||
-                                  extractBaseTitle(stored?.torrentTitle || stored?.torrentAlias || anime.title);
-
-                                setSearchModalItem({
-                                  title: query,
-                                  malId: anime.malId || anime.mal_id,
-                                });
-                                setSearchModalOpen(true);
-                              }}
-                            >
-                              Buscar
-                            </button>
-                          );
-                        })()}
-
-                        {isWatched ? (
-                          <span className={styles.watchedBadge}>
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
-                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                            </svg>
-                            VISTO
-                          </span>
-                        ) : Number(playingEp?.animeId) === Number(anime.malId || anime.mal_id) &&
-                          playingEp?.epNumber === ep ? (
-                          <span className={styles.playingBadge}>REPRODUCIENDO</span>
-                        ) : localFile ? (
-                          localFile.isDownloading ? (
-                            <button
-                              className={styles.downloadingBtn}
-                              disabled
-                              title="El cliente externo esta procesando el archivo (.part / .!qB)"
-                            >
-                              DESCARGANDO
-                            </button>
-                          ) : (
-                            <button
-                              className={styles.playBtn}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handlePlayEpisode(anime.malId || anime.mal_id, ep, localFile.path, anime.localFiles);
-                              }}
-                              title="Reproducir"
-                            >
-                              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                              REPRODUCIR
-                            </button>
-                          )
-                        ) : (
-                          <span className={styles.pendingBadge}>PENDIENTE</span>
-                        )}
-                      </div>
+              ) : (
+                groupedByDay.map(({ key, date, episodes }) => (
+                  <div key={key} className={styles.dayGroup}>
+                    <div className={styles.dayHeader}>
+                      <span className={styles.dayLabel}>{formatRelativeDate(date)}</span>
+                      <span className={styles.dayDate}>
+                        {date
+                          .toLocaleDateString("es", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                          })
+                          .toUpperCase()}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))
+                    <div className={styles.episodeList}>
+                      {episodes.map(({ anime, ep, isWatched, localFile, isEstimated }) => (
+                        <div
+                          key={`${anime.malId}-${ep}`}
+                          className={`${styles.episodeRow} ${isWatched ? styles.watched : ""}`}
+                          onClick={() => navigate(`/anime/${anime.malId || anime.mal_id}`)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Ir a ${anime.title} - Episodio ${ep}`}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              navigate(`/anime/${anime.malId || anime.mal_id}`);
+                            }
+                          }}
+                        >
+                          <div className={styles.animePoster}>
+                            <img
+                              src={anime.coverImage || anime.images?.jpg?.small_image_url}
+                              alt={anime.title}
+                              loading="lazy"
+                            />
+                          </div>
+                          <div className={styles.episodeInfo}>
+                            <span className={styles.animeTitle}>{anime.title}</span>
+                            <span className={styles.epNumber}>Episodio {ep}</span>
+                          </div>
+                          <div className={styles.episodeActions} onClick={(event) => event.stopPropagation()}>
+                            {(() => {
+                              if (localFile || isWatched) return null;
+                              const keyForEpisode = `${anime.malId || anime.mal_id}-${ep}`;
+                              const availability = torrentMatchesMap[keyForEpisode] || {
+                                matches: [],
+                                hasPrincipalMatch: false,
+                                status: "missing",
+                              };
+                              const matches = availability.matches;
+                              const hasPrincipalMatch = availability.hasPrincipalMatch;
+
+                              if (matches.length > 0) {
+                                return (
+                                  <button
+                                    className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
+                                    title={
+                                      hasPrincipalMatch
+                                        ? `Descargar desde ${anime.assignedFansub || "torrent disponible"}`
+                                        : "Se encontraron torrents disponibles."
+                                    }
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setTorrentModalItems(matches);
+                                      setTorrentModalAnimeTitle(anime.title);
+                                      setTorrentModalMalId(anime.malId || anime.mal_id);
+                                      setTorrentModalOpen(true);
+                                    }}
+                                  >
+                                    DISPONIBLE
+                                  </button>
+                                );
+                              }
+
+                              return (
+                                <button
+                                  className={`${styles.torrentBtn} ${styles.torrentBtnAlt}`}
+                                  title="Buscar torrent manualmente en otras pestanas"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    const stored = torrentRelevantMyAnimeMap[anime.malId || anime.mal_id];
+                                    const query =
+                                      stored?.torrentSearchTerm ||
+                                      extractBaseTitle(stored?.torrentTitle || stored?.torrentAlias || anime.title);
+
+                                    setSearchModalItem({
+                                      title: query,
+                                      malId: anime.malId || anime.mal_id,
+                                    });
+                                    setSearchModalOpen(true);
+                                  }}
+                                >
+                                  Buscar
+                                </button>
+                              );
+                            })()}
+
+                            {isWatched ? (
+                              <span className={styles.watchedBadge}>
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
+                                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                </svg>
+                                VISTO
+                              </span>
+                            ) : Number(playingEp?.animeId) === Number(anime.malId || anime.mal_id) &&
+                              playingEp?.epNumber === ep ? (
+                              <span className={styles.playingBadge}>REPRODUCIENDO</span>
+                            ) : localFile ? (
+                              localFile.isDownloading ? (
+                                <button
+                                  className={styles.downloadingBtn}
+                                  disabled
+                                  title="El cliente externo esta procesando el archivo (.part / .!qB)"
+                                >
+                                  DESCARGANDO
+                                </button>
+                              ) : (
+                                <button
+                                  className={styles.playBtn}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handlePlayEpisode(anime.malId || anime.mal_id, ep, localFile.path, anime.localFiles);
+                                  }}
+                                  title="Reproducir"
+                                >
+                                  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                  REPRODUCIR
+                                </button>
+                              )
+                            ) : (
+                              <span className={styles.pendingBadge}>PENDIENTE</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </>
           )}
         </div>
       ) : (
@@ -447,8 +520,8 @@ function Recent() {
                 <p>No hay episodios programados para {DAY_NAMES[activeDay].toLowerCase()}.</p>
               </div>
             ) : (
-              scheduleByDay[activeDay].map(({ anime, nextEp, airingAt, timeUntil }) => {
-                const isAired = timeUntil <= 0;
+              scheduleByDay[activeDay].map(({ anime, nextEp, airingAt }) => {
+                const isAired = airingAt <= Date.now();
                 return (
                   <div
                     key={anime.malId}
@@ -471,7 +544,7 @@ function Recent() {
                         {isAired ? (
                           <span className={styles.airedBadge}>YA EMITIDO</span>
                         ) : (
-                          <span className={styles.countdownBadge}>EN {formatTimeUntil(timeUntil)}</span>
+                          <span className={styles.countdownBadge}>{formatTimeUntil(airingAt)}</span>
                         )}
                         <span className={styles.scheduleTime}>
                           {new Date(airingAt).toLocaleTimeString("es", {

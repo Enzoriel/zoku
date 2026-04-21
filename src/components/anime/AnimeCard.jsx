@@ -132,7 +132,7 @@ function AnimeCard({ anime, inLibraryData, playback = null }) {
           <div className={styles.hoverMeta}>
             {isInLibrary && (
               <span className={styles.epCount}>
-                {validWatchedCount}/{total || "?"} EPISODIOS
+                {validWatchedCount}/{total > 0 ? total : "?"} EPISODIOS
               </span>
             )}
           </div>

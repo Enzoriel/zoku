@@ -30,6 +30,9 @@ export function hasAiredNextEpisode(nextAiringEpisode, nowMs = Date.now()) {
 
 export function isAnimeActivelyAiring(anime) {
   const status = normalizeStatus(anime?.status);
+  if (isFinishedStatus(status) || isNotYetReleasedStatus(status)) {
+    return false;
+  }
 
   return (
     Boolean(anime?.nextAiringEpisode) ||
@@ -50,15 +53,11 @@ export function getReleasedEpisodeCount(anime, nowMs = Date.now()) {
   const nextAiring = anime?.nextAiringEpisode;
   const nextEpisodeNumber = toFiniteNumber(nextAiring?.episode);
   if (!nextEpisodeNumber) {
-    if (isFinishedStatus(status)) {
-      return finishedCount;
-    }
-
     if (isNotYetReleasedStatus(status)) {
       return 0;
     }
 
-    return toFiniteNumber(anime?.episodes);
+    return finishedCount;
   }
 
   const releasedBySchedule = hasAiredNextEpisode(nextAiring, nowMs)

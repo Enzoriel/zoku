@@ -1,5 +1,56 @@
+function parseDateValue(value) {
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value : null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnlyMatch) {
+      return new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]));
+    }
+
+    const parsed = new Date(trimmed);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+
+  if (typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+
+  return null;
+}
+
+function shouldUseUtcCalendarDate(date) {
+  const isUtcMidnight =
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0;
+
+  if (!isUtcMidnight) return false;
+
+  return (
+    date.getUTCFullYear() !== date.getFullYear() ||
+    date.getUTCMonth() !== date.getMonth() ||
+    date.getUTCDate() !== date.getDate()
+  );
+}
+
+function toCalendarDate(value) {
+  const parsed = parseDateValue(value);
+  if (!parsed) return null;
+
+  if (shouldUseUtcCalendarDate(parsed)) {
+    return new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+  }
+
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
 export const getLocalDayKey = (value) => {
-  const date = typeof value === "string" || typeof value === "number" ? new Date(value) : value;
+  const date = toCalendarDate(value) || toCalendarDate(new Date());
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -7,11 +58,8 @@ export const getLocalDayKey = (value) => {
 };
 
 export const formatRelativeDate = (date) => {
-  const now = new Date();
-  const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
-
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = toCalendarDate(new Date());
+  const targetDate = toCalendarDate(date) || today;
 
   const diff = today - targetDate;
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -24,5 +72,5 @@ export const formatRelativeDate = (date) => {
   const options = { day: "numeric", month: "long" };
   if (isDifferentYear) options.year = "numeric";
 
-  return d.toLocaleDateString("es", options).toUpperCase();
+  return targetDate.toLocaleDateString("es", options).toUpperCase();
 };

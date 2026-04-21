@@ -13,6 +13,7 @@ export function EpisodeList({
   handlePlayEpisode,
   handleContextMenu,
   principalFansub,
+  activeFansub,
   setTorrentModalItems,
   setTorrentModalOpen,
   folderName,
@@ -31,7 +32,7 @@ export function EpisodeList({
           mainAnime.title_english,
           epNum,
           torrentData,
-          principalFansub,
+          activeFansub || principalFansub,
           mainAnime.torrentAlias,
           mainAnime.torrentSearchTerm,
           mainAnime.torrentTitle,
@@ -40,7 +41,7 @@ export function EpisodeList({
       });
     }
     return matchesMap;
-  }, [mainAnime, torrentData, episodes, principalFansub]);
+  }, [mainAnime, torrentData, episodes, principalFansub, activeFansub]);
 
   const getEpisodeStatus = (epNum) => {
     const isWatched = mainAnime?.watchedEpisodes?.includes(epNum);
@@ -134,7 +135,7 @@ export function EpisodeList({
                 )}
               </div>
               {isPlaying && <span className={styles.tagPlaying}>REPRODUCIENDO</span>}
-              {principalFansub && !isPlayable && !isPlaying && matches.length > 0 && (
+              {(activeFansub || principalFansub) && !isPlayable && !isPlaying && matches.length > 0 && (
                 <button
                   className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
                   onClick={(event) => {
@@ -143,7 +144,7 @@ export function EpisodeList({
                     setTorrentModalOpen(true);
                   }}
                 >
-                  {hasPrincipalMatch ? "Disponible" : "Alternativa"}
+                  Disponible
                 </button>
               )}
             </div>

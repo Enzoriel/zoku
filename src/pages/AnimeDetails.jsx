@@ -14,6 +14,7 @@ import TorrentAliasModal from "../components/ui/TorrentAliasModal";
 import FolderLinkModal from "../components/ui/FolderLinkModal";
 import SearchApiModal from "../components/ui/SearchApiModal";
 import { usePlayback } from "../hooks/usePlayback";
+import useSafeAsync from "../hooks/useSafeAsync";
 import { AnimeHeader } from "../components/anime/details/AnimeHeader";
 import { AnimeSidebar } from "../components/anime/details/AnimeSidebar";
 import { EpisodeList } from "../components/anime/details/EpisodeList";
@@ -21,6 +22,8 @@ import { METADATA_REFRESH_DAYS } from "../constants";
 import { buildStoredAnimeEntry } from "../utils/animeEntry";
 import { getReleasedEpisodeCount, isAnimeActivelyAiring, isAiringMetadataStale } from "../utils/airingStatus";
 import { acceptSuggestedFolder, rejectSuggestedFolder } from "../utils/linkingState";
+import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
+import { getBestFolderMatch } from "../utils/libraryView";
 import styles from "./AnimeDetails.module.css";
 
 const AIRING_METADATA_REFRESH_MS = 6 * 60 * 60 * 1000;
@@ -39,8 +42,8 @@ function AnimeDetails() {
 
   const { data, setMyAnimes, libraryScopeReady } = useStore();
   const { getAnimeById, getFreshAnimeById, refreshAnimeById, loading: animeLoading } = useAnime();
-  const { performSync } = useLibrary();
-  const { data: torrentData, principalFansub } = useTorrent();
+  const { performSync, localFilesIndex } = useLibrary();
+  const { principalFansub, getItemsForAnime } = useTorrent();
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -60,6 +63,7 @@ function AnimeDetails() {
   const [torrentModalItems, setTorrentModalItems] = useState([]);
 
   const { toast, showToast } = useToast();
+  const { safeExecute } = useSafeAsync();
   const { playingEp, playEpisode, toggleEpisodeWatched } = usePlayback();
 
   const animeId = useMemo(() => {
@@ -92,19 +96,20 @@ function AnimeDetails() {
   const linkedFolder = useMemo(() => {
     if (!mainAnime) return null;
 
-    return (
-      Object.values(data?.localFiles || {}).find((folder) => {
-        if (mainAnime.folderName && folder.folderName === mainAnime.folderName) return true;
-        if (!mainAnime.isInLibrary && folderName && folder.folderName === folderName) return true;
-        if (!mainAnime.isInLibrary && folder.isLinked && folder.malId && mainAnime.malId) {
-          return String(folder.malId) === String(mainAnime.malId);
-        }
-        return false;
-      }) || null
-    );
-  }, [mainAnime, data?.localFiles, folderName]);
+    if (folderName && !mainAnime.isInLibrary) {
+      const explicitFolder = Object.values(data?.localFiles || {}).find(f => f.folderName === folderName);
+      if (explicitFolder) return explicitFolder;
+    }
+
+    return getBestFolderMatch(mainAnime, data?.localFiles, localFilesIndex);
+  }, [mainAnime, data?.localFiles, folderName, localFilesIndex]);
 
   const animeFilesData = useMemo(() => linkedFolder || { files: [] }, [linkedFolder]);
+  const effectiveTorrentFansub = useMemo(
+    () => getEffectiveTorrentSourceFansub(mainAnime, principalFansub),
+    [mainAnime, principalFansub],
+  );
+  const torrentData = useMemo(() => getItemsForAnime(mainAnime), [getItemsForAnime, mainAnime]);
 
   const candidateFolders = useMemo(() => {
     if (!mainAnime?.malId || !mainAnime?.isInLibrary || mainAnime?.folderName) return [];
@@ -216,72 +221,77 @@ function AnimeDetails() {
   }, [animeId, data.myAnimes, getAnimeById]);
 
   const autoRefreshMetadata = useCallback(async (currentAnimeId) => {
-    const stored = dataMyAnimesRef.current[currentAnimeId];
-    if (!stored) return;
+    try {
+      const stored = dataMyAnimesRef.current[currentAnimeId];
+      if (!stored) return;
 
-    const lastFetch = stored.lastMetadataFetch;
-    const now = Date.now();
-    const lastFetchAt = lastFetch ? new Date(lastFetch).getTime() : 0;
-    const ageMs = lastFetchAt > 0 ? now - lastFetchAt : Infinity;
-    const daysSince = ageMs / (1000 * 60 * 60 * 24);
-    const isMissingData = !stored.rank && !stored.studios?.length;
-    const isAiring = isAnimeActivelyAiring(stored);
-    const hasFreshContext = Boolean(getFreshAnimeByIdRef.current(currentAnimeId));
-    const staleAiringData = isAiringMetadataStale(stored, now);
-    const needsScheduledRefresh = isAiring ? ageMs >= AIRING_METADATA_REFRESH_MS : daysSince >= METADATA_REFRESH_DAYS;
-    const needsOffSeasonRetry = !hasFreshContext && ageMs >= NON_SEASON_METADATA_REFRESH_MS;
+      const lastFetch = stored.lastMetadataFetch;
+      const now = Date.now();
+      const lastFetchAt = lastFetch ? new Date(lastFetch).getTime() : 0;
+      const ageMs = lastFetchAt > 0 ? now - lastFetchAt : Infinity;
+      const daysSince = ageMs / (1000 * 60 * 60 * 24);
+      const isMissingData = !stored.rank && !stored.studios?.length;
+      const isAiring = isAnimeActivelyAiring(stored);
+      const hasFreshContext = Boolean(getFreshAnimeByIdRef.current(currentAnimeId));
+      const staleAiringData = isAiringMetadataStale(stored, now);
+      const needsScheduledRefresh = isAiring ? ageMs >= AIRING_METADATA_REFRESH_MS : daysSince >= METADATA_REFRESH_DAYS;
+      const needsOffSeasonRetry = !hasFreshContext && ageMs >= NON_SEASON_METADATA_REFRESH_MS;
 
-    if (!isMissingData && !staleAiringData && !needsScheduledRefresh && !needsOffSeasonRetry) {
-      return;
-    }
-
-    let apiData = getFreshAnimeByIdRef.current(currentAnimeId);
-    const shouldQueryApi =
-      isMissingData ||
-      staleAiringData ||
-      needsScheduledRefresh ||
-      needsOffSeasonRetry ||
-      (!hasFreshContext && isAiring);
-
-    if (shouldQueryApi) {
-      const refreshedData = await refreshAnimeById(currentAnimeId, {
-        force: true,
-        anilistId: stored.anilistId,
-      });
-      if (refreshedData) {
-        apiData = refreshedData;
+      if (!isMissingData && !staleAiringData && !needsScheduledRefresh && !needsOffSeasonRetry) {
+        return;
       }
-    }
-    if (!apiData) {
-      apiData = getFreshAnimeByIdRef.current(currentAnimeId);
-    }
-    if (!apiData) {
-      apiData = getAnimeByIdRef.current(currentAnimeId);
-    }
-    if (!apiData) return;
 
-    const {
-      watchedEpisodes,
-      watchHistory,
-      userStatus,
-      folderName: persistedFolderName,
-      torrentAlias,
-      addedAt,
-      notes,
-      completedAt,
-      isInLibrary,
-      ...safeApiData
-    } = apiData;
+      let apiData = getFreshAnimeByIdRef.current(currentAnimeId);
+      const shouldQueryApi =
+        isMissingData ||
+        staleAiringData ||
+        needsScheduledRefresh ||
+        needsOffSeasonRetry ||
+        (!hasFreshContext && isAiring);
 
-    await setMyAnimes((prev) => ({
-      ...prev,
-      [currentAnimeId]: {
-        ...prev[currentAnimeId],
-        ...safeApiData,
-        lastMetadataFetch: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-      },
-    }));
+      if (shouldQueryApi) {
+        const refreshedData = await refreshAnimeById(currentAnimeId, {
+          force: true,
+          anilistId: stored.anilistId,
+        });
+        if (refreshedData) {
+          apiData = refreshedData;
+        }
+      }
+      if (!apiData) {
+        apiData = getFreshAnimeByIdRef.current(currentAnimeId);
+      }
+      if (!apiData) {
+        apiData = getAnimeByIdRef.current(currentAnimeId);
+      }
+      if (!apiData) return;
+
+      const {
+        watchedEpisodes,
+        watchHistory,
+        userStatus,
+        folderName: persistedFolderName,
+        torrentAlias,
+        addedAt,
+        notes,
+        completedAt,
+        isInLibrary,
+        ...safeApiData
+      } = apiData;
+
+      await setMyAnimes((prev) => ({
+        ...prev,
+        [currentAnimeId]: {
+          ...prev[currentAnimeId],
+          ...safeApiData,
+          lastMetadataFetch: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+        },
+      }));
+    } catch (error) {
+      // Operación de background — no interrumpir al usuario
+      console.error("[AnimeDetails] Error en auto-refresh de metadata:", error);
+    }
   }, []);
 
   useEffect(() => {
@@ -319,11 +329,10 @@ function AnimeDetails() {
 
     setIsSearchingApi(true);
     try {
-      const result = await searchAnime(query, 1);
-      setApiSearchResults(result.data);
-    } catch (error) {
-      console.error(error);
-      showToast("Error buscando animes en API.", "warn");
+      await safeExecute(async () => {
+        const result = await searchAnime(query, 1);
+        setApiSearchResults(result.data);
+      }, "Error buscando animes en API.");
     } finally {
       setIsSearchingApi(false);
     }
@@ -332,34 +341,38 @@ function AnimeDetails() {
   const handleAddToLibrary = useCallback(async () => {
     if (!mainAnime || !animeId) return;
 
-    const entry = buildStoredAnimeEntry(
-      {
-        ...mainAnime,
-        ...(data.myAnimes[animeId] || {}),
-      },
-      {
-        malId: animeId,
-        userStatus: data.myAnimes[animeId]?.userStatus || "PLAN_TO_WATCH",
-      },
-    );
+    try {
+      const entry = buildStoredAnimeEntry(
+        {
+          ...mainAnime,
+          ...(data.myAnimes[animeId] || {}),
+        },
+        {
+          malId: animeId,
+          userStatus: data.myAnimes[animeId]?.userStatus || "PLAN_TO_WATCH",
+        },
+      );
 
-    const newMyAnimes = { ...data.myAnimes, [animeId]: entry };
+      const newMyAnimes = { ...data.myAnimes, [animeId]: entry };
 
-    await setMyAnimes(newMyAnimes);
-    await performSync(newMyAnimes);
+      await setMyAnimes(newMyAnimes);
+      await performSync(newMyAnimes);
 
-    const candidates = findAnimeFolderCandidates(entry, data.localFiles, { onlyWithFiles: true });
-    if (candidates.length === 0) {
-      showToast("Serie anadida a seguimiento. No se encontraron archivos locales para vincular.", "info");
-      return;
+      const candidates = findAnimeFolderCandidates(entry, data.localFiles, { onlyWithFiles: true });
+      if (candidates.length === 0) {
+        showToast("Serie anadida a seguimiento. No se encontraron archivos locales para vincular.", "info");
+        return;
+      }
+
+      if (candidates.length === 1) {
+        showToast("Serie anadida a seguimiento. Se detecto una carpeta sugerida.", "info");
+        return;
+      }
+
+      showToast("Se encontraron varias carpetas posibles. Vinculala manualmente desde Detalles.", "warn");
+    } catch (error) {
+      showToast("No se pudo agregar la serie. Intenta de nuevo.", "warn");
     }
-
-    if (candidates.length === 1) {
-      showToast("Serie anadida a seguimiento. Se detecto una carpeta sugerida.", "info");
-      return;
-    }
-
-    showToast("Se encontraron varias carpetas posibles. Vinculala manualmente desde Detalles.", "warn");
   }, [mainAnime, animeId, data.myAnimes, data.localFiles, setMyAnimes, performSync, showToast]);
 
   const handleAddToLibraryBtnClick = () => {
@@ -383,35 +396,41 @@ function AnimeDetails() {
   };
 
   const handleLinkAndAdd = async (apiAnime) => {
-    const newMalId = apiAnime.mal_id || apiAnime.malId;
-    const animeData = buildStoredAnimeEntry(apiAnime, {
-      malId: newMalId,
-      mal_id: newMalId,
-      folderName,
-    });
+    try {
+      const newMalId = apiAnime.mal_id || apiAnime.malId;
+      const animeData = buildStoredAnimeEntry(apiAnime, {
+        malId: newMalId,
+        mal_id: newMalId,
+        folderName,
+      });
 
-    await setMyAnimes({ ...data.myAnimes, [newMalId]: animeData });
+      await setMyAnimes({ ...data.myAnimes, [newMalId]: animeData });
 
-    setShowSearchApiModal(false);
-    await performSync({ ...data.myAnimes, [newMalId]: animeData });
-    showToast("Serie vinculada con exito.", "success");
-    navigate(`/anime/${newMalId}`, { replace: true });
+      setShowSearchApiModal(false);
+      await performSync({ ...data.myAnimes, [newMalId]: animeData });
+      showToast("Serie vinculada con exito.", "success");
+      navigate(`/anime/${newMalId}`, { replace: true });
+    } catch (error) {
+      showToast("No se pudo vincular la serie. Intenta de nuevo.", "warn");
+    }
   };
 
   const handleRemoveFromLibrary = useCallback(() => {
     if (!animeId) return;
 
     const performRemoval = async () => {
-      const newMyAnimes = { ...data.myAnimes };
-      delete newMyAnimes[animeId];
-      await setMyAnimes(newMyAnimes);
-      await performSync(newMyAnimes);
-      setAnime(null);
-      if (mainAnime.folderName) {
-        navigate(`/anime/null?folder=${encodeURIComponent(mainAnime.folderName)}`, { replace: true });
-      } else {
-        navigate(-1);
-      }
+      await safeExecute(async () => {
+        const newMyAnimes = { ...data.myAnimes };
+        delete newMyAnimes[animeId];
+        await setMyAnimes(newMyAnimes);
+        await performSync(newMyAnimes);
+        setAnime(null);
+        if (mainAnime.folderName) {
+          navigate(`/anime/null?folder=${encodeURIComponent(mainAnime.folderName)}`, { replace: true });
+        } else {
+          navigate(-1);
+        }
+      }, "No se pudo eliminar la serie. Intenta de nuevo.");
     };
 
     setConfirmModal({
@@ -422,7 +441,7 @@ function AnimeDetails() {
         await performRemoval();
       },
     });
-  }, [animeId, mainAnime?.folderName, data.myAnimes, setMyAnimes, performSync, navigate]);
+  }, [animeId, mainAnime?.folderName, data.myAnimes, setMyAnimes, performSync, navigate, safeExecute]);
 
   const handlePlayEpisode = useCallback(
     (epNumber, filePath) => {
@@ -451,38 +470,44 @@ function AnimeDetails() {
     async (folderKey) => {
       if (!animeId) return;
 
-      await setMyAnimes((prev) => ({
-        ...prev,
-        [animeId]: acceptSuggestedFolder(prev[animeId], folderKey),
-      }));
-      setShowLinkFolderModal(false);
-      setFolderSearch("");
-      await performSync();
-      showToast(`Carpeta "${folderKey}" vinculada.`, "success");
+      await safeExecute(async () => {
+        await setMyAnimes((prev) => ({
+          ...prev,
+          [animeId]: acceptSuggestedFolder(prev[animeId], folderKey),
+        }));
+        setShowLinkFolderModal(false);
+        setFolderSearch("");
+        await performSync();
+        showToast(`Carpeta "${folderKey}" vinculada.`, "success");
+      }, "No se pudo vincular la carpeta. Intenta de nuevo.");
     },
-    [animeId, setMyAnimes, performSync, showToast],
+    [animeId, setMyAnimes, performSync, showToast, safeExecute],
   );
 
   const handleAcceptSuggestedLink = useCallback(async () => {
     if (!animeId || !suggestedFolder?.folderName) return;
 
-    await setMyAnimes((prev) => ({
-      ...prev,
-      [animeId]: acceptSuggestedFolder(prev[animeId], suggestedFolder.folderName),
-    }));
-    await performSync();
-    showToast(`Carpeta "${suggestedFolder.folderName}" vinculada.`, "success");
-  }, [animeId, suggestedFolder, setMyAnimes, performSync, showToast]);
+    await safeExecute(async () => {
+      await setMyAnimes((prev) => ({
+        ...prev,
+        [animeId]: acceptSuggestedFolder(prev[animeId], suggestedFolder.folderName),
+      }));
+      await performSync();
+      showToast(`Carpeta "${suggestedFolder.folderName}" vinculada.`, "success");
+    }, "No se pudo vincular la carpeta sugerida. Intenta de nuevo.");
+  }, [animeId, suggestedFolder, setMyAnimes, performSync, showToast, safeExecute]);
 
   const handleRejectSuggestedLink = useCallback(async () => {
     if (!suggestedFolder?.folderName) return;
-    await setMyAnimes((prev) => ({
-      ...prev,
-      [animeId]: rejectSuggestedFolder(prev[animeId], suggestedFolder.folderName),
-    }));
-    await performSync();
-    showToast("La sugerencia fue descartada. La serie seguira en seguimiento.", "info");
-  }, [animeId, suggestedFolder, setMyAnimes, performSync, showToast]);
+    await safeExecute(async () => {
+      await setMyAnimes((prev) => ({
+        ...prev,
+        [animeId]: rejectSuggestedFolder(prev[animeId], suggestedFolder.folderName),
+      }));
+      await performSync();
+      showToast("La sugerencia fue descartada. La serie seguira en seguimiento.", "info");
+    }, "No se pudo descartar la sugerencia. Intenta de nuevo.");
+  }, [animeId, suggestedFolder, setMyAnimes, performSync, showToast, safeExecute]);
 
   if (animeLoading && !mainAnime) {
     return (
@@ -530,6 +555,7 @@ function AnimeDetails() {
             handlePlayEpisode={handlePlayEpisode}
             handleContextMenu={handleContextMenu}
             principalFansub={principalFansub}
+            activeFansub={effectiveTorrentFansub}
             setTorrentModalItems={setTorrentModalItems}
             setTorrentModalOpen={setTorrentModalOpen}
             folderName={folderName}
@@ -609,17 +635,26 @@ function AnimeDetails() {
           isOpen={showAliasModal}
           onClose={() => setShowAliasModal(false)}
           initialValue={data.myAnimes[animeId]?.torrentAlias || ""}
-          onSave={async (newAlias) => {
-            await setMyAnimes((prev) => ({
-              ...prev,
-              [animeId]: {
-                ...prev[animeId],
-                torrentAlias: newAlias,
-                torrentSearchTerm: newAlias,
-                lastUpdated: new Date().toISOString(),
-              },
-            }));
-            showToast("Alias de Nyaa actualizado.", "success");
+          initialFansub={data.myAnimes[animeId]?.torrentSourceFansub || null}
+          animeTitle={mainAnime?.title}
+          onError={(message) => showToast(message, "warn")}
+          onSave={async ({ alias: newAlias, torrentSourceFansub }) => {
+            try {
+              await setMyAnimes((prev) => ({
+                ...prev,
+                [animeId]: {
+                  ...prev[animeId],
+                  torrentAlias: newAlias,
+                  torrentSearchTerm: newAlias,
+                  torrentSourceFansub,
+                  lastUpdated: new Date().toISOString(),
+                },
+              }));
+              showToast("Fuente de torrents actualizada.", "success");
+            } catch (error) {
+              showToast("No se pudo guardar la configuracion de torrents.", "warn");
+              throw error;
+            }
           }}
         />
       )}
