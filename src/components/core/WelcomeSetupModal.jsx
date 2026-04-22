@@ -7,7 +7,7 @@ import {
   selectFolder,
   selectPlayerExecutable,
 } from "../../services/fileSystem";
-import { getPreferredResolution, getFansubDetail } from "../../utils/torrentConfig";
+import { getPreferredResolution, getFansubDetail, buildPersistedFansubConfig } from "../../utils/torrentConfig";
 import { SUPPORTED_RESOLUTIONS, PRESET_FANSUBS } from "../../utils/constants";
 import {
   buildPlayerConfig,
@@ -132,6 +132,8 @@ export function WelcomeSetupModal() {
         accumulator[entry.name] = {
           language: entry.language || "en",
           nyaaCategory: entry.nyaaCategory || "1_2",
+          useResolutionFilter:
+            entry.nyaaCategory === "1_3" ? false : typeof entry.useResolutionFilter === "boolean" ? entry.useResolutionFilter : true,
         };
         return accumulator;
       }, {}),
@@ -180,7 +182,9 @@ export function WelcomeSetupModal() {
     const isSpanishCapable = detail.hasSpanishSubs;
     const lang = customFansubMeta[name]?.language || detail.defaultLang;
     const nyaaCategory = customFansubMeta[name]?.nyaaCategory || detail.nyaaCategory;
-    return { ...detail, lang, nyaaCategory, isSpanishCapable };
+    const useResolutionFilter =
+      nyaaCategory === "1_3" ? false : customFansubMeta[name]?.useResolutionFilter ?? detail.useResolutionFilter;
+    return { ...detail, lang, nyaaCategory, useResolutionFilter, isSpanishCapable };
   };
 
   const canContinue = Boolean(folderPath) && isValidPlayerConfig(playerConfig);
@@ -223,7 +227,7 @@ export function WelcomeSetupModal() {
     const defaultCategory = userLanguage === "es" ? "1_3" : "1_2";
     setCustomFansubMeta((prev) => ({
       ...prev,
-      [trimmed]: { language: defaultLang, nyaaCategory: defaultCategory },
+      [trimmed]: { language: defaultLang, nyaaCategory: defaultCategory, useResolutionFilter: defaultCategory === "1_2" },
     }));
 
     setCustomFansubs((previous) => [...previous, trimmed]);
@@ -265,14 +269,11 @@ export function WelcomeSetupModal() {
       await setFolderPath(folderPath);
 
       const fansubsData = selectedFansubs.map((name) => {
-        const detail = getFansubDetail(name);
         const meta = customFansubMeta[name] || {};
-        return {
-          name,
+        return buildPersistedFansubConfig(name, {
+          ...meta,
           principal: principalFansub ? name.toLowerCase() === principalFansub.toLowerCase() : false,
-          language: meta.language || detail.defaultLang,
-          nyaaCategory: meta.nyaaCategory || detail.nyaaCategory,
-        };
+        });
       });
 
       await setSettings({

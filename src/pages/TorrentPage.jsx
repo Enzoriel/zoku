@@ -322,6 +322,7 @@ function TorrentPage() {
   );
 
   if (!hasConfig) {
+    // El modal se cierra automáticamente porque hasConfig se vuelve true tras guardar settings
     return <FansubOnboardingModal onComplete={() => {}} />;
   }
 

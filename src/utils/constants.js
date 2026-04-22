@@ -9,14 +9,14 @@ export const PRESET_FANSUBS = ["SubsPlease", "Erai-raws", "ASW", "Judas", "Ember
  * - hasSpanishSubs: true si el fansub sube en 1_2 pero incluye subs .es internos
  */
 export const PRESET_FANSUBS_DETAIL = [
-  { name: "SubsPlease",  defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false },
-  { name: "Erai-raws",   defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: true  },
-  { name: "ASW",         defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false },
-  { name: "Judas",       defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false },
-  { name: "Ember",       defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false },
-  { name: "LostYears",   defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false },
-  { name: "Yameii",      defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false },
-  { name: "DKB",         defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: true  },
+  { name: "SubsPlease", defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false, useResolutionFilter: true },
+  { name: "Erai-raws", defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: true, useResolutionFilter: true },
+  { name: "ASW", defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false, useResolutionFilter: true },
+  { name: "Judas", defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false, useResolutionFilter: true },
+  { name: "Ember", defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false, useResolutionFilter: true },
+  { name: "LostYears", defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false, useResolutionFilter: true },
+  { name: "Yameii", defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: false, useResolutionFilter: true },
+  { name: "DKB", defaultLang: "en", nyaaCategory: "1_2", hasSpanishSubs: true, useResolutionFilter: true },
 ];
 
 export const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"];

@@ -9,7 +9,7 @@ import {
   selectFolder,
   selectPlayerExecutable,
 } from "../services/fileSystem";
-import { getPreferredResolution } from "../utils/torrentConfig";
+import { getPreferredResolution, getAllFansubs } from "../utils/torrentConfig";
 import { SUPPORTED_RESOLUTIONS } from "../utils/constants";
 import {
   buildPlayerConfig,
@@ -143,6 +143,7 @@ const Configuration = () => {
   }, [applyResolvedPlayer, data?.settings]);
 
   const canSavePlayerConfig = useMemo(() => isValidPlayerConfig(playerConfig), [playerConfig]);
+  const configuredFansubs = useMemo(() => getAllFansubs(data?.settings), [data?.settings]);
 
   const handleSaveTrigger = () => {
     setShowSaveModal(true);
@@ -364,11 +365,11 @@ const Configuration = () => {
           </p>
         </div>
 
-        {data?.settings?.torrent?.fansubs?.length > 0 && (
+        {configuredFansubs.length > 0 && (
           <div style={{ marginBottom: "20px" }}>
             <label>Fansubs configurados:</label>
             <div className={styles.fansubList}>
-              {data.settings.torrent.fansubs.map((f) => {
+              {configuredFansubs.map((f) => {
                 const lang = f.language || "en";
                 const category = f.nyaaCategory || "1_2";
                 const isPrincipal = f.principal;
@@ -382,6 +383,9 @@ const Configuration = () => {
                       <span className={lang === "es" ? styles.langEs : styles.langEn}>{lang === "es" ? "ES" : "EN"}</span>
                       <span className={styles.fansubListCategory}>
                         {category === "1_3" ? "Non-English" : "English-Translated"}
+                      </span>
+                      <span className={styles.fansubListCategory}>
+                        {category === "1_3" ? "Sin filtro" : f.useResolutionFilter ? "Con resolucion" : "Sin resolucion"}
                       </span>
                     </span>
                   </div>

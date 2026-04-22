@@ -1,14 +1,22 @@
-function stripFileExtension(value = "") {
+export function stripFileExtension(value) {
   return String(value).replace(/\.[^/.]+$/, "");
 }
 
 export function normalizeForSearch(text) {
   if (!text) return "";
-  return String(text)
-    .toLowerCase()
-    .replace(/[ \-_.:]+/g, " ")
+
+  const raw = String(text).toLowerCase();
+  let normalized = raw
+    .replace(/[-_.:]+/g, " ")
     .replace(/[^a-z0-9 ]/g, "")
-    .trim();
+    .trim()
+    .replace(/\s+/g, " ");
+
+  if (!/\d/.test(normalized) && !/[-_.:]/.test(raw) && /\s{2,}/.test(raw)) {
+    normalized = normalized.replace(/\s+/g, "");
+  }
+
+  return normalized;
 }
 
 export function extractBaseTitle(fileName) {
@@ -21,6 +29,7 @@ export function extractBaseTitle(fileName) {
 
   const junk = [
     /2160p/gi,
+    /4k/gi,
     /1080p/gi,
     /720p/gi,
     /480p/gi,
@@ -50,19 +59,11 @@ export function extractBaseTitle(fileName) {
   name = name.replace(/\bSeason [0-9]{1,2}\b/gi, "");
   name = name.replace(/\bv[0-9]{1}\b/gi, "");
 
-  const episodePattern = /[ \-_.]+(?:\d{1,4}|\b(?:ep|e)\d{1,4})\b/gi;
-  const endingPattern = /\b(end|final|ova|special|movie|film)\b/i;
-
-  const matches = [...name.matchAll(episodePattern)];
-  if (matches.length > 0) {
-    const lastMatch = matches[matches.length - 1];
-    name = name.substring(0, lastMatch.index);
-  } else {
-    const endingMatch = name.match(endingPattern);
-    if (endingMatch) {
-      name = name.substring(0, endingMatch.index);
-    }
-  }
+  name = name.replace(
+    /(?:[ \-_.]+(?:(?:episode|ep|e|cap)\s*)?\d{1,4}(?:v\d{1,2})?(?:\s*[-~]\s*\d{1,4})?)\s*$/i,
+    "",
+  );
+  name = name.replace(/(?:[ \-_.]+)(?:end|final|ova|special|movie|film)\s*$/i, "");
 
   name = name.replace(/^[ \-_.:]+|[ \-_.:]+$/g, "");
   name = name.replace(/\s+/g, " ");
@@ -76,23 +77,32 @@ export function deriveTorrentAliasFromTitle(rawTitle) {
   const groupMatch = String(rawTitle).match(/^\s*(\[[^\]]+\])\s*(.*)$/);
   const group = groupMatch ? groupMatch[1].trim() : "";
   const titlePart = groupMatch ? groupMatch[2] : rawTitle;
+  const trimmedTitlePart = String(titlePart || "").trim();
+
+  if (group && /^\d{1,4}(?:\s*[-~]\s*\d{1,4})?$/.test(trimmedTitlePart)) {
+    return group;
+  }
+
   const baseTitle = extractBaseTitle(titlePart);
 
   if (!baseTitle) {
-    return String(rawTitle).trim();
+    return group || String(rawTitle).trim();
   }
 
   return group ? `${group} ${baseTitle}`.trim() : baseTitle;
 }
 
-export function buildTorrentMatchCandidates({
-  torrentSearchTerm = null,
-  torrentAlias = null,
-  torrentTitle = null,
-  animeTitleRomaji = null,
-  animeTitleEnglish = null,
-  synonyms = [],
-} = {}) {
+export function buildTorrentMatchCandidates(input = {}) {
+  const {
+    torrentSearchTerm = null,
+    torrentAlias = null,
+    torrentTitle = null,
+    animeTitleRomaji = null,
+    animeTitleEnglish = null,
+    synonyms = [],
+  } = input || {};
+  const normalizedSynonyms = Array.isArray(synonyms) ? synonyms : synonyms ? [synonyms] : [];
+
   return Array.from(
     new Set(
       [
@@ -101,7 +111,7 @@ export function buildTorrentMatchCandidates({
         torrentTitle ? deriveTorrentAliasFromTitle(torrentTitle) : null,
         animeTitleRomaji,
         animeTitleEnglish,
-        ...(Array.isArray(synonyms) ? synonyms : []),
+        ...normalizedSynonyms,
       ].filter(Boolean),
     ),
   );

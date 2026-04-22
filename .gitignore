@@ -33,3 +33,13 @@ AUDITORIA.md
 
 # Tauri
 src-tauri/target
+
+# Test results/coverage
+coverage/
+.vitest/
+vitest.config.js
+src/setupTests.js
+src/**/__tests__/
+src/**/__tests__/**
+src/**/__mocks__/
+src/**/__mocks__/**

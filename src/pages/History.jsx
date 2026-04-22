@@ -182,7 +182,9 @@ function History() {
                       {date.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" }).toUpperCase()}
                     </span>
                   </div>
-                  <span className={styles.dayCount}>{events.filter((entry) => entry.type === "episode").length} EP</span>
+                  <span className={styles.dayCount}>
+                    {events.filter((entry) => entry.type === "episode").length} EP
+                  </span>
                 </div>
 
                 <div className={styles.dayEvents}>

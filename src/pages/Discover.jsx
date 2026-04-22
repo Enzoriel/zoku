@@ -1,6 +1,7 @@
 import { useState, useMemo, useTransition } from "react";
 import AnimeList from "../components/anime/AnimeList";
 import RetryPanel from "../components/ui/RetryPanel";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 import styles from "./Discover.module.css";
 import { useAnime } from "../context/AnimeContext";
 
@@ -64,6 +65,11 @@ function Discover() {
             <button className={styles.retryButton} onClick={retryFetch}>
               REINTENTAR
             </button>
+          </div>
+        ) : loading && !allAnimes.length ? (
+          <div className={styles.loadingContainer}>
+            <LoadingSpinner size={60} />
+            <p>Cargando temporada...</p>
           </div>
         ) : (
           <div className={`${styles.mainContent} ${isPending ? styles.pending : ""}`}>
