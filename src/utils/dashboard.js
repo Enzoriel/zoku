@@ -20,13 +20,14 @@ function getComparableEpisodeNumber(anime, file) {
 }
 
 function getKnownTotalEpisodes(anime) {
+  // Si está en emisión, el total es incierto, así que regresamos 0 para no bloquear progreso
+  if (isAnimeActivelyAiring(anime)) {
+    return 0;
+  }
+
   const totalEpisodes = Number.parseInt(anime?.totalEpisodes, 10);
   if (Number.isFinite(totalEpisodes) && totalEpisodes > 0) {
     return totalEpisodes;
-  }
-
-  if (isAnimeActivelyAiring(anime)) {
-    return 0;
   }
 
   const fallbackTotal = Number.parseInt(anime?.episodes, 10);
@@ -42,18 +43,33 @@ function buildDashboardEpisodeState(anime, folderMatch) {
   const localFilesList = Array.isArray(folderMatch?.files)
     ? folderMatch.files.filter((file) => !file.isDownloading)
     : [];
+
   const watchedEpisodes = Array.isArray(anime?.watchedEpisodes) ? anime.watchedEpisodes.filter(Number.isFinite) : [];
   const maxWatched = watchedEpisodes.length > 0 ? Math.max(...watchedEpisodes) : 0;
   const nextEpisode = maxWatched + 1;
-  const episodeNumbers = localFilesList.map((file) => getComparableEpisodeNumber(anime, file)).filter(Number.isFinite);
+
+  // Priorizamos file.episodeNumber (ya resuelto por el escaneo) sobre el regex manual
+  const episodeNumbers = localFilesList
+    .map((file) => (Number.isFinite(file.episodeNumber) ? file.episodeNumber : getComparableEpisodeNumber(anime, file)))
+    .filter(Number.isFinite);
+
   const maxLocalEpisode = episodeNumbers.length > 0 ? Math.max(...episodeNumbers) : 0;
+
+  // Buscamos el archivo del siguiente episodio usando la misma prioridad
   const nextEpisodeFile =
-    localFilesList.find((file) => getComparableEpisodeNumber(anime, file) === nextEpisode) || null;
+    localFilesList.find((file) => {
+      const num = Number.isFinite(file.episodeNumber) ? file.episodeNumber : getComparableEpisodeNumber(anime, file);
+      return num === nextEpisode;
+    }) || null;
+
   const knownTotalEpisodes = getKnownTotalEpisodes(anime);
-  const progressTotalEpisodes = knownTotalEpisodes || maxLocalEpisode || 0;
+  // El total para progreso es el máximo entre metadata y archivos locales
+  const progressTotalEpisodes = Math.max(knownTotalEpisodes, maxLocalEpisode);
+
   const validWatchedCount = watchedEpisodes.filter(
     (episode) => progressTotalEpisodes === 0 || episode <= progressTotalEpisodes,
   ).length;
+
   const progress = progressTotalEpisodes > 0 ? Math.round((validWatchedCount / progressTotalEpisodes) * 100) : 0;
 
   return {
@@ -80,10 +96,17 @@ export function getContinueWatching(myAnimes, localFiles = {}, localFilesIndex =
       const folderMatch = getBestFolderMatch(anime, localFiles, localFilesIndex);
       const episodeState = buildDashboardEpisodeState(anime, folderMatch);
       const watchedCount = episodeState.watchedEpisodes.length;
-      const isCompleteByKnownTotal =
+
+      // Si tenemos el ARCHIVO del siguiente episodio, DEBE aparecer, ignorando si la metadata cree que ya terminó
+      if (watchedCount === 0 || !episodeState.nextEpisodeFile) {
+        return null;
+      }
+
+      // Si metadata dice que terminó PERO tenemos el siguiente archivo, la metadata está desactualizada
+      const isCompleteByMetaData =
         episodeState.knownTotalEpisodes > 0 && episodeState.maxWatched >= episodeState.knownTotalEpisodes;
 
-      if (watchedCount === 0 || !episodeState.nextEpisodeFile || isCompleteByKnownTotal) {
+      if (isCompleteByMetaData && episodeState.maxLocalEpisode <= episodeState.maxWatched) {
         return null;
       }
 

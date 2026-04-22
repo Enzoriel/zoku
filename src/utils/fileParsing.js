@@ -91,7 +91,7 @@ export function extractEpisodeNumber(fileName, ignoreContext = []) {
     if (nonYearNumbers.length > 0) {
       return parseInt(nonYearNumbers[nonYearNumbers.length - 1], 10);
     }
-    return parseInt(allNumbers[0], 10);
+    return null;
   }
 
   return null;

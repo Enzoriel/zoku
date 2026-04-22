@@ -1,5 +1,7 @@
 function resolveAnimeId(anime = {}, overrides = {}) {
-  return overrides.malId ?? anime.malId ?? anime.mal_id ?? null;
+  const sourceAnime = anime ?? {};
+  const sourceOverrides = overrides ?? {};
+  return sourceOverrides.malId ?? sourceAnime.malId ?? sourceAnime.mal_id ?? null;
 }
 
 function resolveCoverImage(anime = {}) {
@@ -29,62 +31,84 @@ function resolveEpisodeDuration(anime = {}) {
   return 24;
 }
 
+function resolveYear(anime = {}) {
+  if (anime.year) return anime.year;
+
+  const airedFrom = anime?.aired?.from;
+  if (typeof airedFrom === "string") {
+    const yearMatch = airedFrom.match(/^(\d{4})/);
+    if (yearMatch) {
+      return Number(yearMatch[1]);
+    }
+
+    const parsed = new Date(airedFrom);
+    if (Number.isFinite(parsed.getTime())) {
+      return parsed.getUTCFullYear();
+    }
+  }
+
+  return "N/A";
+}
+
 export function buildStoredAnimeEntry(anime = {}, overrides = {}) {
+  const sourceAnime = anime ?? {};
+  const sourceOverrides = overrides ?? {};
   const now = new Date().toISOString();
-  const animeId = resolveAnimeId(anime, overrides);
-  const genres = Array.isArray(anime.genres) ? anime.genres : [];
-  const studios = Array.isArray(anime.studios) ? anime.studios : [];
+  const animeId = resolveAnimeId(sourceAnime, sourceOverrides);
+  const genres = Array.isArray(sourceAnime.genres) ? sourceAnime.genres : [];
+  const studios = Array.isArray(sourceAnime.studios) ? sourceAnime.studios : [];
 
   return {
     malId: animeId,
     mal_id: animeId,
-    anilistId: anime.anilistId ?? null,
-    title: resolveTitle(anime),
-    title_english: anime.title_english || null,
-    coverImage: resolveCoverImage(anime),
-    bannerImage: anime.bannerImage || null,
-    totalEpisodes: anime.totalEpisodes || anime.episodes || 0,
-    episodeDuration: resolveEpisodeDuration(anime),
-    episodeList: Array.isArray(anime.episodeList) ? anime.episodeList : [],
-    watchedEpisodes: Array.isArray(anime.watchedEpisodes) ? anime.watchedEpisodes : [],
-    lastEpisodeWatched: anime.lastEpisodeWatched || 0,
-    userStatus: anime.userStatus || "PLAN_TO_WATCH",
-    userScore: anime.userScore || 0,
-    notes: anime.notes || "",
-    watchHistory: Array.isArray(anime.watchHistory) ? anime.watchHistory : [],
-    completedAt: anime.completedAt || null,
-    folderName: anime.folderName || null,
-    linkSuggestion: anime.linkSuggestion || null,
-    rejectedSuggestion: anime.rejectedSuggestion || null,
-    torrentAlias: anime.torrentAlias || "",
-    torrentSearchTerm: anime.torrentSearchTerm || "",
-    torrentTitle: anime.torrentTitle || "",
-    diskAlias: anime.diskAlias || "",
-    lastMetadataFetch: anime.lastMetadataFetch || now,
-    addedAt: anime.addedAt || now,
-    lastUpdated: anime.lastUpdated || now,
+    anilistId: sourceAnime.anilistId ?? null,
+    title: resolveTitle(sourceAnime),
+    title_english: sourceAnime.title_english || null,
+    coverImage: resolveCoverImage(sourceAnime),
+    bannerImage: sourceAnime.bannerImage || null,
+    totalEpisodes: sourceAnime.totalEpisodes || sourceAnime.episodes || 0,
+    episodeDuration: resolveEpisodeDuration(sourceAnime),
+    episodeList: Array.isArray(sourceAnime.episodeList) ? sourceAnime.episodeList : [],
+    watchedEpisodes: Array.isArray(sourceAnime.watchedEpisodes) ? sourceAnime.watchedEpisodes : [],
+    lastEpisodeWatched: sourceAnime.lastEpisodeWatched || 0,
+    userStatus: sourceAnime.userStatus || "PLAN_TO_WATCH",
+    userScore: sourceAnime.userScore || 0,
+    notes: sourceAnime.notes || "",
+    watchHistory: Array.isArray(sourceAnime.watchHistory) ? sourceAnime.watchHistory : [],
+    completedAt: sourceAnime.completedAt || null,
+    folderName: sourceAnime.folderName || null,
+    linkSuggestion: sourceAnime.linkSuggestion || null,
+    rejectedSuggestion: sourceAnime.rejectedSuggestion || null,
+    torrentAlias: sourceAnime.torrentAlias || "",
+    torrentSearchTerm: sourceAnime.torrentSearchTerm || "",
+    torrentTitle: sourceAnime.torrentTitle || "",
+    torrentSourceFansub: sourceAnime.torrentSourceFansub || null,
+    diskAlias: sourceAnime.diskAlias || "",
+    lastMetadataFetch: sourceAnime.lastMetadataFetch || now,
+    addedAt: sourceAnime.addedAt || now,
+    lastUpdated: sourceAnime.lastUpdated || now,
     genres,
-    status: anime.status || "Unknown",
-    type: anime.type || anime.format || "TV",
-    score: anime.score || 0,
-    synopsis: anime.synopsis || "Sinopsis no disponible.",
-    year: anime.year || (anime.aired?.from ? new Date(anime.aired.from).getFullYear() : "N/A"),
-    season: anime.season || "N/A",
+    status: sourceAnime.status || "Unknown",
+    type: sourceAnime.type || sourceAnime.format || "TV",
+    score: sourceAnime.score || 0,
+    synopsis: sourceAnime.synopsis || "Sinopsis no disponible.",
+    year: resolveYear(sourceAnime),
+    season: sourceAnime.season || "N/A",
     studios,
-    duration: anime.duration || `${resolveEpisodeDuration(anime)} min`,
-    startDate: anime.startDate || null,
-    airedDate: anime.airedDate || anime.aired?.string || "N/A",
-    members: anime.members || 0,
-    favorites: anime.favorites || 0,
-    source: anime.source || "N/A",
-    images: anime.images,
-    nextAiringEpisode: anime.nextAiringEpisode || null,
-    endDate: anime.endDate || null,
-    synonyms: Array.isArray(anime.synonyms) ? anime.synonyms : [],
-    title_romaji: anime.title_romaji || anime.title?.romaji || null,
-    title_native: anime.title_native || anime.title?.native || null,
-    ...overrides,
+    duration: sourceAnime.duration || `${resolveEpisodeDuration(sourceAnime)} min`,
+    startDate: sourceAnime.startDate || null,
+    airedDate: sourceAnime.airedDate || sourceAnime.aired?.string || "N/A",
+    members: sourceAnime.members || 0,
+    favorites: sourceAnime.favorites || 0,
+    source: sourceAnime.source || "N/A",
+    images: sourceAnime.images,
+    nextAiringEpisode: sourceAnime.nextAiringEpisode || null,
+    endDate: sourceAnime.endDate || null,
+    synonyms: Array.isArray(sourceAnime.synonyms) ? sourceAnime.synonyms : [],
+    title_romaji: sourceAnime.title_romaji || sourceAnime.title?.romaji || null,
+    title_native: sourceAnime.title_native || sourceAnime.title?.native || null,
+    ...sourceOverrides,
     malId: animeId,
-    mal_id: overrides.mal_id ?? animeId,
+    mal_id: sourceOverrides.mal_id ?? animeId,
   };
 }

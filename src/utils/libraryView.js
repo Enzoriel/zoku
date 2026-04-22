@@ -13,9 +13,11 @@ function isRejectedSuggestion(anime, folder) {
 
 export function getBestFolderMatch(anime, localFiles, localFilesIndex = null) {
   if (!anime || !localFiles) return null;
+  const resolvedAnimeId = anime?.malId ?? anime?.mal_id ?? anime?.resolvedMalId ?? null;
+  if (resolvedAnimeId === null || resolvedAnimeId === undefined || resolvedAnimeId === "") return null;
 
   if (localFilesIndex) {
-    const indexed = localFilesIndex[String(anime.malId)];
+    const indexed = localFilesIndex[String(resolvedAnimeId)];
     if (indexed && !isRejectedSuggestion(anime, indexed)) {
       return indexed;
     }
@@ -23,13 +25,14 @@ export function getBestFolderMatch(anime, localFiles, localFilesIndex = null) {
 
   const directMatch = Object.values(localFiles || {}).find(
     (folder) =>
-      String(folder?.resolvedMalId || folder?.malId || "") === String(anime?.malId || "") &&
+      String(folder?.resolvedMalId || folder?.malId || "") === String(resolvedAnimeId) &&
       !isRejectedSuggestion(anime, folder),
   );
 
   if (directMatch) return directMatch;
 
-  const candidate = findAnimeFolderCandidates(anime, localFiles, { onlyWithFiles: true }).find(
+  const candidates = findAnimeFolderCandidates(anime, localFiles, { onlyWithFiles: true });
+  const candidate = candidates?.find(
     ([folderKey]) => String(anime?.rejectedSuggestion?.folderName || "").toLowerCase() !== folderKey.toLowerCase(),
   );
 

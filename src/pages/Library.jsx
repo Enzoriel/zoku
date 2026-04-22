@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { useLibrary } from "../context/LibraryContext";
+import useSafeAsync from "../hooks/useSafeAsync";
 import { deleteFolderFromDisk, deleteVirtualFolderFiles } from "../services/fileSystem";
 import { unlinkAnimeFolder } from "../utils/linkingState";
 import { buildLibraryViewModel } from "../utils/libraryView";
@@ -22,7 +23,9 @@ const USER_FILTERS = {
 function Library() {
   const { data, libraryScopeReady, libraryScopeError, setMyAnimes, retryLibraryScope } = useStore();
   const { performSync, syncing, localFilesIndex } = useLibrary();
+  const { safeExecute } = useSafeAsync();
   const [confirmModal, setConfirmModal] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [userFilter, setUserFilter] = useState("ALL");
   const [activeCollectionView, setActiveCollectionView] = useState("ANIMES");
   const [pendingFilter, startTransition] = useTransition();
@@ -38,7 +41,11 @@ function Library() {
     });
   };
 
-  const normalizeTrackedPath = (path) => String(path || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+  const normalizeTrackedPath = (path) =>
+    String(path || "")
+      .replace(/\\/g, "/")
+      .replace(/\/+$/, "")
+      .toLowerCase();
 
   const getRemainingRootFiles = (localFilesSnapshot, filesToCheck) => {
     const targetPaths = new Set((filesToCheck || []).map((file) => normalizeTrackedPath(file.path)).filter(Boolean));
@@ -59,10 +66,10 @@ function Library() {
   };
 
   useEffect(() => {
-    if (!data.folderPath || !libraryScopeReady) return;
+    if (!data?.folderPath || !libraryScopeReady) return;
     performSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.folderPath, libraryScopeReady]);
+  }, [data?.folderPath, libraryScopeReady]);
 
   const { animeEntries, localEntries } = useMemo(
     () => buildLibraryViewModel(data.myAnimes, data.localFiles, localFilesIndex),
@@ -107,17 +114,20 @@ function Library() {
       title: "Eliminar de biblioteca",
       message: `Quieres eliminar tambien "${title}" de tu lista de seguimiento?`,
       onConfirm: async () => {
-        const newMyAnimes = { ...data.myAnimes };
-        delete newMyAnimes[malId];
-        await setMyAnimes(newMyAnimes);
-        setConfirmModal(null);
-        await performSync(newMyAnimes);
+        await safeExecute(async () => {
+          const newMyAnimes = { ...data.myAnimes };
+          delete newMyAnimes[malId];
+          await setMyAnimes(newMyAnimes);
+          setConfirmModal(null);
+          await performSync(newMyAnimes);
+        }, "No se pudo eliminar la serie. Intenta de nuevo.");
       },
     });
   };
 
   const handleDeleteFolder = (folder, titleOverride = null) => {
-    const displayTitle = titleOverride || folder?.resolvedAnimeData?.title || folder?.animeData?.title || folder?.name || "este anime";
+    const displayTitle =
+      titleOverride || folder?.resolvedAnimeData?.title || folder?.animeData?.title || folder?.name || "este anime";
 
     if (folder.isTracking) {
       setConfirmModal({
@@ -146,10 +156,12 @@ function Library() {
         title: "Borrar archivos",
         message: `Se eliminaran ${fileCount} archivo(s) del disco:\n\n- ${fileNames}`,
         onConfirm: async () => {
-          setConfirmModal(null);
+          setIsDeleting(true);
           const result = await deleteVirtualFolderFiles(folder.files, data.folderPath);
           const nextLocalFiles = await performSync();
+
           if (nextLocalFiles === null) {
+            setIsDeleting(false);
             showInfoModal(
               "No se pudo verificar el borrado",
               "No se pudo reescanear la biblioteca despues del intento de borrado.",
@@ -159,6 +171,7 @@ function Library() {
 
           const remainingFiles = getRemainingRootFiles(nextLocalFiles, folder.files);
           if (remainingFiles.length > 0) {
+            setIsDeleting(false);
             const lockedFile = result.errors.find((item) => item.code === "FILE_IN_USE");
             const remainingNames = remainingFiles.map((file) => file.name).join("\n- ");
             showInfoModal(
@@ -169,6 +182,7 @@ function Library() {
           }
 
           if (result.failed > 0 && result.deleted === 0) {
+            setIsDeleting(false);
             showInfoModal(
               "No se pudo completar el borrado",
               result.errors[0]?.error || "Uno o mas archivos no pudieron eliminarse.",
@@ -177,33 +191,26 @@ function Library() {
           }
 
           if (folder.malId) {
-            promptRemoveFromLibrary(folder.malId, displayTitle);
+            await promptRemoveFromLibrary(folder.malId, displayTitle);
           }
-        },
-      });
-      return;
-    }
-
-    if (!folder.physicalPath) {
-      setConfirmModal({
-        title: "No hay archivos para borrar",
-        message: `"${displayTitle}" ya no tiene una carpeta fisica disponible en disco.`,
-        onConfirm: async () => {
+          setIsDeleting(false);
           setConfirmModal(null);
-          await performSync();
         },
       });
       return;
-    }
+      }
 
-    setConfirmModal({
+      // ... (dentro de handleDeleteFolder, el bloque principal de borrar carpeta)
+      setConfirmModal({
       title: "Borrar carpeta",
       message: `"${displayTitle}" y todos sus archivos se eliminaran permanentemente del disco.`,
       onConfirm: async () => {
-        setConfirmModal(null);
+        setIsDeleting(true);
         const result = await deleteFolderFromDisk(folder.physicalPath, data.folderPath);
         const nextLocalFiles = await performSync();
+
         if (nextLocalFiles === null) {
+          setIsDeleting(false);
           showInfoModal(
             "No se pudo verificar el borrado",
             "No se pudo reescanear la biblioteca despues del intento de borrado.",
@@ -213,6 +220,7 @@ function Library() {
 
         const folderStillExists = hasRemainingPhysicalFolder(nextLocalFiles, folder.physicalPath);
         if (folderStillExists) {
+          setIsDeleting(false);
           showInfoModal(
             "No se pudo borrar la carpeta",
             result.code === "FILE_IN_USE"
@@ -223,17 +231,19 @@ function Library() {
         }
 
         if (!result.ok && result.code && result.code !== "FILE_IN_USE") {
+          setIsDeleting(false);
           showInfoModal("No se pudo borrar la carpeta", result.error || "La carpeta no pudo eliminarse.");
           return;
         }
 
         if (folder.malId) {
-          promptRemoveFromLibrary(folder.malId, displayTitle);
+          await promptRemoveFromLibrary(folder.malId, displayTitle);
         }
+        setIsDeleting(false);
+        setConfirmModal(null);
       },
-    });
-  };
-
+      });
+      };
   const handleDeleteAnimeEntry = (item) => {
     const folder = item.folderMatch;
     if (!folder) {
@@ -261,14 +271,16 @@ function Library() {
       title: "Desvincular carpeta",
       message: `"${item.anime.title}" dejara de estar vinculada. El anime permanece en tu lista sin archivos asociados.`,
       onConfirm: async () => {
-        setConfirmModal(null);
-        const newMyAnimes = {
-          ...data.myAnimes,
-          [item.malId]: unlinkAnimeFolder(data.myAnimes[item.malId]),
-        };
+        await safeExecute(async () => {
+          const newMyAnimes = {
+            ...data.myAnimes,
+            [item.malId]: unlinkAnimeFolder(data.myAnimes[item.malId]),
+          };
 
-        await setMyAnimes(newMyAnimes);
-        await performSync(newMyAnimes);
+          await setMyAnimes(newMyAnimes);
+          setConfirmModal(null);
+          await performSync(newMyAnimes);
+        }, "No se pudo desvincular la serie. Intenta de nuevo.");
       },
     });
   };
@@ -421,8 +433,7 @@ function Library() {
       ) : (
         <section className={styles.localGrid}>
           {localEntries.map((folder) => {
-            const displayTitle =
-              folder.suggestedAnimeData?.title || folder.resolvedAnimeData?.title || folder.name;
+            const displayTitle = folder.suggestedAnimeData?.title || folder.resolvedAnimeData?.title || folder.name;
             const subtitle = folder.isSuggested
               ? `Sugerida para ${folder.suggestedAnimeData?.title || "una serie"}`
               : folder.isRootFile
@@ -465,9 +476,10 @@ function Library() {
           title={confirmModal.title}
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
-          onCancel={() => setConfirmModal(null)}
+          onCancel={() => !isDeleting && setConfirmModal(null)}
           confirmLabel={confirmModal.confirmLabel}
           hideCancel={confirmModal.hideCancel}
+          isLoading={isDeleting}
         />
       )}
     </div>

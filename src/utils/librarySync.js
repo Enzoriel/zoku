@@ -8,19 +8,21 @@ export function hasRecentDownloadIntent(anime = {}, nowMs, windowMs) {
 }
 
 export function reconcileMissingFolders(localFiles = {}, myAnimes = {}, nowIso) {
+  const safeLocalFiles = localFiles || {};
+  const safeMyAnimes = myAnimes || {};
   const missingIds = new Set(
-    Object.values(localFiles)
+    Object.values(safeLocalFiles)
       .filter((folder) => folder.isMissing && folder.malId)
       .map((folder) => String(folder.malId)),
   );
 
   if (missingIds.size === 0) {
-    return { myAnimes, changed: false };
+    return { myAnimes: safeMyAnimes, changed: false };
   }
 
   let changed = false;
   const nextMyAnimes = Object.fromEntries(
-    Object.entries(myAnimes).map(([id, anime]) => {
+    Object.entries(safeMyAnimes).map(([id, anime]) => {
       if (!missingIds.has(String(id)) || !anime?.folderName) {
         return [id, anime];
       }
@@ -41,20 +43,23 @@ export function reconcileMissingFolders(localFiles = {}, myAnimes = {}, nowIso) 
 }
 
 export function buildSuggestionMap(localFiles = {}) {
+  const safeLocalFiles = localFiles || {};
   return new Map(
-    Object.values(localFiles)
+    Object.values(safeLocalFiles)
       .filter((folder) => !folder.isLinked && folder.isSuggested && folder.suggestedMalId)
       .map((folder) => [String(folder.suggestedMalId), folder.folderName]),
   );
 }
 
 export function applySuggestionState(myAnimes = {}, suggestionMap, nowIso) {
+  const safeMyAnimes = myAnimes || {};
+  const safeSuggestionMap = suggestionMap instanceof Map ? suggestionMap : new Map();
   let changed = false;
-  const nextMyAnimes = { ...myAnimes };
+  const nextMyAnimes = { ...safeMyAnimes };
 
   // Procesar animes que están en el suggestionMap O que tienen folderName (para clearLinkingMetadata)
-  const idsToProcess = new Set(suggestionMap.keys());
-  for (const [id, anime] of Object.entries(myAnimes)) {
+  const idsToProcess = new Set(safeSuggestionMap.keys());
+  for (const [id, anime] of Object.entries(safeMyAnimes)) {
     if (anime?.folderName || anime?.linkSuggestion?.folderName || anime?.rejectedSuggestion) {
       idsToProcess.add(String(id));
     }
@@ -64,7 +69,7 @@ export function applySuggestionState(myAnimes = {}, suggestionMap, nowIso) {
     const anime = nextMyAnimes[id];
     if (!anime) continue;
 
-    const nextSuggestionName = suggestionMap.get(String(id)) || null;
+    const nextSuggestionName = safeSuggestionMap.get(String(id)) || null;
     const normalizedAnime = anime.folderName ? clearLinkingMetadata(anime) : syncAnimeSuggestion(anime, nextSuggestionName);
     const currentSuggestionName = anime.linkSuggestion?.folderName || null;
 
@@ -82,15 +87,17 @@ export function applySuggestionState(myAnimes = {}, suggestionMap, nowIso) {
 }
 
 export function applyAutoLinkLogic(myAnimes = {}, suggestionMap, config) {
-  const { nowMs, windowMs, localFiles } = config;
+  const safeMyAnimes = myAnimes || {};
+  const safeSuggestionMap = suggestionMap instanceof Map ? suggestionMap : new Map();
+  const { nowMs, windowMs, localFiles } = config || {};
   let changed = false;
 
   const nextMyAnimes = Object.fromEntries(
-    Object.entries(myAnimes).map(([id, anime]) => {
+    Object.entries(safeMyAnimes).map(([id, anime]) => {
       if (anime?.folderName) return [id, anime];
       if (!hasRecentDownloadIntent(anime, nowMs, windowMs)) return [id, anime];
 
-      const suggestedFolderName = suggestionMap.get(String(id)) || null;
+      const suggestedFolderName = safeSuggestionMap.get(String(id)) || null;
       if (suggestedFolderName) {
         changed = true;
         return [id, acceptSuggestedFolder(anime, suggestedFolderName)];
@@ -125,14 +132,21 @@ export function applyAutoLinkLogic(myAnimes = {}, suggestionMap, config) {
 }
 
 export function cleanupStaleIntents(localFiles = {}, myAnimes = {}, config) {
-  const { nowMs, folderHasActiveDownload, folderHasTempDownloadFile, nowIso } = config;
+  const safeLocalFiles = localFiles || {};
+  const safeMyAnimes = myAnimes || {};
+  const {
+    nowMs,
+    folderHasActiveDownload = () => false,
+    folderHasTempDownloadFile = () => false,
+    nowIso,
+  } = config || {};
   let changed = false;
 
   const nextMyAnimes = Object.fromEntries(
-    Object.entries(myAnimes).map(([id, anime]) => {
+    Object.entries(safeMyAnimes).map(([id, anime]) => {
       if (!anime?.downloadIntentAt || !anime?.folderName) return [id, anime];
 
-      const linkedFolder = Object.values(localFiles).find((folder) => folder.folderName === anime.folderName);
+      const linkedFolder = Object.values(safeLocalFiles).find((folder) => folder.folderName === anime.folderName);
       if (!linkedFolder) return [id, anime];
 
       const shouldKeep =
@@ -159,14 +173,16 @@ export function cleanupStaleIntents(localFiles = {}, myAnimes = {}, config) {
 }
 
 export function updateTrackingModes(localFiles = {}, myAnimes = {}, config) {
-  const { folderHasTempDownloadFile, nowIso } = config;
+  const safeLocalFiles = localFiles || {};
+  const safeMyAnimes = myAnimes || {};
+  const { folderHasTempDownloadFile = () => false, nowIso } = config || {};
   let changed = false;
 
   const nextMyAnimes = Object.fromEntries(
-    Object.entries(myAnimes).map(([id, anime]) => {
+    Object.entries(safeMyAnimes).map(([id, anime]) => {
       if (!anime?.downloadIntentAt || !anime?.folderName) return [id, anime];
 
-      const linkedFolder = Object.values(localFiles).find((folder) => folder.folderName === anime.folderName);
+      const linkedFolder = Object.values(safeLocalFiles).find((folder) => folder.folderName === anime.folderName);
       if (!linkedFolder) return [id, anime];
 
       const inferredMode = folderHasTempDownloadFile(linkedFolder) ? "temp" : "direct";
@@ -188,18 +204,26 @@ export function updateTrackingModes(localFiles = {}, myAnimes = {}, config) {
 }
 
 export function mergeLibraryAnimeUpdates(latestMyAnimes = {}, originalMyAnimes = {}, reconciledMyAnimes = {}) {
-  const nextMyAnimes = { ...latestMyAnimes };
+  const safeLatestMyAnimes = latestMyAnimes || {};
+  const safeOriginalMyAnimes = originalMyAnimes || {};
+  const safeReconciledMyAnimes = reconciledMyAnimes || {};
+  const nextMyAnimes = { ...safeLatestMyAnimes };
 
-  Object.keys(reconciledMyAnimes).forEach((id) => {
-    const originalAnime = originalMyAnimes[id];
-    const reconciledAnime = reconciledMyAnimes[id];
-    const latestAnime = latestMyAnimes[id];
+  Object.keys(safeReconciledMyAnimes).forEach((id) => {
+    const originalAnime = safeOriginalMyAnimes[id];
+    const reconciledAnime = safeReconciledMyAnimes[id];
+    const latestAnime = safeLatestMyAnimes[id];
 
     if (originalAnime && !latestAnime) {
+      nextMyAnimes[id] = reconciledAnime;
       return;
     }
 
-    if (!originalAnime || !reconciledAnime || !latestAnime) {
+    if (!reconciledAnime) {
+      return;
+    }
+
+    if (!originalAnime || !latestAnime) {
       nextMyAnimes[id] = reconciledAnime;
       return;
     }
