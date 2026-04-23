@@ -10,6 +10,7 @@ import Button from "../components/ui/Button";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import LibraryAnimeCard from "../components/anime/LibraryAnimeCard";
 import styles from "./Library.module.css";
+import SearchLocal from "../components/anime/SearchLocal";
 
 const USER_FILTERS = {
   ALL: "Todos",
@@ -27,6 +28,7 @@ function Library() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [userFilter, setUserFilter] = useState("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
   const [activeCollectionView, setActiveCollectionView] = useState("ANIMES");
   const [pendingFilter, startTransition] = useTransition();
   const navigate = useNavigate();
@@ -86,12 +88,22 @@ function Library() {
   }, [animeEntries]);
 
   const filteredAnimeEntries = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase();
     return animeEntries.filter((entry) => {
-      const matchesUser = userFilter === "ALL" || entry.computedStatus === userFilter;
-      return matchesUser;
-    });
-  }, [animeEntries, userFilter]);
+      const matchesSearch = !searchTerm || entry.anime.title.toLowerCase().includes(searchLower);
+      if (!matchesSearch) return false;
 
+      return userFilter === "ALL" || entry.computedStatus === userFilter;
+    });
+  }, [animeEntries, userFilter, searchTerm]);
+
+  const filteredLocalEntries = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase();
+    return localEntries.filter((folder) => {
+      const displayTitle = folder.suggestedAnimeData?.title || folder.resolvedAnimeData?.title || folder.name;
+      return displayTitle.toLowerCase().includes(searchLower);
+    });
+  }, [localEntries, searchTerm]);
   const changeFilter = (setter, value) => {
     startTransition(() => setter(value));
   };
@@ -383,26 +395,24 @@ function Library() {
         </div>
 
         {activeCollectionView === "ANIMES" ? (
-          <>
-            <div className={styles.filterButtons}>
-              {Object.entries(USER_FILTERS).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`${styles.filterButton} ${userFilter === id ? styles.filterButtonActive : ""}`}
-                  onClick={() => changeFilter(setUserFilter, id)}
-                  disabled={pendingFilter}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className={styles.filterHint}>
-            <p>Carpetas o archivos detectados en disco que aun no estan vinculados a una serie.</p>
+          <div className={styles.filterButtons}>
+            {Object.entries(USER_FILTERS).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`${styles.filterButton} ${userFilter === id ? styles.filterButtonActive : ""}`}
+                onClick={() => changeFilter(setUserFilter, id)}
+                disabled={pendingFilter}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        )}
+        ) : null}
+
+        <div style={{ marginTop: "1rem" }}>
+          <SearchLocal onSearch={setSearchTerm} placeholder="BUSCAR EN BIBLIOTECA..." />
+        </div>
       </section>
 
       {activeCollectionView === "ANIMES" ? (
@@ -425,14 +435,23 @@ function Library() {
             ))}
           </section>
         )
-      ) : localEntries.length === 0 ? (
+      ) : filteredLocalEntries.length === 0 ? (
         <div className={styles.emptyGrid}>
-          <p>No se detectaron carpetas o archivos locales pendientes de vincular.</p>
-          <p>Cuando aparezcan nuevos archivos en disco se mostraran aqui.</p>
+          {searchTerm ? (
+            <>
+              <p>No se detectaron carpetas o archivos locales que coincidan con la busqueda.</p>
+              <p>Ajusta el termino de busqueda.</p>
+            </>
+          ) : (
+            <>
+              <p>No se detectaron carpetas o archivos locales pendientes de vincular.</p>
+              <p>Cuando aparezcan nuevos archivos en disco se mostraran aqui.</p>
+            </>
+          )}
         </div>
       ) : (
         <section className={styles.localGrid}>
-          {localEntries.map((folder) => {
+          {filteredLocalEntries.map((folder) => {
             const displayTitle = folder.suggestedAnimeData?.title || folder.resolvedAnimeData?.title || folder.name;
             const subtitle = folder.isSuggested
               ? `Sugerida para ${folder.suggestedAnimeData?.title || "una serie"}`

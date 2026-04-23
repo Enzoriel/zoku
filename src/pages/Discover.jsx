@@ -1,18 +1,32 @@
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useCallback } from "react";
 import AnimeList from "../components/anime/AnimeList";
 import RetryPanel from "../components/ui/RetryPanel";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
+import SearchLocal from "../components/anime/SearchLocal";
 import styles from "./Discover.module.css";
 import { useAnime } from "../context/AnimeContext";
 
 function Discover() {
   const { seasonalAnime: allAnimes, loading, error, retryFetch, discoverState, setDiscoverState } = useAnime();
+  const [searchTerm, setSearchTerm] = useState("");
   const [pendingType, setPendingType] = useState(null);
   const [isPending, startTransition] = useTransition();
 
   const filteredAnimes = useMemo(() => {
-    return allAnimes.filter((anime) => anime.format === discoverState.type || anime.type === discoverState.type);
-  }, [allAnimes, discoverState.type]);
+    const searchLower = searchTerm.toLowerCase();
+    return allAnimes.filter((anime) => {
+      const matchesSearch = anime.title.toLowerCase().includes(searchLower);
+      if (searchTerm) return matchesSearch;
+
+      const matchesType = anime.format === discoverState.type || anime.type === discoverState.type;
+      return matchesType;
+    });
+  }, [allAnimes, discoverState.type, searchTerm]);
+
+  const handleSearch = useCallback((term) => {
+    setSearchTerm(term);
+    setDiscoverState((prev) => ({ ...prev, page: 1 }));
+  }, [setDiscoverState]);
 
   const handleTypeChange = (newType) => {
     if (newType === discoverState.type || isPending) return;
@@ -54,6 +68,9 @@ function Discover() {
                 {t.label}
               </button>
             ))}
+          </div>
+          <div style={{ marginTop: "1rem" }}>
+            <SearchLocal onSearch={handleSearch} placeholder="BUSCAR EN DESCUBRIR..." />
           </div>
         </div>
       </header>

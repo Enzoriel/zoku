@@ -275,7 +275,7 @@ export async function searchAnime(queryText, page = 1) {
           currentPage
           total
         }
-        media (search: $search, type: ANIME, isAdult: false) {
+        media (search: $search, type: ANIME, isAdult: false, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
           ${MEDIA_FIELDS}
         }
       }
