@@ -20,6 +20,37 @@ import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
 import styles from "./Recent.module.css";
 import { DAY_NAMES, DAY_NAMES_SHORT } from "../utils/constants";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
+const RECENT_MS = 14 * DAY_MS;
+
+function getAnimeKey(anime) {
+  return String(anime.malId || anime.mal_id || anime.id || anime.title);
+}
+
+function normalizeStatus(status) {
+  return String(status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isFinishedStatus(status) {
+  return status.includes("finished") || status.includes("finalizado");
+}
+
+function isAiringLikeStatus(status) {
+  return status.includes("airing") || status.includes("releasing") || status.includes("emision");
+}
+
+function getTotalEpisodeCount(anime) {
+  const counts = [anime?.episodes, anime?.totalEpisodes, anime?.episodeList?.length]
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  return counts.length > 0 ? Math.max(...counts) : 0;
+}
+
 function Recent() {
   const { data, libraryScopeReady } = useStore();
   const { loading, error, retryFetch } = useAnime();
@@ -130,11 +161,197 @@ function Recent() {
     return myAiringAnime.filter((anime) => anime.assignedFansub === fansubFilter);
   }, [myAiringAnime, fansubFilter]);
 
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  const recentOccurrencesMap = useMemo(() => {
+    const map = new Map();
+
+    myAiringAnime.forEach((anime) => {
+      const occurrences = buildRecentEpisodeOccurrences(anime, nowMs) || [];
+      map.set(getAnimeKey(anime), occurrences);
+    });
+
+    return map;
+  }, [myAiringAnime, nowMs]);
+
+  useEffect(() => {
+    let nextTransitionAtMs = null;
+    let shouldCatchUp = false;
+    const realNowMs = Date.now();
+
+    const registerTransition = (candidateMs) => {
+      if (!Number.isFinite(candidateMs) || candidateMs <= 0) return;
+
+      if (candidateMs <= realNowMs) {
+        if (candidateMs > nowMs) shouldCatchUp = true;
+        return;
+      }
+
+      if (!nextTransitionAtMs || candidateMs < nextTransitionAtMs) {
+        nextTransitionAtMs = candidateMs;
+      }
+    };
+
+    myAiringAnime.forEach((anime) => {
+      const airingAtMs = Number(anime.nextAiringEpisode?.airingAt || 0) * 1000;
+      if (Number.isFinite(airingAtMs) && airingAtMs > 0) {
+        const previousAiringAtMs = airingAtMs - WEEK_MS;
+
+        [previousAiringAtMs, previousAiringAtMs + DAY_MS, airingAtMs, airingAtMs + DAY_MS].forEach(registerTransition);
+      }
+
+      const recentOccurrences = recentOccurrencesMap.get(getAnimeKey(anime)) || [];
+      recentOccurrences.forEach(({ airedAt }) => {
+        registerTransition(airedAt + DAY_MS);
+        registerTransition(airedAt + RECENT_MS + 1);
+      });
+    });
+
+    if (shouldCatchUp) {
+      setNowMs(realNowMs);
+      return;
+    }
+
+    if (!nextTransitionAtMs) return;
+
+    const timeUntil = nextTransitionAtMs - realNowMs + 1000;
+    if (timeUntil <= 0) {
+      setNowMs(realNowMs);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setNowMs(Date.now());
+    }, Math.min(timeUntil, 2147483647));
+
+    return () => clearTimeout(timeoutId);
+  }, [myAiringAnime, nowMs, recentOccurrencesMap]);
+
+  useEffect(() => {
+    if (activeTab !== "horario") return;
+
+    setNowMs(Date.now());
+
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
+  const getScheduleEntry = useCallback(
+    (anime) => {
+      const animeKey = getAnimeKey(anime);
+      const recentOccurrences = recentOccurrencesMap.get(animeKey) || [];
+      const latestRecent = recentOccurrences[0] || null;
+      const normalizedStatus = normalizeStatus(anime?.status);
+      const nextAiring = anime.nextAiringEpisode;
+      const totalEpisodeCount = getTotalEpisodeCount(anime);
+
+      if (latestRecent && latestRecent.airedAt <= nowMs && nowMs - latestRecent.airedAt < DAY_MS) {
+        return {
+          anime,
+          nextEp: latestRecent.ep,
+          airingAt: latestRecent.airedAt,
+          status: "aired_recently",
+        };
+      }
+
+      if (!nextAiring) {
+        if (latestRecent && isFinishedStatus(normalizedStatus)) {
+          return {
+            anime,
+            nextEp: latestRecent.ep,
+            airingAt: latestRecent.airedAt,
+            status: "finished",
+          };
+        }
+
+        if (latestRecent && isAiringLikeStatus(normalizedStatus)) {
+          return {
+            anime,
+            nextEp: latestRecent.ep,
+            airingAt: latestRecent.airedAt,
+            status: "hiatus_or_unknown",
+          };
+        }
+
+        if (totalEpisodeCount > 0 && latestRecent && latestRecent.ep >= totalEpisodeCount) {
+          return {
+            anime,
+            nextEp: latestRecent.ep,
+            airingAt: latestRecent.airedAt,
+            status: "finished",
+          };
+        }
+
+        return null;
+      }
+
+      const airingAtMs = Number(nextAiring.airingAt || 0) * 1000;
+      if (!Number.isFinite(airingAtMs) || airingAtMs <= 0) return null;
+      const nextEpisodeNumber = Number(nextAiring.episode || 0);
+      const previousAiringAtMs = airingAtMs - WEEK_MS;
+      const previousEpisode = Math.max(nextEpisodeNumber - 1, 0);
+
+      if (previousEpisode > 0 && previousAiringAtMs <= nowMs && nowMs - previousAiringAtMs < DAY_MS) {
+        return {
+          anime,
+          nextEp: previousEpisode,
+          airingAt: previousAiringAtMs,
+          status: "aired_recently",
+        };
+      }
+
+      if (airingAtMs > nowMs) {
+        return {
+          anime,
+          nextEp: nextEpisodeNumber,
+          airingAt: airingAtMs,
+          status: "upcoming",
+        };
+      }
+
+      if (nowMs - airingAtMs < DAY_MS) {
+        return {
+          anime,
+          nextEp: nextEpisodeNumber,
+          airingAt: airingAtMs,
+          status: "aired_recently",
+        };
+      }
+
+      if (isFinishedStatus(normalizedStatus) || (totalEpisodeCount > 0 && nextEpisodeNumber > totalEpisodeCount)) {
+        return latestRecent
+          ? {
+              anime,
+              nextEp: latestRecent.ep,
+              airingAt: latestRecent.airedAt,
+              status: "finished",
+            }
+          : null;
+      }
+
+      if (!isAiringLikeStatus(normalizedStatus) && !latestRecent) {
+        return null;
+      }
+
+      return {
+        anime,
+        nextEp: nextEpisodeNumber + 1,
+        airingAt: airingAtMs + WEEK_MS,
+        status: "upcoming",
+      };
+    },
+    [nowMs, recentOccurrencesMap],
+  );
+
   const groupedByDay = useMemo(() => {
     const groups = {};
 
     filteredAiringAnime.forEach((anime) => {
-      buildRecentEpisodeOccurrences(anime).forEach(({ ep: episode, airedAt, isEstimated }) => {
+      const recentOccurrences = recentOccurrencesMap.get(getAnimeKey(anime)) || [];
+      recentOccurrences.forEach(({ ep: episode, airedAt, isEstimated }) => {
         const date = new Date(airedAt);
         const dayKey = getLocalDayKey(date);
         if (!groups[dayKey]) groups[dayKey] = { date, episodes: [] };
@@ -172,7 +389,7 @@ function Recent() {
           return second.ep - first.ep;
         }),
       }));
-  }, [filteredAiringAnime]);
+  }, [filteredAiringAnime, recentOccurrencesMap]);
 
   const [torrentMatchesMap, setTorrentMatchesMap] = useState({});
 
@@ -210,19 +427,15 @@ function Recent() {
     const groups = Array.from({ length: 7 }, () => []);
 
     myAiringAnime.forEach((anime) => {
-      if (!anime.nextAiringEpisode) return;
-      const nextDate = new Date(anime.nextAiringEpisode.airingAt * 1000);
+      const entry = getScheduleEntry(anime);
+      if (!entry) return;
+      const nextDate = new Date(entry.airingAt);
       const dayOfWeek = nextDate.getDay();
-      groups[dayOfWeek].push({
-        anime,
-        nextEp: anime.nextAiringEpisode.episode,
-        airingAt: anime.nextAiringEpisode.airingAt * 1000,
-        timeUntil: anime.nextAiringEpisode.timeUntilAiring,
-      });
+      groups[dayOfWeek].push(entry);
     });
 
     return groups;
-  }, [myAiringAnime]);
+  }, [myAiringAnime, getScheduleEntry]);
 
   const shouldShowApiUnavailableState = hasTrackedAnime && !!errorExtra && !loadingExtra;
 
@@ -243,16 +456,8 @@ function Recent() {
     [playEpisode],
   );
 
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    if (activeTab !== "horario") return;
-    const interval = setInterval(() => setTick((t) => t + 1), 60000);
-    return () => clearInterval(interval);
-  }, [activeTab]);
-
   const formatTimeUntil = (airingAt) => {
-    const seconds = Math.floor((airingAt - Date.now()) / 1000);
+    const seconds = Math.floor((airingAt - nowMs) / 1000);
     if (seconds <= 0) return "YA EMITIDO";
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
@@ -520,8 +725,10 @@ function Recent() {
                 <p>No hay episodios programados para {DAY_NAMES[activeDay].toLowerCase()}.</p>
               </div>
             ) : (
-              scheduleByDay[activeDay].map(({ anime, nextEp, airingAt }) => {
-                const isAired = airingAt <= Date.now();
+              scheduleByDay[activeDay].map(({ anime, nextEp, airingAt, status }) => {
+                const isAired = status === "aired_recently";
+                const badgeLabel =
+                  status === "finished" ? "FINALIZADO" : status === "hiatus_or_unknown" ? "SIN FECHA" : null;
                 return (
                   <div
                     key={anime.malId}
@@ -543,6 +750,8 @@ function Recent() {
                       <div className={styles.scheduleCardMeta}>
                         {isAired ? (
                           <span className={styles.airedBadge}>YA EMITIDO</span>
+                        ) : badgeLabel ? (
+                          <span className={styles.pendingBadge}>{badgeLabel}</span>
                         ) : (
                           <span className={styles.countdownBadge}>{formatTimeUntil(airingAt)}</span>
                         )}
