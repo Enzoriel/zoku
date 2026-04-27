@@ -367,6 +367,67 @@
   gap: 10px;
 }
 
+.fileManagementBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--px-border);
+  background: rgba(255, 255, 255, 0.03);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.fileManagementText {
+  color: var(--px-text-dim);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.fileManagementActions {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.fileManagementBtn {
+  min-height: 32px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--px-border);
+  color: var(--px-text);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.fileManagementBtn:hover:not(:disabled) {
+  border-color: var(--px-yellow);
+  color: var(--px-yellow);
+}
+
+.fileManagementBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.fileManagementBtnDanger {
+  border-color: rgba(255, 75, 110, 0.45);
+  color: #ff6f8d;
+}
+
+.fileManagementBtnDanger:hover:not(:disabled) {
+  border-color: #ff6f8d;
+  color: #ff9db1;
+}
+
 .episodesHeader {
   display: flex;
   justify-content: space-between;
@@ -478,8 +539,37 @@
   background: rgba(232, 240, 0, 0.08);
 }
 
+.episodeCardSelected {
+  border-color: #ff6f8d;
+  background: rgba(255, 75, 110, 0.08);
+}
+
+.episodeCardSelectableDelete {
+  cursor: pointer;
+}
+
 .episodeCardNoFile {
   border: 1px dashed var(--px-border);
+}
+
+.episodeSelectToggle {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid var(--px-border);
+  background: transparent;
+  color: var(--px-text-dim);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.episodeSelectToggleActive {
+  border-color: #ff6f8d;
+  color: #ff9db1;
+  background: rgba(255, 75, 110, 0.12);
 }
 
 /* Play Icon - Pixel art with text */
@@ -798,6 +888,11 @@
   color: var(--px-yellow);
 }
 
+.contextMenuItemDanger:hover {
+  background: rgba(255, 75, 110, 0.14);
+  color: #ff9db1;
+}
+
 /* Modal */
 .modalOverlay {
   position: fixed;
@@ -1094,6 +1189,10 @@
 }
 
 @media (max-width: 640px) {
+  .fileManagementBar {
+    align-items: center;
+  }
+
   .headerArea {
     flex-direction: column;
     gap: 16px;

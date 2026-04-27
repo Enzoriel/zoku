@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { extractEpisodeNumber } from "../../../utils/fileParsing";
 import { getReleasedEpisodeCount, isAnimeActivelyAiring } from "../../../utils/airingStatus";
 import { getEpisodeTorrentAvailability } from "../../../utils/torrentAvailability";
 import styles from "../../../pages/AnimeDetails.module.css";
@@ -8,6 +7,7 @@ export function EpisodeList({
   mainAnime,
   episodes,
   animeFilesData,
+  episodeFileMap = new Map(),
   torrentData,
   playingEp,
   handlePlayEpisode,
@@ -17,6 +17,14 @@ export function EpisodeList({
   setTorrentModalItems,
   setTorrentModalOpen,
   folderName,
+  canManageFiles,
+  deleteSelectionMode,
+  selectedEpisodes,
+  onToggleDeleteMode,
+  onToggleEpisodeSelection,
+  onClearEpisodeSelection,
+  onDeleteSelectedEpisodes,
+  onDeleteAllEpisodes,
 }) {
   const progressPct = useMemo(
     () => (episodes.length > 0 ? (mainAnime?.watchedEpisodes?.length / episodes.length) * 100 : 0),
@@ -45,27 +53,21 @@ export function EpisodeList({
 
   const getEpisodeStatus = (epNum) => {
     const isWatched = mainAnime?.watchedEpisodes?.includes(epNum);
-    const localFile = animeFilesData.files.find((file) => {
-      const detectedEpisode =
-        file.episodeNumber ??
-        extractEpisodeNumber(file.name, [
-          mainAnime?.title,
-          mainAnime?.title_english,
-          ...(mainAnime?.synonyms || []),
-          folderName,
-        ]);
-      if (detectedEpisode !== null) return detectedEpisode === epNum;
-      // Archivos sin número detectado (típico en películas): asignar al episodio 1
-      return epNum === 1 && episodes.length === 1;
-    });
+    const localFiles = episodeFileMap.get(epNum) || [];
+    const playableFile = localFiles.find((file) => !file.isDownloading) || null;
+    const downloadingFile = localFiles.find((file) => file.isDownloading) || null;
+    const localFile = playableFile || downloadingFile;
+    const deletableFiles = localFiles.filter((file) => !file.isDownloading);
 
-    if (isWatched) return { label: "VISTO", type: "tagWatched", file: localFile };
-    if (localFile?.isDownloading) return { label: "DESCARGANDO", type: "tagDownloading", file: localFile };
-    if (localFile) return { label: "DESCARGADO", type: "tagDownloaded", file: localFile };
+    if (isWatched) return { label: "VISTO", type: "tagWatched", file: localFile, deletableFiles };
+    if (!playableFile && downloadingFile) {
+      return { label: "DESCARGANDO", type: "tagDownloading", file: downloadingFile, deletableFiles };
+    }
+    if (playableFile) return { label: "DESCARGADO", type: "tagDownloaded", file: playableFile, deletableFiles };
 
     const status = mainAnime?.status;
     if (status === "Finalizado" || status === "Finished Airing" || status === "FINISHED") {
-      return { label: "EMITIDO", type: "tagAired", file: null };
+      return { label: "EMITIDO", type: "tagAired", file: null, deletableFiles };
     }
     if (
       status === "Proximamente" ||
@@ -73,7 +75,7 @@ export function EpisodeList({
       status === "NOT_YET_RELEASED" ||
       status === "Not yet aired"
     ) {
-      return { label: "PROXIMO", type: "tagNotAired", file: null };
+      return { label: "PROXIMO", type: "tagNotAired", file: null, deletableFiles };
     }
 
     const releasedEpisodes = getReleasedEpisodeCount(mainAnime);
@@ -81,9 +83,9 @@ export function EpisodeList({
       (mainAnime?.nextAiringEpisode || isAnimeActivelyAiring(mainAnime) || releasedEpisodes > 0) &&
       epNum <= releasedEpisodes
     ) {
-      return { label: "EMITIDO", type: "tagAired", file: null };
+      return { label: "EMITIDO", type: "tagAired", file: null, deletableFiles };
     }
-    return { label: "PROXIMO", type: "tagNotAired", file: null };
+    return { label: "PROXIMO", type: "tagNotAired", file: null, deletableFiles };
   };
 
   return (
@@ -94,16 +96,50 @@ export function EpisodeList({
           {mainAnime.watchedEpisodes.length} / {episodes.length} VISTOS
         </span>
       </div>
+      {canManageFiles && deleteSelectionMode && (
+        <div className={styles.fileManagementBar}>
+          <span className={styles.fileManagementText}>
+            {selectedEpisodes.length > 0
+              ? `${selectedEpisodes.length} episodios seleccionados`
+              : `0 episodios seleccionados.`}
+          </span>
+          <div className={styles.fileManagementActions}>
+            <button type="button" className={styles.fileManagementBtn} onClick={onClearEpisodeSelection}>
+              LIMPIAR
+            </button>
+            <button
+              type="button"
+              className={`${styles.fileManagementBtn} ${styles.fileManagementBtnDanger}`}
+              onClick={onDeleteSelectedEpisodes}
+              disabled={selectedEpisodes.length === 0}
+            >
+              BORRAR SELECCION
+            </button>
+            <button
+              type="button"
+              className={`${styles.fileManagementBtn} ${styles.fileManagementBtnDanger}`}
+              onClick={onDeleteAllEpisodes}
+            >
+              BORRAR TODO
+            </button>
+            <button type="button" className={styles.fileManagementBtn} onClick={onToggleDeleteMode}>
+              CERRAR
+            </button>
+          </div>
+        </div>
+      )}
       <div className={styles.progressBar}>
         <div className={styles.progressFill} style={{ width: `${progressPct}%` }} />
       </div>
       <div className={styles.episodesList}>
         {episodes.map((epNum) => {
           const status = getEpisodeStatus(epNum);
+          const isSelected = selectedEpisodes.includes(epNum);
+          const canToggleDelete = deleteSelectionMode && status.deletableFiles.length > 0;
           const isPlaying =
             String(playingEp?.animeId || "") === String(mainAnime.malId || mainAnime.mal_id || "") &&
             playingEp?.epNumber === epNum;
-          const isPlayable = !!status.file && status.type !== "tagDownloading";
+          const isPlayable = !deleteSelectionMode && !!status.file && status.type !== "tagDownloading";
           const availability = torrentMatchesByEpisode[epNum] || { matches: [], hasPrincipalMatch: false };
           const matches = availability.matches;
           const hasPrincipalMatch = availability.hasPrincipalMatch;
@@ -111,10 +147,23 @@ export function EpisodeList({
           return (
             <div
               key={epNum}
-              className={`${styles.episodeCard} ${isPlaying ? styles.episodeCardPlaying : ""} ${isPlayable ? styles.episodeCardPlayable : ""}`}
-              onClick={() => isPlayable && handlePlayEpisode(epNum, status.file.path)}
-              onContextMenu={(event) => handleContextMenu(event, epNum, status.type === "tagWatched")}
+              className={`${styles.episodeCard} ${isPlaying ? styles.episodeCardPlaying : ""} ${isPlayable ? styles.episodeCardPlayable : ""} ${isSelected ? styles.episodeCardSelected : ""} ${canToggleDelete ? styles.episodeCardSelectableDelete : ""}`}
+              onClick={() => {
+                if (canToggleDelete) {
+                  onToggleEpisodeSelection(epNum);
+                  return;
+                }
+                if (isPlayable) {
+                  handlePlayEpisode(epNum, status.file.path);
+                }
+              }}
+              onContextMenu={(event) => handleContextMenu(event, epNum, status)}
             >
+              {deleteSelectionMode && status.deletableFiles.length > 0 && (
+                <span className={`${styles.episodeSelectToggle} ${isSelected ? styles.episodeSelectToggleActive : ""}`}>
+                  {isSelected ? "X" : "+"}
+                </span>
+              )}
               {isPlayable && !isPlaying && (
                 <span className={styles.epPlayIcon}>
                   <svg width="40" height="50" viewBox="0 0 70 90" className={styles.playPixel}>
@@ -135,18 +184,22 @@ export function EpisodeList({
                 )}
               </div>
               {isPlaying && <span className={styles.tagPlaying}>REPRODUCIENDO</span>}
-              {(activeFansub || principalFansub) && !isPlayable && !isPlaying && matches.length > 0 && (
-                <button
-                  className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setTorrentModalItems(matches);
-                    setTorrentModalOpen(true);
-                  }}
-                >
-                  Disponible
-                </button>
-              )}
+              {(activeFansub || principalFansub) &&
+                !isPlayable &&
+                !isPlaying &&
+                !deleteSelectionMode &&
+                matches.length > 0 && (
+                  <button
+                    className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setTorrentModalItems(matches);
+                      setTorrentModalOpen(true);
+                    }}
+                  >
+                    Disponible
+                  </button>
+                )}
             </div>
           );
         })}
