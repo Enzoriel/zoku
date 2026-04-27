@@ -26,6 +26,9 @@ fn restore_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            restore_main_window(app);
+        }))
         .manage(secure_fs::LibraryState::new())
         .manage(AppRuntimeState::default())
         .plugin(tauri_plugin_shell::init())

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Window } from "@tauri-apps/api/window";
+import { getVersion } from "@tauri-apps/api/app";
 import styles from "./TitleBar.module.css";
 
 function PixelMinimizeIcon() {
@@ -44,11 +45,14 @@ export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeControl, setActiveControl] = useState(null);
   const [canHover, setCanHover] = useState(true);
+  const [appVersion, setAppVersion] = useState("");
   const windowRef = useRef(null);
 
   useEffect(() => {
     const appWindow = Window.getCurrent();
     windowRef.current = appWindow;
+
+    getVersion().then(setAppVersion).catch(console.error);
 
     let unlistenResize = null;
     let unlistenFocus = null;
@@ -165,6 +169,7 @@ export function TitleBar() {
 
         <div className={styles.brandCopy}>
           <strong className={styles.brandName}>ZOKU</strong>
+          {appVersion && <span className={styles.appVersion}>v{appVersion}</span>}
         </div>
       </div>
 

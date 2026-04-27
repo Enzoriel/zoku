@@ -101,6 +101,18 @@
   text-shadow: 2px 0 0 rgba(0, 0, 0, 0.45);
 }
 
+.appVersion {
+  color: var(--px-cyan);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-shadow: 1px 0 0 rgba(0, 0, 0, 0.45);
+  margin-left: 6px;
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
 .statusRail {
   display: flex;
   align-items: center;
