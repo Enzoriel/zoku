@@ -8,7 +8,7 @@ import { useToast } from "../hooks/useToast";
 import TorrentDownloadModal from "../components/ui/TorrentDownloadModal";
 import { searchAnime } from "../services/api";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
-import { deleteVirtualFolderFiles, findAnimeFolderCandidates } from "../services/fileSystem";
+import { findAnimeFolderCandidates } from "../services/fileSystem";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import TorrentAliasModal from "../components/ui/TorrentAliasModal";
 import FolderLinkModal from "../components/ui/FolderLinkModal";
@@ -25,6 +25,7 @@ import { buildEpisodeFileMap } from "../utils/episodeFiles";
 import { acceptSuggestedFolder, rejectSuggestedFolder } from "../utils/linkingState";
 import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
 import { getBestFolderMatch } from "../utils/libraryView";
+import { useDeleteEpisodes } from "../hooks/useDeleteEpisodes";
 import styles from "./AnimeDetails.module.css";
 
 const AIRING_METADATA_REFRESH_MS = 6 * 60 * 60 * 1000;
@@ -64,7 +65,6 @@ function AnimeDetails() {
   const [torrentModalItems, setTorrentModalItems] = useState([]);
   const [deleteSelectionMode, setDeleteSelectionMode] = useState(false);
   const [selectedDeleteEpisodes, setSelectedDeleteEpisodes] = useState([]);
-  const [isDeletingFiles, setIsDeletingFiles] = useState(false);
 
   const { toast, showToast } = useToast();
   const { safeExecute } = useSafeAsync();
@@ -571,127 +571,22 @@ function AnimeDetails() {
     setSelectedDeleteEpisodes((prev) => (prev.length > 0 ? [] : prev));
   }, [canDeleteFiles]);
 
-  const normalizeTrackedPath = useCallback(
-    (path) =>
-      String(path || "")
-        .replace(/\\/g, "/")
-        .replace(/\/+$/, "")
-        .toLowerCase(),
-    [],
-  );
-
-  const getRemainingTrackedFiles = useCallback(
-    (localFilesSnapshot, filesToCheck) => {
-      const targetPaths = new Set((filesToCheck || []).map((file) => normalizeTrackedPath(file.path)).filter(Boolean));
-      if (targetPaths.size === 0) return [];
-
-      return Object.values(localFilesSnapshot || {})
-        .flatMap((folder) => folder.files || [])
-        .filter((file) => targetPaths.has(normalizeTrackedPath(file.path)));
-    },
-    [normalizeTrackedPath],
-  );
-
   const closeDeleteSelectionMode = useCallback(() => {
     setDeleteSelectionMode((prev) => (prev ? false : prev));
     setSelectedDeleteEpisodes((prev) => (prev.length > 0 ? [] : prev));
   }, []);
 
-  const requestDeleteEpisodes = useCallback(
-    (episodeNumbers, options = {}) => {
-      if (!data.folderPath) {
-        showInfoModal("Biblioteca no disponible", "No hay una biblioteca configurada para borrar archivos.");
-        return;
-      }
-
-      const normalizedEpisodes = Array.from(new Set((episodeNumbers || []).filter((epNum) => Number.isFinite(epNum)))).sort(
-        (first, second) => first - second,
-      );
-      const filesToDelete = normalizedEpisodes.flatMap(
-        (epNum) => deletableEpisodeEntries.find((entry) => entry.epNum === epNum)?.files || [],
-      );
-
-      if (filesToDelete.length === 0) {
-        showInfoModal("No hay archivos para borrar", "Selecciona episodios con archivos descargados.");
-        return;
-      }
-
-      const fileNames = filesToDelete.map((file) => file.name).join("\n- ");
-      const episodeLabel =
-        options.mode === "all"
-          ? "Se borraran todos los archivos locales vinculados a este anime."
-          : normalizedEpisodes.length === 1
-            ? `Se borraran los archivos del episodio ${normalizedEpisodes[0]}.`
-            : `Se borraran los archivos de los episodios ${normalizedEpisodes.join(", ")}.`;
-
-      setConfirmModal({
-        title: options.mode === "all" ? "Borrar todos los archivos" : "Borrar archivos seleccionados",
-        message: `${episodeLabel}\n\n- ${fileNames}`,
-        variant: "danger",
-        confirmLabel: options.mode === "all" ? "BORRAR TODO" : "BORRAR",
-        onCancel: () => !isDeletingFiles && setConfirmModal(null),
-        onConfirm: async () => {
-          setIsDeletingFiles(true);
-          const result = await deleteVirtualFolderFiles(filesToDelete, data.folderPath);
-          const nextLocalFiles = await performSync();
-
-          if (nextLocalFiles === null) {
-            setIsDeletingFiles(false);
-            showInfoModal(
-              "No se pudo verificar el borrado",
-              "No se pudo reescanear la biblioteca despues del intento de borrado.",
-            );
-            return;
-          }
-
-          const remainingTargetedFiles = getRemainingTrackedFiles(nextLocalFiles, filesToDelete);
-          if (remainingTargetedFiles.length > 0) {
-            setIsDeletingFiles(false);
-            const lockedFile = result.errors.find((item) => item.code === "FILE_IN_USE");
-            const remainingNames = remainingTargetedFiles.map((file) => file.name).join("\n- ");
-            showInfoModal(
-              "No se pudo completar el borrado",
-              lockedFile?.error || `Uno o mas archivos siguen en uso o no pudieron eliminarse:\n\n- ${remainingNames}`,
-            );
-            return;
-          }
-
-          if (result.failed > 0 && result.deleted === 0) {
-            setIsDeletingFiles(false);
-            showInfoModal(
-              "No se pudo completar el borrado",
-              result.errors[0]?.error || "Uno o mas archivos no pudieron eliminarse.",
-            );
-            return;
-          }
-
-          const remainingAnimeFiles = getRemainingTrackedFiles(nextLocalFiles, animeFilesData.files);
-          setConfirmModal(null);
-          setIsDeletingFiles(false);
-          setSelectedDeleteEpisodes((prev) => prev.filter((epNum) => !normalizedEpisodes.includes(epNum)));
-
-          if (remainingAnimeFiles.length === 0) {
-            closeDeleteSelectionMode();
-            showToast("No quedan archivos locales para este anime.", "info");
-            return;
-          }
-
-          showToast(`${result.deleted} archivo(s) eliminados del disco.`, "success");
-        },
-      });
-    },
-    [
-      animeFilesData.files,
-      closeDeleteSelectionMode,
-      data.folderPath,
-      deletableEpisodeEntries,
-      getRemainingTrackedFiles,
-      isDeletingFiles,
-      performSync,
-      showInfoModal,
-      showToast,
-    ],
-  );
+  const { requestDeleteEpisodes, isDeletingFiles } = useDeleteEpisodes({
+    folderPath: data.folderPath,
+    deletableEpisodeEntries,
+    animeFilesDataFiles: animeFilesData.files,
+    performSync,
+    showInfoModal,
+    showToast,
+    setConfirmModal,
+    setSelectedDeleteEpisodes,
+    closeDeleteSelectionMode,
+  });
 
   const handleDeleteAllFiles = useCallback(() => {
     requestDeleteEpisodes(deletableEpisodeNumbers, { mode: "all" });
@@ -853,6 +748,7 @@ function AnimeDetails() {
           confirmLabel={confirmModal.confirmLabel}
           variant={confirmModal.variant}
           hideCancel={confirmModal.hideCancel}
+          loadingLabel={confirmModal.loadingLabel}
           isLoading={isDeletingFiles}
         />
       )}

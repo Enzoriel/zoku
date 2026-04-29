@@ -88,6 +88,11 @@
   letter-spacing: 1px;
   margin: 0 0 24px;
   line-height: 1.6;
+  max-height: min(42vh, 320px);
+  overflow: auto;
+  padding-right: 4px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .actions {
@@ -137,4 +142,54 @@
 .confirmBtn.danger:hover {
   background: #ff4444;
   color: white;
+}
+
+.cancelBtn:disabled,
+.confirmBtn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+  background: transparent;
+}
+
+.confirmBtn:disabled,
+.confirmBtn:disabled:hover {
+  border-color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.confirmBtn.danger:disabled,
+.confirmBtn.danger:disabled:hover {
+  border-color: rgba(255, 68, 68, 0.8);
+  color: #ff4444;
+}
+
+.loadingLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+.loadingHint {
+  margin: -10px 0 22px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: "Tektur", sans-serif;
+  font-size: 0.65rem;
+  letter-spacing: 1px;
+  line-height: 1.5;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

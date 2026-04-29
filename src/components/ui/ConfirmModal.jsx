@@ -7,6 +7,7 @@ function ConfirmModal({
   onConfirm, 
   onCancel, 
   isLoading = false, 
+  loadingLabel = "Procesando y verificando...",
   confirmLabel = "CONFIRMAR",
   variant = "primary",
   hideCancel = false,
@@ -32,12 +33,28 @@ function ConfirmModal({
             onClick={onConfirm} 
             disabled={isLoading}
           >
-            {isLoading ? "PROCESANDO..." : confirmLabel}
+            {isLoading ? (
+              <span className={styles.loadingLabel}>
+                <span className={styles.spinner} aria-hidden="true" />
+                PROCESANDO
+              </span>
+            ) : (
+              confirmLabel
+            )}
           </button>
         </>
       }
     >
-      <p id="confirm-modal-message" className={styles.message}>{message}</p>
+      {typeof message === "string" ? (
+        <p id="confirm-modal-message" className={styles.message}>
+          {message}
+        </p>
+      ) : (
+        <div id="confirm-modal-message" className={styles.message}>
+          {message}
+        </div>
+      )}
+      {isLoading && <p className={styles.loadingHint}>{loadingLabel}</p>}
     </Modal>
   );
 }
