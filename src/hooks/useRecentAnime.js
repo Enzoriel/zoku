@@ -9,12 +9,14 @@ const recentAnimeCache = new Map();
 function isRecentlyRelevantAnime(anime, now) {
   if (!anime) return false;
 
-  const status = anime.status?.toLowerCase() || "";
+  const status = String(anime.status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
   const isAiring =
     status === "airing" ||
     status === "releasing" ||
-    status === "en emision" ||
-    status === "en emisión";
+    status === "en emision";
 
   if (isAiring || anime.nextAiringEpisode) {
     return true;
@@ -84,7 +86,6 @@ export function useRecentAnime(seasonalAnime, myAnimes) {
 
       recentAnimeCache.set(cacheKey, { data: filteredResults, timestamp: Date.now() });
 
-      // GC: limpiar entries expiradas cada vez que se escribe
       if (recentAnimeCache.size > 20) {
         const nowGC = Date.now();
         for (const [key, entry] of recentAnimeCache) {
@@ -93,8 +94,6 @@ export function useRecentAnime(seasonalAnime, myAnimes) {
           }
         }
       }
-
-
 
       setExtraAnime(filteredResults);
       return filteredResults;

@@ -335,8 +335,9 @@ export async function getAnimeDetailsBatch(ids) {
   const chunkSize = 50;
   let allResults = [];
   let firstError = null;
+  let shouldStopBatch = false;
 
-  for (let index = 0; index < ids.length; index += chunkSize) {
+  for (let index = 0; index < ids.length && !shouldStopBatch; index += chunkSize) {
     const chunkIds = ids.slice(index, index + chunkSize);
     const query = `
       query ($ids: [Int]) {
@@ -348,16 +349,34 @@ export async function getAnimeDetailsBatch(ids) {
       }
     `;
 
-    try {
-      const result = await queryAniList(query, { ids: chunkIds });
-      if (result?.Page?.media) {
-        allResults = allResults.concat(result.Page.media.map(mapMedia).filter(Boolean));
+    let retries = 3;
+    let success = false;
+
+    while (retries > 0 && !success) {
+      try {
+        const result = await queryAniList(query, { ids: chunkIds });
+        if (result?.Page?.media) {
+          allResults = allResults.concat(result.Page.media.map(mapMedia).filter(Boolean));
+        }
+        success = true;
+      } catch (error) {
+        const isRateLimit = error.message.includes("limito temporalmente") || error.message.includes("429");
+        if (isRateLimit) {
+          retries -= 1;
+          if (retries > 0) {
+            console.warn(`[API] Rate limit detectado en batch ${index}. Esperando 2s... (quedan ${retries} intentos)`);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            continue;
+          }
+        }
+
+        if (!firstError) {
+          firstError = error;
+        }
+        console.warn(`Error fetching batch from ${index} to ${index + chunkSize}:`, error);
+        shouldStopBatch = true;
+        break;
       }
-    } catch (error) {
-      if (!firstError) {
-        firstError = error;
-      }
-      console.warn(`Error fetching batch from ${index} to ${index + chunkSize}:`, error);
     }
   }
 
