@@ -28,6 +28,10 @@
   scrollbar-gutter: stable;
 }
 
+:global(.is-drag-scrolling) {
+  scroll-behavior: auto;
+}
+
 /* Scrollbar Customization */
 :global(::-webkit-scrollbar) {
   width: 6px;

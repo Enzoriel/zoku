@@ -25,7 +25,12 @@ const Configuration = lazy(() => import("./pages/Configuration"));
 const History = lazy(() => import("./pages/History"));
 const TorrentPage = lazy(() => import("./pages/TorrentPage"));
 
+import { useBlockWebNavigation } from "./hooks/useBlockWebNavigation";
+
 function App() {
+  // Inicializar el bloqueo de navegación web (botones y atajos de teclado destructivos)
+  useBlockWebNavigation();
+
   return (
     <StoreProvider>
       <AnimeProvider>

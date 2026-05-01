@@ -1,12 +1,15 @@
-import { Outlet, useLocation } from "react-router-dom";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Outlet } from "react-router-dom";
+import { Suspense, useMemo, useRef } from "react";
 import { Sidebar } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
+import { useScrollManager } from "../../hooks/useScrollManager";
 import styles from "./Layout.module.css";
 
 const Layout = () => {
-  const { pathname, search } = useLocation();
   const contentRef = useRef(null);
+
+  // Instanciar el manejador de scroll inmersivo
+  useScrollManager(contentRef);
 
   const ambientParticles = useMemo(() => {
     return Array.from({ length: 28 }).map((_, i) => {
@@ -23,16 +26,6 @@ const Layout = () => {
       return <span key={i} className={styles.particle} style={style} />;
     });
   }, []);
-
-  useEffect(() => {
-    const scrollTarget = contentRef.current;
-    if (scrollTarget?.scrollTo) {
-      scrollTarget.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      return;
-    }
-
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [pathname, search]);
 
   return (
     <div className={styles.layout}>
