@@ -61,6 +61,67 @@ function buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs, isEstimated
   return occurrences;
 }
 
+/**
+ * Calcula las fechas de cada episodio usando un ancla estable (startDate + hora).
+ * Cada episodio se calcula como: anchorMs + (episodio - 1) * WEEK_MS.
+ *
+ * Esto evita que las fechas de episodios pasados se desplacen cuando la API
+ * corrige el nextAiringEpisode (por ejemplo, cuando un episodio se retrasa).
+ */
+function buildWeeklyOccurrencesFromStart(releasedEpisodeCount, anchorMs, isEstimated = true) {
+  const occurrences = [];
+  for (let ep = 1; ep <= releasedEpisodeCount; ep += 1) {
+    occurrences.push({
+      ep,
+      airedAt: anchorMs + (ep - 1) * WEEK_MS,
+      isEstimated,
+    });
+  }
+  return occurrences;
+}
+
+/**
+ * Combina la FECHA de startDate con la HORA precisa de nextAiringEpisode
+ * para obtener un timestamp estable del episodio 1.
+ *
+ * startDate solo tiene año/mes/día (sin hora exacta).
+ * nextAiringEpisode.airingAt tiene el timestamp preciso (con hora, ej. 23:30 JST).
+ *
+ * Extraemos la hora del día del airingAt y la combinamos con la fecha del startDate.
+ * El resultado es estable: si la API retrasa un episodio (cambia airingAt por +1 semana),
+ * la hora del día no cambia, y startDate tampoco → el ancla se mantiene idéntica.
+ *
+ * Valida que el día de la semana del airingAt coincida con startDate (ambos deben
+ * ser el mismo día de la semana si el anime emite semanalmente).
+ */
+function buildStableAnchorMs(startDate, nextAiring) {
+  if (!startDate || !nextAiring) return null;
+
+  const airingAtMs = Number(nextAiring.airingAt || 0) * 1000;
+  if (!Number.isFinite(airingAtMs) || airingAtMs <= 0) return null;
+
+  const airingDate = new Date(airingAtMs);
+  const startMs = startDate.getTime();
+
+  // Extraer la hora del día del airingAt (horas + minutos + segundos en ms)
+  const timeOfDayMs =
+    airingDate.getHours() * 3600000 +
+    airingDate.getMinutes() * 60000 +
+    airingDate.getSeconds() * 1000;
+
+  // Combinar fecha de startDate + hora de airingAt
+  const anchorMs = startMs + timeOfDayMs;
+
+  // Validar: el día de la semana del startDate debe coincidir con el del airingAt
+  // (ambos deben caer el mismo día de la semana para un anime semanal).
+  // Si no coinciden, podría ser un anime con horario irregular → no usar este método.
+  if (startDate.getDay() !== airingDate.getDay()) {
+    return null;
+  }
+
+  return anchorMs;
+}
+
 export function buildRecentEpisodeOccurrences(anime, nowMs = Date.now()) {
   const releasedEpisodeCount = getReleasedEpisodeCount(anime, nowMs);
   if (!releasedEpisodeCount) return [];
@@ -89,6 +150,25 @@ export function buildRecentEpisodeOccurrences(anime, nowMs = Date.now()) {
   const hasNextAiring = Number.isFinite(nextAiringAtMs) && nextAiringAtMs > 0;
 
   if (startDate && hasNextAiring) {
+    // Intentar usar startDate + hora como ancla estable.
+    // Esto hace que las fechas de episodios pasados NO cambien
+    // cuando la API corrige el nextAiringEpisode (ej. episodio retrasado).
+    const stableAnchorMs = buildStableAnchorMs(startDate, nextAiring);
+
+    if (stableAnchorMs !== null) {
+      // Verificar si es un batch premiere (todos los episodios salen el mismo día)
+      if (releasedEpisodeCount === 1) {
+        return buildBatchPremiereOccurrences(releasedEpisodeCount, startDate).filter(
+          (entry) => entry.airedAt >= cutoffMs && entry.airedAt <= nowMs + 60 * 60 * 1000,
+        );
+      }
+
+      return buildWeeklyOccurrencesFromStart(releasedEpisodeCount, stableAnchorMs, false).filter(
+        (entry) => entry.airedAt >= cutoffMs && entry.airedAt <= nowMs + 60 * 60 * 1000,
+      );
+    }
+
+    // Fallback: si el día de la semana no coincide, usar el método original
     const lastReleaseMs = hasAiredNextEpisode(nextAiring, nowMs) ? nextAiringAtMs : nextAiringAtMs - WEEK_MS;
     if (isSameLocalDay(startDate, new Date(lastReleaseMs))) {
       return buildBatchPremiereOccurrences(releasedEpisodeCount, startDate).filter(

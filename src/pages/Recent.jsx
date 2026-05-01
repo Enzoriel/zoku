@@ -294,11 +294,20 @@ function Recent() {
       const previousAiringAtMs = airingAtMs - WEEK_MS;
       const previousEpisode = Math.max(nextEpisodeNumber - 1, 0);
 
-      if (previousEpisode > 0 && previousAiringAtMs <= nowMs && nowMs - previousAiringAtMs < DAY_MS) {
+      let effectivePreviousAiringAtMs = previousAiringAtMs;
+      
+      if (recentOccurrences.length > 0 && previousEpisode > 0) {
+        const matchingOccurrence = recentOccurrences.find(o => o.ep === previousEpisode);
+        if (matchingOccurrence) {
+          effectivePreviousAiringAtMs = matchingOccurrence.airedAt;
+        }
+      }
+
+      if (previousEpisode > 0 && effectivePreviousAiringAtMs <= nowMs && nowMs - effectivePreviousAiringAtMs < DAY_MS) {
         return {
           anime,
           nextEp: previousEpisode,
-          airingAt: previousAiringAtMs,
+          airingAt: effectivePreviousAiringAtMs,
           status: "aired_recently",
         };
       }
