@@ -124,11 +124,7 @@ export function mergeFreshAnimeMetadata(prevMyAnimes, candidates, freshAnimeList
     const fresh = freshById.get(id);
     if (!stored) continue;
 
-    if (!fresh) {
-      next[entryKey] = { ...stored, lastMetadataFetch: nowIso };
-      changed = true;
-      continue;
-    }
+    if (!fresh) continue;
 
     const patch = {};
     let hasFieldChanges = false;
