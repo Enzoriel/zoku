@@ -1,8 +1,12 @@
 import styles from "../../../pages/AnimeDetails.module.css";
+import BackButton from "../../ui/BackButton";
 
 export function AnimeHeader({ title, type, year, status }) {
   return (
     <header className={styles.headerArea}>
+      <div style={{ marginBottom: "1rem" }}>
+        <BackButton />
+      </div>
       <div className={styles.titleContainer}>
         <h1 className={styles.mainTitle}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="18" height="18" className={styles.titleIcon}>
