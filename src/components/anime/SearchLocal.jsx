@@ -1,36 +1,42 @@
 import { useRef, useState, useEffect } from "react";
 import styles from "./SearchBar.module.css";
 
-const SearchLocal = ({ onSearch, placeholder = "BUSCAR..." }) => {
-  const [value, setValue] = useState("");
+const SearchLocal = ({ onSearch, placeholder = "BUSCAR...", initialValue = "" }) => {
+  const [value, setValue] = useState(initialValue);
   const inputRef = useRef(null);
+  const isFocused = useRef(false);
 
-  const isFirstRender = useRef(true);
-  const skipNextDebounce = useRef(false);
+  const debounceTimeout = useRef(null);
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    const handler = setTimeout(() => {
-      if (skipNextDebounce.current) {
-        skipNextDebounce.current = false;
-        return;
-      }
-      onSearch(value);
-    }, 300);
+    if (isFocused.current) return;
+    setValue(initialValue);
+  }, [initialValue]);
 
-    return () => clearTimeout(handler);
-  }, [value, onSearch]);
+  useEffect(() => {
+    return () => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+    };
+  }, []);
 
   const handleChange = (event) => {
-    setValue(event.target.value);
+    const newValue = event.target.value;
+    setValue(newValue);
+
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    debounceTimeout.current = setTimeout(() => {
+      onSearch(newValue);
+    }, 300);
   };
 
   const handleClear = () => {
-    skipNextDebounce.current = true;
     setValue("");
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     onSearch(""); // Limpieza instantánea para UX inmediata
     inputRef.current?.focus();
   };
@@ -45,6 +51,12 @@ const SearchLocal = ({ onSearch, placeholder = "BUSCAR..." }) => {
           placeholder={placeholder}
           value={value}
           onChange={handleChange}
+          onFocus={() => {
+            isFocused.current = true;
+          }}
+          onBlur={() => {
+            isFocused.current = false;
+          }}
         />
         {value && (
           <button

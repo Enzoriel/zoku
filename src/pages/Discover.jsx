@@ -1,4 +1,5 @@
-import { useState, useMemo, useTransition, useCallback } from "react";
+import { useMemo, useTransition, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import AnimeList from "../components/anime/AnimeList";
 import RetryPanel from "../components/ui/RetryPanel";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -7,9 +8,13 @@ import styles from "./Discover.module.css";
 import { useAnime } from "../context/AnimeContext";
 
 function Discover() {
-  const { seasonalAnime: allAnimes, loading, error, retryFetch, discoverState, setDiscoverState } = useAnime();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [pendingType, setPendingType] = useState(null);
+  const { seasonalAnime: allAnimes, loading, error, retryFetch } = useAnime();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  const searchTerm = searchParams.get("q") || "";
+  const discoverType = searchParams.get("type") || "TV";
+  const currentPage = parseInt(searchParams.get("page") || "1", 10);
+
   const [isPending, startTransition] = useTransition();
 
   const filteredAnimes = useMemo(() => {
@@ -18,26 +23,43 @@ function Discover() {
       const matchesSearch = anime.title.toLowerCase().includes(searchLower);
       if (searchTerm) return matchesSearch;
 
-      const matchesType = anime.format === discoverState.type || anime.type === discoverState.type;
+      const matchesType = anime.format === discoverType || anime.type === discoverType;
       return matchesType;
     });
-  }, [allAnimes, discoverState.type, searchTerm]);
+  }, [allAnimes, discoverType, searchTerm]);
 
   const handleSearch = useCallback((term) => {
-    setSearchTerm(term);
-    setDiscoverState((prev) => ({ ...prev, page: 1 }));
-  }, [setDiscoverState]);
+    setSearchParams((prev) => {
+      if (term) {
+        prev.set("q", term);
+      } else {
+        prev.delete("q");
+      }
+      prev.set("page", "1");
+      return prev;
+    });
+  }, [setSearchParams]);
 
   const handleTypeChange = (newType) => {
-    if (newType === discoverState.type || isPending) return;
-    setPendingType(newType);
+    if (newType === discoverType || isPending) return;
+    
     startTransition(() => {
-      setDiscoverState({ page: 1, type: newType });
-      setPendingType(null);
+      setSearchParams((prev) => {
+        prev.set("type", newType);
+        prev.set("page", "1");
+        return prev;
+      });
     });
   };
 
-  const visualType = pendingType ?? discoverState.type;
+  const handlePageChange = useCallback((page) => {
+    setSearchParams((prev) => {
+      prev.set("page", page.toString());
+      return prev;
+    });
+  }, [setSearchParams]);
+
+  const visualType = discoverType;
 
   const types = [
     { id: "TV", label: "TV" },
@@ -61,7 +83,7 @@ function Discover() {
             {types.map((t) => (
               <button
                 key={t.id}
-                className={`${styles.toggleButton} ${visualType === t.id ? styles.active : ""} ${isPending && discoverState.type !== t.id ? styles.loading : ""}`}
+                className={`${styles.toggleButton} ${visualType === t.id ? styles.active : ""} ${isPending ? styles.loading : ""}`}
                 onClick={() => handleTypeChange(t.id)}
                 disabled={isPending}
               >
@@ -70,7 +92,7 @@ function Discover() {
             ))}
           </div>
           <div style={{ marginTop: "1rem" }}>
-            <SearchLocal onSearch={handleSearch} placeholder="BUSCAR EN DESCUBRIR..." />
+            <SearchLocal onSearch={handleSearch} initialValue={searchTerm} placeholder="BUSCAR EN DESCUBRIR..." />
           </div>
         </div>
       </header>
@@ -95,7 +117,11 @@ function Discover() {
               <div className={styles.accentLine}></div>
             </div>
 
-            <AnimeList animes={filteredAnimes} />
+            <AnimeList 
+              animes={filteredAnimes} 
+              currentPage={currentPage}
+              onPageChange={handlePageChange}
+            />
           </div>
         )}
       </div>

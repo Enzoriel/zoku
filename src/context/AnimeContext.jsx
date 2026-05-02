@@ -10,14 +10,13 @@ const AnimeContext = createContext(null);
 export function AnimeProvider({ children }) {
   const { data: storeData } = useStore();
   const [seasonalAnime, setSeasonalAnime] = useState([]);
-  const [searchAnimes, setSearchAnimes] = useState([]);
+  const [searchState, setSearchState] = useState({ query: "", page: 1, animes: [], pagination: { total: 0, current_page: 1, last_visible_page: 1, has_next_page: false }, hasSearched: false });
   const [extraAnimeById, setExtraAnimeById] = useState({});
   const lastFetchRef = useRef(null);
   const [loading, setLoading] = useState(seasonalAnime.length === 0);
   const [error, setError] = useState(null);
   const isFetching = useRef(false);
   const detailRequestsRef = useRef(new Map());
-  const [discoverState, setDiscoverState] = useState({ page: 1, type: "TV" });
 
   const fetchSeasonal = useCallback(async () => {
     if (isFetching.current) return;
@@ -71,12 +70,12 @@ export function AnimeProvider({ children }) {
         seasonalAnime.find(
           (anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed,
         ) ||
-        searchAnimes.find((anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed) ||
+        searchState.animes.find((anime) => anime.anilistId === parsed || anime.malId === parsed || anime.mal_id === parsed) ||
         extraAnimeById[parsed] ||
         null
       );
     },
-    [seasonalAnime, searchAnimes, extraAnimeById],
+    [seasonalAnime, searchState.animes, extraAnimeById],
   );
 
   const getAnimeById = useCallback(
@@ -118,28 +117,24 @@ export function AnimeProvider({ children }) {
   const value = useMemo(
     () => ({
       seasonalAnime,
-      searchAnimes,
-      setSearchAnimes,
+      searchState,
+      setSearchState,
       loading,
       error,
       getAnimeById,
       getFreshAnimeById,
       refreshAnimeById,
       retryFetch,
-      discoverState,
-      setDiscoverState,
     }),
     [
       seasonalAnime,
-      searchAnimes,
+      searchState,
       loading,
       error,
       getAnimeById,
       getFreshAnimeById,
       refreshAnimeById,
       retryFetch,
-      discoverState,
-      setDiscoverState,
     ],
   );
 

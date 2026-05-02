@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { searchAnime } from "../services/api";
 import SearchBar from "../components/anime/SearchBar";
 import AnimeList from "../components/anime/AnimeList";
@@ -13,72 +14,97 @@ function getVisiblePages(currentPage, lastPage) {
 }
 
 function Search() {
-  const { setSearchAnimes } = useAnime();
-  const [animes, setAnimes] = useState([]);
+  const { searchState, setSearchState } = useAnime();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState("");
-  const [pagination, setPagination] = useState({
-    total: 0,
-    current_page: 1,
-    last_visible_page: 1,
-    has_next_page: false,
-  });
-  const [hasSearched, setHasSearched] = useState(false);
   const [searchError, setSearchError] = useState(null);
+  const activeRequestKey = useRef(null);
+  const failedRequestKey = useRef(null);
+
+  const queryParam = searchParams.get("q") || "";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
 
   const loadResults = useCallback(
-    async (currentQuery, currentPage) => {
+    async (currentQuery, currentPage, options = {}) => {
       if (!currentQuery.trim()) return;
+
+      const requestKey = `${currentQuery.trim()}::${currentPage}`;
+      if (activeRequestKey.current === requestKey) return;
+      if (!options.force && failedRequestKey.current === requestKey) return;
+
+      activeRequestKey.current = requestKey;
 
       setLoading(true);
       setSearchError(null);
       try {
         const result = await searchAnime(currentQuery, currentPage);
-        setAnimes(result.data);
-        setSearchAnimes(result.data);
-        setPagination(result.pagination);
-        setHasSearched(true);
+        setSearchState({
+          query: currentQuery,
+          page: currentPage,
+          animes: result.data,
+          pagination: result.pagination,
+          hasSearched: true,
+        });
+        failedRequestKey.current = null;
       } catch (error) {
         console.error("Error searching animes:", error);
+        failedRequestKey.current = requestKey;
         setSearchError(error?.message || "Error al buscar. Revisa tu conexion e intenta de nuevo.");
       } finally {
+        activeRequestKey.current = null;
         setLoading(false);
       }
     },
-    [setSearchAnimes],
+    [setSearchState],
   );
+
+  // Sincronizar estado global con la URL al cambiar la ruta (ej. Boton Atras)
+  useEffect(() => {
+    if (queryParam) {
+      if (searchState.query !== queryParam || searchState.page !== pageParam) {
+        loadResults(queryParam, pageParam);
+      }
+    } else if (searchState.hasSearched) {
+      setSearchState({
+        query: "",
+        page: 1,
+        animes: [],
+        pagination: { total: 0, current_page: 1, last_visible_page: 1, has_next_page: false },
+        hasSearched: false,
+      });
+    }
+  }, [queryParam, pageParam, searchState.query, searchState.page, searchState.hasSearched, loadResults, setSearchState]);
 
   const handleSearch = useCallback(
     (newQuery) => {
-      if (newQuery === query) return;
+      if (newQuery === queryParam) return;
 
-      setQuery(newQuery);
-      if (newQuery.trim()) {
-        loadResults(newQuery, 1);
-        return;
-      }
-
-      setAnimes([]);
-      setSearchAnimes([]);
-      setPagination({
-        total: 0,
-        current_page: 1,
-        last_visible_page: 1,
-        has_next_page: false,
+      setSearchParams((prev) => {
+        if (newQuery.trim()) {
+          prev.set("q", newQuery);
+          prev.set("page", "1");
+        } else {
+          prev.delete("q");
+          prev.delete("page");
+        }
+        return prev;
       });
-      setHasSearched(false);
-      setSearchError(null);
     },
-    [loadResults, query, setSearchAnimes],
+    [queryParam, setSearchParams],
   );
 
   const goToPage = useCallback(
     (page) => {
-      if (!query.trim() || page === pagination.current_page) return;
-      loadResults(query, page);
+      if (!queryParam.trim() || page === pageParam) return;
+      setSearchParams((prev) => {
+        prev.set("page", page.toString());
+        return prev;
+      });
     },
-    [loadResults, pagination.current_page, query],
+    [pageParam, queryParam, setSearchParams],
   );
+
+  const { animes, pagination, hasSearched } = searchState;
 
   const visiblePages = useMemo(
     () => getVisiblePages(pagination.current_page || 1, pagination.last_visible_page || 1),
@@ -102,7 +128,7 @@ function Search() {
       </div>
 
       <div style={{ padding: "0 40px" }}>
-        <SearchBar onSearch={handleSearch} isLoading={loading} />
+        <SearchBar onSearch={handleSearch} initialValue={queryParam} isLoading={loading} />
       </div>
 
       <div className={styles.searchContent}>
@@ -114,7 +140,7 @@ function Search() {
             </div>
           </div>
         ) : searchError ? (
-          <RetryPanel message={searchError} onRetry={() => loadResults(query, pagination.current_page || 1)} compact />
+          <RetryPanel message={searchError} onRetry={() => loadResults(queryParam, pageParam, { force: true })} compact />
         ) : hasSearched ? (
           <>
             <div className={styles.resultsSection}>
@@ -123,7 +149,7 @@ function Search() {
                   <span className={styles.resultsCount}>
                     Resultados: <span>{pagination.total || animes.length}</span>
                   </span>
-                  {query && <span className={styles.queryHighlight}>"{query}"</span>}
+                  {queryParam && <span className={styles.queryHighlight}>"{queryParam}"</span>}
                 </div>
                 <div className={styles.resultsLine}></div>
               </div>

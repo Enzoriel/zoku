@@ -1,9 +1,13 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import styles from "./SearchBar.module.css";
 
-const SearchBar = ({ onSearch, isLoading }) => {
-  const [query, setQuery] = useState("");
+const SearchBar = ({ onSearch, isLoading, initialValue = "" }) => {
+  const [query, setQuery] = useState(initialValue);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    setQuery(initialValue);
+  }, [initialValue]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
