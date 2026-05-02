@@ -21,9 +21,25 @@
 .backButton svg {
   width: 2.2rem;
   height: 2.2rem;
-  transition: transform 0.4s ease-in-out;
+  transition: transform 0.3s ease-in-out;
   transform: rotate(90deg);
   animation: svgBackBtnPulse 3s ease-in-out infinite;
+}
+
+.backText {
+  position: absolute;
+  top: 95%;
+  left: 48%;
+  font-family: var(--font-vt);
+  font-size: 1.2rem;
+  font-weight: 600;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.9);
+  animation: svgBackBtnPulse 3s ease-in-out infinite;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease,
+    top 0.4s ease;
 }
 
 @keyframes svgBackBtnPulse {
@@ -38,11 +54,19 @@
   }
 }
 
+.backButton:hover .backText {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
 .backButton:hover svg {
   transform: rotate(0deg) scale(1.1);
 }
 
-.backButton:active {
-  transform: scale(0.95); /* El "snap" nativo que simula el Game Feel físico */
-  background: rgba(255, 255, 255, 0.1);
+.backButton:active .backText {
+  transform: translate(-50%, -50%) scale(0.9);
+}
+
+.backButton svg:active:not(.backText) {
+  transform: scale(0.95);
 }
