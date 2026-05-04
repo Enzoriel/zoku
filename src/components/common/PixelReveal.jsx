@@ -1,12 +1,55 @@
 import { useRef, useEffect } from "react";
 
+const DEFAULT_COLOR = [200, 255, 0];
+const VALID_ANIMATIONS = new Set(["middle", "left", "right", "top", "bottom", "none"]);
+
+const normalizeAnimation = (animation) => (VALID_ANIMATIONS.has(animation) ? animation : "middle");
+
+export const getPixelRevealTileDelay = ({
+  animation = "middle",
+  column,
+  row,
+  columns,
+  rows,
+  delayFactor,
+  noiseStack = 0,
+  random = Math.random,
+}) => {
+  const normalizedAnimation = normalizeAnimation(animation);
+  let baseDelay = 0;
+
+  switch (normalizedAnimation) {
+    case "left":
+      baseDelay = column * delayFactor;
+      break;
+    case "right":
+      baseDelay = (columns - 1 - column) * delayFactor;
+      break;
+    case "top":
+      baseDelay = row * delayFactor;
+      break;
+    case "bottom":
+      baseDelay = (rows - 1 - row) * delayFactor;
+      break;
+    case "none":
+      return random() * noiseStack;
+    case "middle":
+    default:
+      baseDelay = Math.abs(column - columns / 2) * delayFactor;
+      break;
+  }
+
+  return baseDelay + random() * noiseStack;
+};
+
 const PixelReveal = ({
   speed = 0.055,
   tileSize = 8,
   delayFactor = 2.5,
   noiseStack = 22,
   active = true,
-  color = [200, 255, 0],
+  color = DEFAULT_COLOR,
+  animation = "middle",
 }) => {
   const canvasRef = useRef(null);
   const animationFrameRef = useRef(null);
@@ -26,6 +69,7 @@ const PixelReveal = ({
 
     cancelledRef.current = false;
     canvas.style.display = "block";
+    canvas.style.opacity = "1";
     canvas.width = parent.offsetWidth;
     canvas.height = parent.offsetHeight;
 
@@ -33,7 +77,6 @@ const PixelReveal = ({
     const H = canvas.height;
     const cols = Math.ceil(W / tileSize);
     const rows = Math.ceil(H / tileSize);
-    const centerCol = cols / 2;
     const [cr, cg, cb] = color;
 
     const tiles = [];
@@ -44,7 +87,15 @@ const PixelReveal = ({
           y: r * tileSize,
           w: Math.min(tileSize, W - c * tileSize),
           h: Math.min(tileSize, H - r * tileSize),
-          delay: Math.abs(c - centerCol) * delayFactor + Math.random() * noiseStack,
+          delay: getPixelRevealTileDelay({
+            animation,
+            column: c,
+            row: r,
+            columns: cols,
+            rows,
+            delayFactor,
+            noiseStack,
+          }),
           progress: 0,
           done: false,
         });
@@ -107,7 +158,7 @@ const PixelReveal = ({
       }
       canvas.dataset.running = "false";
     };
-  }, [active]);
+  }, [active, speed, tileSize, delayFactor, noiseStack, color, animation]);
 
   return (
     <canvas
