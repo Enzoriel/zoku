@@ -3,9 +3,11 @@ import AnimeCard from "./AnimeCard";
 import styles from "./Carousel.module.css";
 import { useStore } from "../../hooks/useStore";
 import PixelReveal from "../common/PixelReveal";
+import { useHorizontalDrag } from "../../hooks/useHorizontalDrag";
 
 function Carousel({ title, animes = [], loading = false, playback = null }) {
   const scrollRef = useRef(null);
+  useHorizontalDrag(scrollRef, title);
   const { data } = useStore();
 
   const scroll = (direction) => {
@@ -39,7 +41,11 @@ function Carousel({ title, animes = [], loading = false, playback = null }) {
       </h2>
       <div className={styles.wrapper}>
         {(loading || animes.length > 4) && (
-          <button className={`${styles.arrow} ${styles.left}`} onClick={() => scroll("left")} aria-label="Desplazar a la izquierda">
+          <button
+            className={`${styles.arrow} ${styles.left}`}
+            onClick={() => scroll("left")}
+            aria-label="Desplazar a la izquierda"
+          >
             ‹
           </button>
         )}
@@ -50,18 +56,15 @@ function Carousel({ title, animes = [], loading = false, playback = null }) {
                 const malId = anime.mal_id || anime.malId;
                 const uniqueKey = malId || anime.id || anime.anilistId || `anime-${idx}`;
                 const inLibraryData = malId ? data?.myAnimes?.[malId] : null;
-                return (
-                  <AnimeCard
-                    key={uniqueKey}
-                    anime={anime}
-                    inLibraryData={inLibraryData}
-                    playback={playback}
-                  />
-                );
+                return <AnimeCard key={uniqueKey} anime={anime} inLibraryData={inLibraryData} playback={playback} />;
               })}
         </div>
         {(loading || animes.length > 4) && (
-          <button className={`${styles.arrow} ${styles.right}`} onClick={() => scroll("right")} aria-label="Desplazar a la derecha">
+          <button
+            className={`${styles.arrow} ${styles.right}`}
+            onClick={() => scroll("right")}
+            aria-label="Desplazar a la derecha"
+          >
             ›
           </button>
         )}
