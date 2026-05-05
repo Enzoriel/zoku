@@ -15,6 +15,7 @@ import RetryPanel from "../components/ui/RetryPanel";
 import { usePlayback } from "../hooks/usePlayback";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import { getBatchEpisodeTorrentAvailability } from "../utils/torrentAvailability";
+import { getReleasedEpisodeCount } from "../utils/airingStatus";
 import { buildRecentEpisodeOccurrences } from "../utils/recentEpisodes";
 import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
 import styles from "./Recent.module.css";
@@ -23,6 +24,16 @@ import { DAY_NAMES, DAY_NAMES_SHORT } from "../utils/constants";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const RECENT_MS = 14 * DAY_MS;
+const AIRING_METADATA_FIELDS = [
+  "status",
+  "episodes",
+  "totalEpisodes",
+  "episodeList",
+  "nextAiringEpisode",
+  "endDate",
+  "startDate",
+  "aired",
+];
 
 function getAnimeKey(anime) {
   return String(anime.malId || anime.mal_id || anime.id || anime.title);
@@ -51,6 +62,40 @@ function getTotalEpisodeCount(anime) {
   return counts.length > 0 ? Math.max(...counts) : 0;
 }
 
+function getNextAiringEpisodeNumber(anime) {
+  const episode = Number.parseInt(anime?.nextAiringEpisode?.episode, 10);
+  return Number.isFinite(episode) && episode > 0 ? episode : 0;
+}
+
+function getBestAiringMetadataSource(apiAnime, storedAnime, nowMs) {
+  if (!storedAnime) return apiAnime;
+
+  const apiReleased = getReleasedEpisodeCount(apiAnime, nowMs);
+  const storedReleased = getReleasedEpisodeCount(storedAnime, nowMs);
+
+  if (storedReleased > apiReleased) return storedAnime;
+  if (apiReleased > storedReleased) return apiAnime;
+
+  const apiNextEpisode = getNextAiringEpisodeNumber(apiAnime);
+  const storedNextEpisode = getNextAiringEpisodeNumber(storedAnime);
+  if (storedNextEpisode > apiNextEpisode) return storedAnime;
+
+  return apiAnime;
+}
+
+function mergeAiringMetadata(apiAnime, storedAnime, nowMs) {
+  const source = getBestAiringMetadataSource(apiAnime, storedAnime, nowMs);
+  if (!source || source === apiAnime) return apiAnime;
+
+  const merged = { ...apiAnime };
+  AIRING_METADATA_FIELDS.forEach((field) => {
+    if (source[field] !== undefined) {
+      merged[field] = source[field];
+    }
+  });
+  return merged;
+}
+
 function Recent() {
   const { data, libraryScopeReady } = useStore();
   const { loading, error, retryFetch } = useAnime();
@@ -69,6 +114,7 @@ function Recent() {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalItem, setSearchModalItem] = useState(null);
   const [fansubFilter, setFansubFilter] = useState("all");
+  const [nowMs, setNowMs] = useState(Date.now());
 
   const { toast } = useToast();
   useEffect(() => {
@@ -115,19 +161,37 @@ function Recent() {
       .map((anime) => {
         const animeId = anime.malId || anime.mal_id;
         const stored = myAnimeMap[animeId] || myAnimeMap[Number(animeId)] || myAnimeMap[String(animeId)];
+        const metadataAnime = mergeAiringMetadata(anime, stored, nowMs);
         const watchedEps = stored?.watchedEpisodes || [];
         const localFolder = getBestFolderMatch({ ...stored, malId: animeId }, data.localFiles, localFilesIndex);
         const localFiles = localFolder?.files || [];
 
+        // Calcular el episodio local más alto descargado (no en proceso)
+        // Esto sirve como evidencia de que un episodio ya está disponible
+        // incluso antes de que la API actualice nextAiringEpisode.
+        const completedLocalFiles = localFiles.filter((f) => !f.isDownloading);
+        const localMaxEpisode = completedLocalFiles.length > 0
+          ? Math.max(...completedLocalFiles.map((f) => {
+              const epNum = f.episodeNumber ?? extractEpisodeNumber(f.name, [
+                metadataAnime.title,
+                metadataAnime.title_english,
+                ...(stored?.synonyms || []),
+                stored?.folderName,
+              ]);
+              return Number.isFinite(epNum) ? epNum : 0;
+            }))
+          : 0;
+
         return {
-          ...anime,
+          ...metadataAnime,
           storedData: stored,
           assignedFansub: getEffectiveTorrentSourceFansub(stored, principalFansub),
           watchedEps,
           localFiles,
+          localMaxEpisode,
         };
       });
-  }, [allAiringAnime, myAnimeMap, data.localFiles, principalFansub, localFilesIndex]);
+  }, [allAiringAnime, myAnimeMap, nowMs, data.localFiles, principalFansub, localFilesIndex]);
 
   const availableFansubFilters = useMemo(() => {
     const counts = new Map();
@@ -161,13 +225,12 @@ function Recent() {
     return myAiringAnime.filter((anime) => anime.assignedFansub === fansubFilter);
   }, [myAiringAnime, fansubFilter]);
 
-  const [nowMs, setNowMs] = useState(Date.now());
-
   const recentOccurrencesMap = useMemo(() => {
     const map = new Map();
 
     myAiringAnime.forEach((anime) => {
-      const occurrences = buildRecentEpisodeOccurrences(anime, nowMs) || [];
+      const overrideReleasedCount = anime.localMaxEpisode > 0 ? anime.localMaxEpisode : undefined;
+      const occurrences = buildRecentEpisodeOccurrences(anime, nowMs, { overrideReleasedCount }) || [];
       map.set(getAnimeKey(anime), occurrences);
     });
 

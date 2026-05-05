@@ -103,6 +103,17 @@ export function AnimeProvider({ children }) {
       .then((anime) => {
         if (anime) {
           setExtraAnimeById((prev) => ({ ...prev, [parsed]: anime }));
+          // Actualizar en seasonalAnime si existe, para que Recent refleje
+          // datos frescos sin esperar al cache de 1 hora.
+          setSeasonalAnime((prev) => {
+            const index = prev.findIndex(
+              (a) => Number(a.malId || a.mal_id) === parsed,
+            );
+            if (index === -1) return prev;
+            const next = [...prev];
+            next[index] = anime;
+            return next;
+          });
         }
         return anime;
       })

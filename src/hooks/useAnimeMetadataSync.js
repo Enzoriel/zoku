@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getAnimeDetailsBatch } from "../services/api";
-import { isAiringMetadataStale, isAnimeActivelyAiring } from "../utils/airingStatus";
+import { isAiringMetadataStale, isAnimeActivelyAiring, getReleasedEpisodeCount } from "../utils/airingStatus";
+import { detectNewEpisodeAirDates } from "../utils/recentEpisodes";
 import { useStore } from "./useStore";
 
 const AIRING_METADATA_REFRESH_MS = 60 * 60 * 1000;
@@ -140,9 +141,15 @@ export function mergeFreshAnimeMetadata(prevMyAnimes, candidates, freshAnimeList
       }
     }
 
+    // Detectar episodios nuevos y registrar sus fechas reales
+    const mergedForCount = { ...stored, ...patch };
+    const freshReleasedCount = getReleasedEpisodeCount(mergedForCount);
+    const updatedAirDates = detectNewEpisodeAirDates(stored, freshReleasedCount);
+
     next[entryKey] = {
       ...stored,
       ...patch,
+      episodeAirDates: updatedAirDates,
       lastMetadataFetch: nowIso,
     };
     changed = true;
@@ -185,5 +192,36 @@ export function useAnimeMetadataSync() {
 
   useEffect(() => {
     void runSync();
+  }, [data.myAnimes, runSync]);
+
+  // Programar re-sync automático cuando el airingAt más cercano pasa.
+  // Esto asegura que nextAiringEpisode se actualice sin esperar a que
+  // el usuario navegue a AnimeDetails.
+  useEffect(() => {
+    const nowMs = Date.now();
+    let nearestAiringAtMs = null;
+
+    for (const anime of Object.values(data.myAnimes || {})) {
+      const airingAtMs = Number(anime?.nextAiringEpisode?.airingAt || 0) * 1000;
+      if (!Number.isFinite(airingAtMs) || airingAtMs <= 0 || airingAtMs <= nowMs) continue;
+      if (!nearestAiringAtMs || airingAtMs < nearestAiringAtMs) {
+        nearestAiringAtMs = airingAtMs;
+      }
+    }
+
+    if (!nearestAiringAtMs) return;
+
+    // Buffer de 60 segundos después de la emisión para dar tiempo a AniList
+    const delay = nearestAiringAtMs - nowMs + 60000;
+    if (delay <= 0) {
+      void runSync();
+      return;
+    }
+
+    const timerId = setTimeout(() => {
+      void runSync();
+    }, Math.min(delay, 2147483647));
+
+    return () => clearTimeout(timerId);
   }, [data.myAnimes, runSync]);
 }

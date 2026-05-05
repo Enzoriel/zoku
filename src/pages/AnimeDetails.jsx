@@ -21,6 +21,7 @@ import { EpisodeList } from "../components/anime/details/EpisodeList";
 import { METADATA_REFRESH_DAYS } from "../constants";
 import { buildStoredAnimeEntry } from "../utils/animeEntry";
 import { getReleasedEpisodeCount, isAnimeActivelyAiring, isAiringMetadataStale } from "../utils/airingStatus";
+import { detectNewEpisodeAirDates } from "../utils/recentEpisodes";
 import { buildEpisodeFileMap } from "../utils/episodeFiles";
 import { acceptSuggestedFolder, rejectSuggestedFolder } from "../utils/linkingState";
 import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
@@ -294,15 +295,23 @@ function AnimeDetails() {
         ...safeApiData
       } = apiData;
 
-      await setMyAnimes((prev) => ({
-        ...prev,
-        [currentAnimeId]: {
-          ...prev[currentAnimeId],
-          ...safeApiData,
-          lastMetadataFetch: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-        },
-      }));
+      await setMyAnimes((prev) => {
+        const stored = prev[currentAnimeId];
+        const mergedForCount = { ...stored, ...safeApiData };
+        const freshReleasedCount = getReleasedEpisodeCount(mergedForCount);
+        const updatedAirDates = detectNewEpisodeAirDates(stored, freshReleasedCount);
+
+        return {
+          ...prev,
+          [currentAnimeId]: {
+            ...stored,
+            ...safeApiData,
+            episodeAirDates: updatedAirDates,
+            lastMetadataFetch: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+          },
+        };
+      });
     } catch (error) {
       console.error("[AnimeDetails] Error en auto-refresh de metadata:", error);
     }
