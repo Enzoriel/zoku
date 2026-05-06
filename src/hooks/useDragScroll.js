@@ -8,7 +8,7 @@ const MAX_INERTIA_VELOCITY = 2.5;
 const INERTIA_FRICTION = 0.92;
 const MIN_INERTIA_VELOCITY = 0.04;
 const CLICK_SUPPRESSION_TIMEOUT = 150;
-const MAX_SCROLL_HISTORY_ENTRIES = 100; // Aumentado porque ahora guarda carruseles
+const MAX_SCROLL_HISTORY_ENTRIES = 50;
 
 const RUBBER_BAND_RESISTANCE = 0.3;
 const MIN_SPRING_VELOCITY = 0.3;
@@ -52,7 +52,7 @@ export function useDragScroll(scrollRef, options = {}) {
 
     const handleScroll = () => {
       if (isRestoring.current) return;
-      const historyKey = `${location.key}-${id}`;
+      const historyKey = `${location.pathname}-${id}`;
       globalScrollHistory.set(historyKey, isHorizontal ? el.scrollLeft : el.scrollTop);
       if (globalScrollHistory.size > MAX_SCROLL_HISTORY_ENTRIES) {
         globalScrollHistory.delete(globalScrollHistory.keys().next().value);
@@ -61,7 +61,7 @@ export function useDragScroll(scrollRef, options = {}) {
 
     el.addEventListener("scroll", handleScroll, { passive: true });
     return () => el.removeEventListener("scroll", handleScroll);
-  }, [location.key, scrollRef, id, isHorizontal]);
+  }, [location.pathname, scrollRef, id, isHorizontal]);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -70,7 +70,7 @@ export function useDragScroll(scrollRef, options = {}) {
     isRestoring.current = true;
     let interval = null;
     let timeout = null;
-    const historyKey = `${location.key}-${id}`;
+    const historyKey = `${location.pathname}-${id}`;
 
     if (navigationType === "POP") {
       const savedScroll = globalScrollHistory.get(historyKey) || 0;
@@ -113,7 +113,7 @@ export function useDragScroll(scrollRef, options = {}) {
       if (timeout) clearTimeout(timeout);
       if (el) el.style.scrollBehavior = "";
     };
-  }, [location.key, navigationType, scrollRef, id, isHorizontal]);
+  }, [location.pathname, navigationType, scrollRef, id, isHorizontal]);
 
   // 2. Motor Físico (Drag, Inercia, RubberBand)
   useEffect(() => {
