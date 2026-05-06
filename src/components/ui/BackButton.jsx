@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { createPortal } from "react-dom";
 import styles from "./BackButton.module.css";
 
 const BackButton = ({ className = "" }) => {
@@ -15,7 +16,7 @@ const BackButton = ({ className = "" }) => {
     }
   };
 
-  return (
+  return createPortal(
     <button onClick={handleBack} className={`${styles.backButton} ${className}`} aria-label="Volver atrás">
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
         <path
@@ -24,7 +25,8 @@ const BackButton = ({ className = "" }) => {
         />
       </svg>
       <span className={styles.backText}>Volver</span>
-    </button>
+    </button>,
+    document.body
   );
 };
 
