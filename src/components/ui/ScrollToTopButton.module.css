@@ -1,0 +1,105 @@
+.scrollToTopBtn {
+  position: fixed;
+  left: calc(64px + (100vw - 64px) / 2);
+  bottom: 1.75rem;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  background: transparent;
+  color: var(--primary-color);
+  border: none;
+  border-radius: 20%;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, 14px) scale(0.92);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    visibility 0.3s ease;
+}
+
+.scrollToTopBtn.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.scrollToTopBtn svg {
+  width: 2.2rem;
+  height: 2.2rem;
+  transition: transform 0.3s ease-in-out;
+  animation:
+    svgScrollPulse 3s ease-in-out infinite,
+    moveTop 1s ease-in-out infinite;
+}
+
+.label {
+  position: absolute;
+  top: 95%;
+  left: 50%;
+  font-family: var(--font-vt);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.9);
+  animation: svgScrollPulse 3s ease-in-out infinite;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.scrollToTopBtn:hover .label {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.scrollToTopBtn:hover svg {
+  transform: translateY(-2px) scale(1.1);
+}
+
+.scrollToTopBtn:active .label {
+  transform: translate(-50%, -50%) scale(0.9);
+}
+
+.scrollToTopBtn:active svg {
+  transform: translateY(-2px) scale(0.95);
+}
+
+@keyframes svgScrollPulse {
+  0% {
+    filter: drop-shadow(0 0 1px var(--primary-color)) drop-shadow(2px -2px 3px var(--px-cyan-dim));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px var(--primary-color)) drop-shadow(2px -2px 20px var(--px-cyan-dim));
+  }
+  100% {
+    filter: drop-shadow(0 0 1px var(--primary-color)) drop-shadow(2px -2px 3px var(--px-cyan-dim));
+  }
+}
+
+@keyframes moveTop {
+  0%,
+  100% {
+    translate: 0 1px;
+  }
+  50% {
+    translate: 0 -1px;
+  }
+}
+
+@media (max-width: 720px) {
+  .scrollToTopBtn {
+    left: 50%;
+    bottom: 1.25rem;
+  }
+}

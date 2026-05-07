@@ -3,6 +3,7 @@ import { Suspense, useMemo, useRef } from "react";
 import { Sidebar } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
 import { useScrollManager } from "../../hooks/useScrollManager";
+import ScrollToTopButton from "../ui/ScrollToTopButton";
 import styles from "./Layout.module.css";
 
 const Layout = () => {
@@ -44,6 +45,7 @@ const Layout = () => {
             <Outlet />
           </Suspense>
         </main>
+        <ScrollToTopButton scrollRef={contentRef} />
       </div>
     </div>
   );
