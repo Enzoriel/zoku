@@ -41,8 +41,13 @@ function buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs, isEstimated
 export function detectNewEpisodeAirDates(storedAnime, freshReleasedCount, nowMs = Date.now()) {
   const existingDates = storedAnime?.episodeAirDates || {};
   const oldCount = getReleasedEpisodeCount(storedAnime, nowMs);
+  const highestRecordedEpisode = Math.max(...Object.keys(existingDates).map(Number), 0);
 
-  if (freshReleasedCount <= oldCount && freshReleasedCount <= Math.max(...Object.keys(existingDates).map(Number), 0)) {
+  if (oldCount <= 0 && highestRecordedEpisode <= 0) {
+    return existingDates;
+  }
+
+  if (freshReleasedCount <= oldCount && freshReleasedCount <= highestRecordedEpisode) {
     return existingDates;
   }
 
