@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import styles from "./SearchBar.module.css";
+import ButtonSvg from "../ui/ButtonSvg";
 
 const SearchBar = ({ onSearch, isLoading, initialValue = "" }) => {
   const [query, setQuery] = useState(initialValue);
@@ -46,9 +47,17 @@ const SearchBar = ({ onSearch, isLoading, initialValue = "" }) => {
             </button>
           )}
         </div>
-        <button type="submit" className={styles.searchButton} disabled={isLoading}>
-          {isLoading ? <div className={styles.spinner}></div> : "BUSCAR"}
-        </button>
+        <ButtonSvg
+          type="submit"
+          text="BUSCAR"
+          width={200}
+          outlineColor="#ff6b6b"
+          edgeColor="#000000"
+          fillColor="#fff0f0"
+          particleColor="#ff6b6b"
+          textColor="#cc0000"
+          disabled={isLoading}
+        />
       </form>
     </div>
   );

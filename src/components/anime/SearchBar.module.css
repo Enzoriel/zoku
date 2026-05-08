@@ -50,7 +50,7 @@
 
 .inputWrapper:focus-within {
   border-color: var(--px-cyan);
-  box-shadow: 
+  box-shadow:
     0 0 10px rgba(0, 245, 255, 0.2),
     inset 0 0 20px rgba(0, 245, 255, 0.05);
 }
@@ -101,19 +101,15 @@
 
 /* Botón de buscar estilo pixel */
 .searchButton {
-  padding: 14px 28px;
-  background: var(--px-yellow);
+  padding: 0;
+  background: transparent;
   border: none;
-  color: var(--px-dark);
-  font-family: var(--font-pixel);
-  font-size: 10px;
-  letter-spacing: 2px;
   cursor: pointer;
   clip-path: var(--clip-md);
   transition: var(--tx-normal);
   text-transform: uppercase;
   position: relative;
-  box-shadow: 
+  box-shadow:
     0 4px 0 var(--px-yellow-dim),
     0 6px 10px rgba(0, 0, 0, 0.3);
 }
@@ -121,7 +117,7 @@
 .searchButton:hover:not(:disabled) {
   background: var(--px-yellow);
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 6px 0 var(--px-yellow-dim),
     0 8px 15px rgba(0, 0, 0, 0.4);
   filter: brightness(1.1);
@@ -129,7 +125,7 @@
 
 .searchButton:active:not(:disabled) {
   transform: translateY(2px);
-  box-shadow: 
+  box-shadow:
     0 2px 0 var(--px-yellow-dim),
     0 3px 5px rgba(0, 0, 0, 0.3);
 }
@@ -151,11 +147,21 @@
 }
 
 @keyframes pixelSpin {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(90deg); }
-  50% { transform: rotate(180deg); }
-  75% { transform: rotate(270deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(90deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  75% {
+    transform: rotate(270deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Estado de enfoque del input */

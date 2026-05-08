@@ -55,6 +55,10 @@ const PixelReveal = ({
   const animationFrameRef = useRef(null);
   const cancelledRef = useRef(false);
 
+  // Convertimos el array de color a string para evitar re-renders innecesarios
+  // si el padre pasa un nuevo array en cada render (ej: color={[255, 0, 0]})
+  const colorKey = JSON.stringify(color);
+
   useEffect(() => {
     if (!active || !canvasRef.current || !canvasRef.current.parentElement) return;
 
@@ -158,7 +162,7 @@ const PixelReveal = ({
       }
       canvas.dataset.running = "false";
     };
-  }, [active, speed, tileSize, delayFactor, noiseStack, color, animation]);
+  }, [active, speed, tileSize, delayFactor, noiseStack, colorKey, animation]);
 
   return (
     <canvas

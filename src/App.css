@@ -62,7 +62,8 @@
   --px-gray: #55556a;
   --px-text: #e8e8f0;
   --px-text-dim: #88889a;
-  --primary-color: var(--px-cyan);
+  --primary-color: #c7ff1bff;
+  --primary-color-dim: #39ff14;
   --background-color: var(--px-dark);
 
   /* Typography */
