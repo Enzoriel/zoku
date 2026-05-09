@@ -41,6 +41,7 @@ export function useDragScroll(scrollRef, options = {}) {
   const dragState = useRef(null);
   const inertiaFrame = useRef(null);
   const suppressNextClick = useRef(false);
+  const clickSuppressionTimeout = useRef(null);
 
   const rubberBandState = useRef({ active: false, offset: 0, velocity: 0, animFrame: null });
 
@@ -204,6 +205,36 @@ export function useDragScroll(scrollRef, options = {}) {
       dragState.current = null;
     };
 
+    const finishDrag = (event, shouldStartInertia = true) => {
+      const state = dragState.current;
+      if (!state || state.pointerId !== event.pointerId) return;
+
+      if (state.didDrag) {
+        event.stopPropagation();
+        el.releasePointerCapture?.(event.pointerId);
+      }
+      stopDrag();
+
+      if (!state.didDrag) return;
+
+      suppressNextClick.current = true;
+      if (clickSuppressionTimeout.current) {
+        window.clearTimeout(clickSuppressionTimeout.current);
+      }
+      clickSuppressionTimeout.current = window.setTimeout(() => {
+        suppressNextClick.current = false;
+        clickSuppressionTimeout.current = null;
+      }, CLICK_SUPPRESSION_TIMEOUT);
+
+      if (rb.active) {
+        rb.velocity = 0;
+        startRubberBandReturn();
+      } else if (shouldStartInertia) {
+        startInertia(state.velocity);
+      }
+      event.preventDefault();
+    };
+
     const handlePointerDown = (event) => {
       if (event.button !== LEFT_MOUSE_BUTTON || event.pointerType !== "mouse") return;
       if (isEditableTarget(event.target)) return;
@@ -289,29 +320,11 @@ export function useDragScroll(scrollRef, options = {}) {
     };
 
     const handlePointerUp = (event) => {
-      const state = dragState.current;
-      if (!state || state.pointerId !== event.pointerId) return;
+      finishDrag(event);
+    };
 
-      if (state.didDrag) {
-        event.stopPropagation();
-        el.releasePointerCapture?.(event.pointerId);
-      }
-      stopDrag();
-
-      if (state.didDrag) {
-        suppressNextClick.current = true;
-        window.setTimeout(() => {
-          suppressNextClick.current = false;
-        }, CLICK_SUPPRESSION_TIMEOUT);
-
-        if (rb.active) {
-          rb.velocity = 0;
-          startRubberBandReturn();
-        } else {
-          startInertia(state.velocity);
-        }
-        event.preventDefault();
-      }
+    const handlePointerCancel = (event) => {
+      finishDrag(event, false);
     };
 
     const handleClick = (event) => {
@@ -325,15 +338,20 @@ export function useDragScroll(scrollRef, options = {}) {
     el.addEventListener("pointerdown", handlePointerDown);
     el.addEventListener("pointermove", handlePointerMove);
     el.addEventListener("pointerup", handlePointerUp);
-    el.addEventListener("pointercancel", stopDrag);
+    el.addEventListener("pointercancel", handlePointerCancel);
     el.addEventListener("click", handleClick, true);
 
     return () => {
       el.removeEventListener("pointerdown", handlePointerDown);
       el.removeEventListener("pointermove", handlePointerMove);
       el.removeEventListener("pointerup", handlePointerUp);
-      el.removeEventListener("pointercancel", stopDrag);
+      el.removeEventListener("pointercancel", handlePointerCancel);
       el.removeEventListener("click", handleClick, true);
+      if (clickSuppressionTimeout.current) {
+        window.clearTimeout(clickSuppressionTimeout.current);
+        clickSuppressionTimeout.current = null;
+      }
+      suppressNextClick.current = false;
       stopDrag();
       stopInertia();
       stopRubberBand();
