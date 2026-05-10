@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="500"
+   height="110"
+   viewBox="0 0 500 110"
+   version="1.1"
+   id="svg1"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <pattern
+       xlink:href="#triangles-5"
+       id="pattern13"
+       patternTransform="matrix(-8,0,0,-8,165,606)"
+       x="-1"
+       y="0"
+       preserveAspectRatio="none" />
+    <pattern
+       patternUnits="userSpaceOnUse"
+       width="5"
+       height="4"
+       patternTransform="translate(165,606) scale(2)"
+       style="fill:#ebebeb"
+       id="triangles-5">
+      <path
+         style="stroke:none;stroke-width:4.8561;stroke-linecap:square;paint-order:stroke markers fill;stop-color:#000000"
+         d="M 0,4 2.5,0 5,4 Z"
+         id="path14319-0" />
+    </pattern>
+  </defs>
+  <g
+     id="layer1"
+     style="display:inline"
+     transform="translate(0,-100)">
+    <path
+       style="fill:#010101;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+       d="m 10,100 h 480 v 10 h 10 v 90 h -10 v 10 H 10 V 200 H 0 v -90 h 10 z"
+       id="path4" />
+    <path
+       style="fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+       d="m 15,105 h 470 v 10 h 10 v 80 h -10 v 10 H 15 V 195 H 5 v -80 h 10 z"
+       id="path1" />
+    <path
+       style="mix-blend-mode:normal;fill:#f1f1f1;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+       d="m 20,120 v -10 h 460 v 10 h 10 v 70 h -10 v 10 H 20 V 190 H 10 v -70 z"
+       id="path13" />
+    <path
+       style="display:inline;mix-blend-mode:normal;fill:url(#pattern13);fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+       d="m 20,120 v -10 h 460 v 10 h 10 v 70 h -10 v 10 H 20 V 190 H 10 v -70 z"
+       id="path5" />
+    <g
+       id="g6"
+       transform="translate(10)"
+       style="display:inline">
+      <g
+         id="g35"
+         style="fill:#c7ff1b;fill-opacity:1">
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect15"
+           width="10"
+           height="10"
+           x="40"
+           y="160"
+           ry="0" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect5"
+           width="10"
+           height="10"
+           x="30"
+           y="130"
+           ry="0" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect6"
+           width="10"
+           height="10"
+           x="30"
+           y="150" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect14"
+           width="10"
+           height="10"
+           x="30"
+           y="170"
+           ry="0" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect13"
+           width="10"
+           height="10"
+           x="40"
+           y="140"
+           ry="0" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect19"
+           width="10"
+           height="10"
+           x="50"
+           y="150"
+           ry="0" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect20"
+           width="10"
+           height="10"
+           x="60"
+           y="140"
+           ry="0" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect23"
+           width="10"
+           height="10"
+           x="60"
+           y="160"
+           ry="0" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect24"
+           width="10"
+           height="10"
+           x="70"
+           y="150"
+           ry="0" />
+      </g>
+      <g
+         id="g33"
+         transform="translate(85)"
+         style="fill:#c7ff1b;fill-opacity:1">
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect25"
+           width="10"
+           height="10"
+           x="-355"
+           y="160"
+           ry="0"
+           transform="scale(-1,1)" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect26"
+           width="10"
+           height="10"
+           x="-365"
+           y="130"
+           ry="0"
+           transform="scale(-1,1)" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect27"
+           width="10"
+           height="10"
+           x="-365"
+           y="150"
+           transform="scale(-1,1)" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect28"
+           width="10"
+           height="10"
+           x="-365"
+           y="170"
+           ry="0"
+           transform="scale(-1,1)" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect29"
+           width="10"
+           height="10"
+           x="-355"
+           y="140"
+           ry="0"
+           transform="scale(-1,1)" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect30"
+           width="10"
+           height="10"
+           x="-345"
+           y="150"
+           ry="0"
+           transform="scale(-1,1)" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect31"
+           width="10"
+           height="10"
+           x="-335"
+           y="140"
+           ry="0"
+           transform="scale(-1,1)" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect32"
+           width="10"
+           height="10"
+           x="-335"
+           y="160"
+           ry="0"
+           transform="scale(-1,1)" />
+        <rect
+           style="display:inline;fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+           id="rect33"
+           width="10"
+           height="10"
+           x="-325"
+           y="150"
+           ry="0"
+           transform="scale(-1,1)" />
+      </g>
+    </g>
+  </g>
+  <g
+     id="layer2"
+     style="display:none"
+     transform="translate(0,-100)">
+    <path
+       style="fill:#000000;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+       d="m 100,80 h 250 v 165 165 40 H 100 Z"
+       id="path2" />
+    <path
+       style="fill:#c7ff1b;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+       d="m 105,85 h 240 v 160 165 l -35,35 H 105 Z"
+       id="path43" />
+  </g>
+  <g
+     id="layer3"
+     style="display:none"
+     transform="translate(0,-100)">
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:1.00157;paint-order:stroke fill markers"
+       d="m 200,100 v 150 h 10 v -10 h 10 v -10 h 10 v -10 h 10 v -10 h 10 v -10 h 10 v -10 h 10 v -10 h 10 v -10 h -10 v -10 h -10 v -10 h -10 v -10 h -10 v -10 h -10 v -10 h -10 v -10 h -10 v -10 z"
+       id="path3" />
+  </g>
+</svg>

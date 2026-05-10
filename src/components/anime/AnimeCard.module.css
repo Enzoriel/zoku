@@ -246,8 +246,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) scale(0);
-  width: 50px;
-  height: 50px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: var(--primary-color);
   color: white;
@@ -255,15 +255,43 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition:
-    opacity 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   border: 2px solid white;
   cursor: pointer;
   z-index: 11;
+  transition:
+    opacity 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    filter 0.2s ease;
+}
+
+.quickPlayButton:hover {
+  animation: pulse 0.5s ease-in-out infinite;
+  transform: translate(-50%, -50%);
+  filter: brightness(1.1);
+}
+
+.quickPlayButton img {
+  position: absolute;
+  top: 50%;
+  left: 55%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: auto;
 }
 
 .card:hover .quickPlayButton {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
 }

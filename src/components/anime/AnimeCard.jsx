@@ -3,6 +3,7 @@ import { memo } from "react";
 import { calculateUserStatus } from "../../utils/animeStatus";
 import styles from "./AnimeCard.module.css";
 import LoadingSpinner from "../ui/LoadingSpinner";
+import playIcon from "../../assets/play.svg";
 
 function AnimeCard({ anime, inLibraryData, playback = null }) {
   const navigate = useNavigate();
@@ -114,9 +115,7 @@ function AnimeCard({ anime, inLibraryData, playback = null }) {
 
         {displayAnime.nextEpisodeFile && !isPlaying && playback?.playEpisode && (
           <button className={styles.quickPlayButton} onClick={handleQuickPlay} aria-label={`Reproducir ${title}`}>
-            <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <img src={playIcon} alt="" aria-hidden="true" className={styles.playIcon} />
           </button>
         )}
 
