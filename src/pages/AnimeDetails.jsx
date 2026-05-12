@@ -22,10 +22,11 @@ import { METADATA_REFRESH_DAYS } from "../constants";
 import { buildStoredAnimeEntry } from "../utils/animeEntry";
 import { getReleasedEpisodeCount, isAnimeActivelyAiring, isAiringMetadataStale } from "../utils/airingStatus";
 import { detectNewEpisodeAirDates } from "../utils/recentEpisodes";
-import { buildEpisodeFileMap } from "../utils/episodeFiles";
+import { buildEpisodeFileMap, buildVisibleEpisodeNumbers } from "../utils/episodeFiles";
 import { acceptSuggestedFolder, rejectSuggestedFolder } from "../utils/linkingState";
 import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
 import { getBestFolderMatch } from "../utils/libraryView";
+import { extractBaseTitle } from "../utils/titleIdentity";
 import { useDeleteEpisodes } from "../hooks/useDeleteEpisodes";
 import styles from "./AnimeDetails.module.css";
 
@@ -37,10 +38,17 @@ function buildSuggestedLinkLabel(folder) {
   return folder.folderName || "";
 }
 
+function buildFolderApiSearchQuery(value) {
+  return extractBaseTitle(value || "")
+    .replace(/^[-\s]+|[-\s]+$/g, "")
+    .trim();
+}
+
 function AnimeDetails() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const folderName = searchParams.get("folder");
+  const shouldResolveFolder = searchParams.get("resolve") === "1";
   const navigate = useNavigate();
 
   const { data, setMyAnimes, libraryScopeReady } = useStore();
@@ -361,6 +369,18 @@ function AnimeDetails() {
     }
   };
 
+  useEffect(() => {
+    if (!shouldResolveFolder || !folderName || animeId) return;
+
+    const query = buildFolderApiSearchQuery(folderName);
+    setApiSearchQuery(query);
+    setShowSearchApiModal(true);
+    if (query) {
+      handleApiSearch(query);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldResolveFolder, folderName, animeId]);
+
   const handleAddToLibrary = useCallback(async () => {
     if (!mainAnime || !animeId) return;
 
@@ -404,12 +424,7 @@ function AnimeDetails() {
       return;
     }
 
-    const rawName = mainAnime.title || folderName || "";
-    const cleanName = rawName
-      .replace(/\[.*?\]|\(.*?\)/g, "")
-      .replace(/^[-\s]+|[-\s]+$/g, "")
-      .replace(/(-\s*\d+(v\d+)?.*)$/i, "")
-      .trim();
+    const cleanName = buildFolderApiSearchQuery(mainAnime.title || folderName || "");
 
     setApiSearchQuery(cleanName);
     setShowSearchApiModal(true);
@@ -543,10 +558,10 @@ function AnimeDetails() {
     getReleasedEpisodeCount(mainAnime),
     mainAnime?.episodeList?.length || 0,
   );
-  const localMaxEp =
-    animeFilesData.files.length > 0 ? Math.max(...animeFilesData.files.map((file) => file.episodeNumber || 0)) : 0;
-  const totalEps = apiTotal > 0 ? Math.max(apiTotal, Math.min(localMaxEp, apiTotal)) : Math.max(apiTotal, localMaxEp);
-  const episodes = Array.from({ length: totalEps || 1 }, (_, index) => index + 1);
+  const episodes = useMemo(
+    () => buildVisibleEpisodeNumbers({ apiTotal, files: animeFilesData.files }),
+    [apiTotal, animeFilesData.files],
+  );
   const episodeFileMap = useMemo(
     () => buildEpisodeFileMap({ episodes, files: animeFilesData.files, mainAnime, folderName }),
     [episodes, animeFilesData.files, mainAnime, folderName],

@@ -108,9 +108,9 @@ function Library() {
     startTransition(() => setter(value));
   };
 
-  const handleNavigateToAnime = (itemOrFolder) => {
-    const folder = itemOrFolder.folderMatch || itemOrFolder;
-    const resolvedMalId = folder?.resolvedMalId || folder?.malId || itemOrFolder?.malId;
+  const handleOpenAnimeEntry = (item) => {
+    const folder = item.folderMatch;
+    const resolvedMalId = folder?.resolvedMalId || folder?.malId || item?.malId;
 
     if (resolvedMalId) {
       const folderParam = folder?.folderName ? `?folder=${encodeURIComponent(folder.folderName)}` : "";
@@ -118,7 +118,21 @@ function Library() {
       return;
     }
 
-    navigate(`/anime/null?folder=${encodeURIComponent(folder?.folderName || folder?.name || "")}`);
+    navigate(`/anime/null?folder=${encodeURIComponent(folder?.folderName || "")}`);
+  };
+
+  const handleOpenLocalFolder = (folder) => {
+    const folderName = folder?.folderName || folder?.name || "";
+    if (!folderName) return;
+
+    navigate(`/anime/null?folder=${encodeURIComponent(folderName)}`);
+  };
+
+  const handleResolveLocalFolder = (folder) => {
+    const folderName = folder?.folderName || folder?.name || "";
+    if (!folderName) return;
+
+    navigate(`/anime/null?folder=${encodeURIComponent(folderName)}&resolve=1`);
   };
 
   const promptRemoveFromLibrary = (malId, title = "este anime") => {
@@ -210,10 +224,10 @@ function Library() {
         },
       });
       return;
-      }
+    }
 
-      // ... (dentro de handleDeleteFolder, el bloque principal de borrar carpeta)
-      setConfirmModal({
+    // ... (dentro de handleDeleteFolder, el bloque principal de borrar carpeta)
+    setConfirmModal({
       title: "Borrar carpeta",
       message: `"${displayTitle}" y todos sus archivos se eliminaran permanentemente del disco.`,
       onConfirm: async () => {
@@ -254,8 +268,8 @@ function Library() {
         setIsDeleting(false);
         setConfirmModal(null);
       },
-      });
-      };
+    });
+  };
   const handleDeleteAnimeEntry = (item) => {
     const folder = item.folderMatch;
     if (!folder) {
@@ -355,11 +369,11 @@ function Library() {
 
       <section className={styles.statsRow}>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Total Series</span>
+          <span className={styles.statLabel}>Total series</span>
           <span className={styles.statValue}>{stats.total}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Viendo Ahora</span>
+          <span className={styles.statLabel}>Viendo ahora</span>
           <span className={styles.statValue}>{stats.watching}</span>
         </div>
         <div className={styles.statCard}>
@@ -367,11 +381,11 @@ function Library() {
           <span className={styles.statValue}>{stats.completed}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Con Archivos</span>
+          <span className={styles.statLabel}>Con archivos</span>
           <span className={styles.statValue}>{stats.linked}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Sin Vincular</span>
+          <span className={styles.statLabel}>Sin archivos vinculados</span>
           <span className={styles.statValue}>{stats.unresolved}</span>
         </div>
       </section>
@@ -427,7 +441,7 @@ function Library() {
               <LibraryAnimeCard
                 key={item.malId}
                 item={item}
-                onOpen={() => handleNavigateToAnime(item)}
+                onOpen={() => handleOpenAnimeEntry(item)}
                 onUnlink={() => handleUnlinkAnime(item)}
                 onDelete={() => handleDeleteAnimeEntry(item)}
                 onRemove={() => promptRemoveFromLibrary(item.malId, item.anime.title)}
@@ -460,7 +474,7 @@ function Library() {
                 : "Carpeta local por vincular";
 
             return (
-              <article key={folder.name} className={styles.localCard} onClick={() => handleNavigateToAnime(folder)}>
+              <article key={folder.name} className={styles.localCard} onClick={() => handleOpenLocalFolder(folder)}>
                 <div className={styles.localCardBody}>
                   <div className={styles.localCardHeader}>
                     <div>
@@ -468,7 +482,7 @@ function Library() {
                       <p>{subtitle}</p>
                     </div>
                     <span className={`${styles.localBadge} ${folder.isSuggested ? styles.localBadgeSuggested : ""}`}>
-                      {folder.isSuggested ? "SUGERIDA" : "SIN VINCULAR"}
+                      {folder.isSuggested ? "SUGERIDA" : "SIN SERIE VINCULADA"}
                     </span>
                   </div>
                   <div className={styles.localMeta}>
@@ -477,7 +491,7 @@ function Library() {
                   </div>
                 </div>
                 <div className={styles.localActions} onClick={(event) => event.stopPropagation()}>
-                  <button type="button" onClick={() => handleNavigateToAnime(folder)}>
+                  <button type="button" onClick={() => handleResolveLocalFolder(folder)}>
                     RESOLVER
                   </button>
                   <button type="button" className={styles.dangerAction} onClick={() => handleDeleteFolder(folder)}>

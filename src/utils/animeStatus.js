@@ -16,10 +16,13 @@ export function calculateUserStatus(anime) {
     : [];
   const watchedCount = watchedEpisodes.length;
   const maxWatchedEpisode = watchedCount > 0 ? Math.max(...watchedEpisodes) : 0;
+  const hasEpisodeZero = watchedEpisodes.includes(0);
   const total = Number(anime.episodes) || Number(anime.totalEpisodes) || 0;
 
   // 1. COMPLETADO: Si ha visto todo y no hay más episodios programados
-  if (total > 0 && maxWatchedEpisode >= total && !anime.nextAiringEpisode) {
+  const hasCompletedOneBased = maxWatchedEpisode >= total;
+  const hasCompletedZeroBased = hasEpisodeZero && watchedCount >= total && maxWatchedEpisode >= total - 1;
+  if (total > 0 && (hasCompletedOneBased || hasCompletedZeroBased) && !anime.nextAiringEpisode) {
     return "COMPLETED";
   }
 

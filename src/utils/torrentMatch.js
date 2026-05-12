@@ -85,7 +85,7 @@ export function findTorrentMatches(
   torrentTitle = null,
   synonyms = [],
 ) {
-  if (!torrentItems?.length || !episodeNumber) return [];
+  if (!torrentItems?.length || !Number.isFinite(episodeNumber)) return [];
 
   const titlesToMatch = toUniqueTitles(
     buildTorrentMatchCandidates({
@@ -148,7 +148,7 @@ export function findTorrentMatches(
 }
 
 export function findTorrentMatchesPrecomputed(episodeNumber, filteredTorrents, resolvedCandidates) {
-  if (!filteredTorrents?.length || !episodeNumber || !resolvedCandidates?.length) return [];
+  if (!filteredTorrents?.length || !Number.isFinite(episodeNumber) || !resolvedCandidates?.length) return [];
 
   const titlesToMatch = toUniqueTitles(
     resolvedCandidates.flatMap((value) => buildTitleVariants(value)),

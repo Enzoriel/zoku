@@ -157,13 +157,26 @@ function getKeyMatchScore(folderKey, animeKey, lenient = false) {
   if (!folderKey || !animeKey) return 0;
   if (folderKey === animeKey) return 1;
 
+  const folderTokens = tokenizeSearchKey(folderKey);
+  const animeTokens = tokenizeSearchKey(animeKey);
+  const hasExtraFolderTokens =
+    folderTokens.length > animeTokens.length &&
+    animeTokens.length > 0 &&
+    animeTokens.every((token) => folderTokens.includes(token));
+  const hasExtraAnimeTokens =
+    animeTokens.length > folderTokens.length &&
+    folderTokens.length > 0 &&
+    folderTokens.every((token) => animeTokens.includes(token));
+
+  if (hasExtraFolderTokens || hasExtraAnimeTokens) {
+    return 0;
+  }
+
   const shorterLength = Math.min(folderKey.length, animeKey.length);
   if (shorterLength >= 7 && (folderKey.includes(animeKey) || animeKey.includes(folderKey))) {
     return 0.96;
   }
 
-  const folderTokens = tokenizeSearchKey(folderKey);
-  const animeTokens = tokenizeSearchKey(animeKey);
   if (folderTokens.length === 0 || animeTokens.length === 0) return 0;
 
   const sharedTokens = animeTokens.filter((token) => folderTokens.includes(token)).length;
