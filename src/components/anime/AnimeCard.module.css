@@ -265,9 +265,14 @@
 }
 
 .quickPlayButton:hover {
-  animation: pulse 0.5s ease-in-out infinite;
+  animation: pulse 0.5s ease infinite;
   transform: translate(-50%, -50%);
   filter: brightness(1.1);
+}
+
+.card:hover .quickPlayButton:active {
+  transform: translate(-50%, -50%) scale(0.9);
+  animation: none;
 }
 
 .quickPlayButton img {
@@ -277,6 +282,7 @@
   transform: translate(-50%, -50%);
   width: 20px;
   height: auto;
+  pointer-events: none;
 }
 
 .card:hover .quickPlayButton {
@@ -286,12 +292,15 @@
 
 @keyframes pulse {
   0% {
-    transform: translate(-50%, -50%) scale(1);
+    outline: 2px solid var(--primary-color);
+    outline-offset: -5px;
   }
-  50% {
-    transform: translate(-50%, -50%) scale(1.05);
+  99% {
+    outline: 5px solid rgba(255, 255, 255, 0);
+    outline-offset: 3px;
   }
   100% {
-    transform: translate(-50%, -50%) scale(1);
+    outline: 0px solid var(--primary-color);
+    outline-offset: 1px;
   }
 }

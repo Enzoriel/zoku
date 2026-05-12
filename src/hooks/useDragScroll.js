@@ -34,7 +34,7 @@ export function useDragScroll(scrollRef, options = {}) {
   } = options;
 
   const isHorizontal = direction === "horizontal";
-  
+
   const location = useLocation();
   const navigationType = useNavigationType();
   const isRestoring = useRef(false);
@@ -75,7 +75,7 @@ export function useDragScroll(scrollRef, options = {}) {
 
     if (navigationType === "POP") {
       const savedScroll = globalScrollHistory.get(historyKey) || 0;
-      
+
       el.style.scrollBehavior = "auto"; // Anular animación CSS de restauración
       if (isHorizontal) el.scrollLeft = savedScroll;
       else el.scrollTop = savedScroll;
@@ -84,14 +84,14 @@ export function useDragScroll(scrollRef, options = {}) {
       interval = setInterval(() => {
         attempts++;
         const currentScroll = isHorizontal ? el.scrollLeft : el.scrollTop;
-        
+
         // Solo reintentamos si no llegó al valor esperado (a veces el DOM no está listo)
         if (currentScroll < savedScroll) {
           el.style.scrollBehavior = "auto";
           if (isHorizontal) el.scrollLeft = savedScroll;
           else el.scrollTop = savedScroll;
         }
-        
+
         if (attempts >= 5) {
           clearInterval(interval);
           el.style.scrollBehavior = ""; // Restaurar smooth scroll
@@ -102,7 +102,7 @@ export function useDragScroll(scrollRef, options = {}) {
       el.style.scrollBehavior = "auto";
       if (isHorizontal) el.scrollLeft = 0;
       else el.scrollTop = 0;
-      
+
       timeout = setTimeout(() => {
         el.style.scrollBehavior = "";
         isRestoring.current = false;
@@ -147,10 +147,8 @@ export function useDragScroll(scrollRef, options = {}) {
         const spring = -springStiffness * rb.offset;
         rb.velocity = (rb.velocity + spring) * springDamping;
         rb.offset += rb.velocity;
-        
-        el.style.transform = isHorizontal 
-          ? `translateX(${rb.offset}px)` 
-          : `translateY(${rb.offset}px)`;
+
+        el.style.transform = isHorizontal ? `translateX(${rb.offset}px)` : `translateY(${rb.offset}px)`;
 
         if (Math.abs(rb.offset) < 0.5 && Math.abs(rb.velocity) < MIN_SPRING_VELOCITY) {
           stopRubberBand();
@@ -165,30 +163,30 @@ export function useDragScroll(scrollRef, options = {}) {
       stopInertia();
       let currentVelocity = Math.max(-MAX_INERTIA_VELOCITY, Math.min(MAX_INERTIA_VELOCITY, velocity));
       el.style.scrollBehavior = "auto"; // Prevenir conflicto CSS
-      
+
       const step = () => {
         if (Math.abs(currentVelocity) < MIN_INERTIA_VELOCITY) {
           inertiaFrame.current = null;
           el.style.scrollBehavior = "";
           return;
         }
-        
+
         const prevScroll = isHorizontal ? el.scrollLeft : el.scrollTop;
         if (isHorizontal) el.scrollLeft += currentVelocity * 16;
         else el.scrollTop += currentVelocity * 16;
-        
+
         currentVelocity *= INERTIA_FRICTION;
-        
+
         const newScroll = isHorizontal ? el.scrollLeft : el.scrollTop;
         if (newScroll === prevScroll) {
           inertiaFrame.current = null;
           el.style.scrollBehavior = "";
-          
+
           // Si choca contra el límite con suficiente inercia, desencadenar rebote
           if (Math.abs(currentVelocity) > 0.2) {
             rb.active = true;
             // El multiplicador 15 convierte la velocidad restante en el impulso inicial del resorte
-            rb.velocity = -currentVelocity * 15; 
+            rb.velocity = -currentVelocity * 15;
             startRubberBandReturn();
           }
           return;
@@ -238,7 +236,7 @@ export function useDragScroll(scrollRef, options = {}) {
     const handlePointerDown = (event) => {
       if (event.button !== LEFT_MOUSE_BUTTON || event.pointerType !== "mouse") return;
       if (isEditableTarget(event.target)) return;
-      
+
       stopInertia();
       stopRubberBand();
 
@@ -267,12 +265,13 @@ export function useDragScroll(scrollRef, options = {}) {
       const deltaCross = isHorizontal ? deltaY : deltaX;
 
       if (!state.didDrag) {
-        if (Math.abs(deltaX) < DRAG_SCROLL_THRESHOLD && Math.abs(deltaY) < DRAG_SCROLL_THRESHOLD) {
+        if (Math.abs(deltaMain) < DRAG_SCROLL_THRESHOLD) {
           return;
         }
-        
-        // Directional lock
-        if (Math.abs(deltaCross) > Math.abs(deltaMain)) {
+
+        // Solo los contenedores horizontales bloquean por eje. El scroll vertical
+        // principal debe seguir funcionando aunque el gesto empiece diagonal u horizontal.
+        if (isHorizontal && Math.abs(deltaCross) > Math.abs(deltaMain)) {
           stopDrag();
           return;
         }
@@ -292,7 +291,8 @@ export function useDragScroll(scrollRef, options = {}) {
       const elapsed = Math.max(1, now - state.lastTime);
 
       if (intendedScroll < 0) {
-        if (isHorizontal) el.scrollLeft = 0; else el.scrollTop = 0;
+        if (isHorizontal) el.scrollLeft = 0;
+        else el.scrollTop = 0;
         const overscroll = Math.abs(intendedScroll);
         const visualOffset = rubberBandClamp(overscroll, isHorizontal ? el.clientWidth : el.clientHeight);
         rb.active = true;
@@ -300,7 +300,8 @@ export function useDragScroll(scrollRef, options = {}) {
         el.style.transform = isHorizontal ? `translateX(${visualOffset}px)` : `translateY(${visualOffset}px)`;
         el.style.transition = "none";
       } else if (intendedScroll > maxScroll) {
-        if (isHorizontal) el.scrollLeft = maxScroll; else el.scrollTop = maxScroll;
+        if (isHorizontal) el.scrollLeft = maxScroll;
+        else el.scrollTop = maxScroll;
         const overscroll = intendedScroll - maxScroll;
         const visualOffset = -rubberBandClamp(overscroll, isHorizontal ? el.clientWidth : el.clientHeight);
         rb.active = true;
@@ -310,7 +311,8 @@ export function useDragScroll(scrollRef, options = {}) {
       } else {
         if (rb.active) stopRubberBand();
         const prevScroll = isHorizontal ? el.scrollLeft : el.scrollTop;
-        if (isHorizontal) el.scrollLeft = intendedScroll; else el.scrollTop = intendedScroll;
+        if (isHorizontal) el.scrollLeft = intendedScroll;
+        else el.scrollTop = intendedScroll;
         const scrollDelta = (isHorizontal ? el.scrollLeft : el.scrollTop) - prevScroll;
         state.velocity = scrollDelta / elapsed;
       }
