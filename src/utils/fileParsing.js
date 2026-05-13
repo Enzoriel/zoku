@@ -8,6 +8,8 @@ export function extractEpisodeNumber(fileName, ignoreContext = []) {
   if (!fileName) return null;
 
   let name = fileName.toLowerCase();
+  // Elimina extensiones temporales de descarga comunes
+  name = name.replace(/\.(?:!qb|part|bc!|crdownload|tmp)$/i, "");
   const nameWithoutExt = name.substring(0, name.lastIndexOf(".")) || name;
   let cleanName = nameWithoutExt;
 
@@ -108,7 +110,10 @@ export function detectConstantNumbers(fileNames) {
   if (!fileNames || fileNames.length < 2) return [];
 
   const numbersPerFile = fileNames.map((name) => {
-    const clean = name.toLowerCase().replace(/\.[^/.]+$/, "");
+    let clean = name.toLowerCase();
+    // Elimina extensiones temporales de descarga comunes
+    clean = clean.replace(/\.(?:!qb|part|bc!|crdownload|tmp)$/i, "");
+    clean = clean.replace(/\.[^/.]+$/, "");
     return (clean.match(/\d+/g) || []).map(Number);
   });
 

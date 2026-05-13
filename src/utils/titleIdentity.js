@@ -1,5 +1,9 @@
 export function stripFileExtension(value) {
-  return String(value).replace(/\.[^/.]+$/, "");
+  let name = String(value);
+  // Elimina extensiones temporales de descarga comunes
+  name = name.replace(/\.(?:!qb|part|bc!|crdownload|tmp)$/i, "");
+  // Elimina la extensión real (.mkv, .mp4, etc.)
+  return name.replace(/\.[^/.]+$/, "");
 }
 
 export function normalizeForSearch(text) {
