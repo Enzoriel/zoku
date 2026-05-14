@@ -41,10 +41,12 @@
 }
 
 .card:hover,
-.card:focus-within {
+.card:focus-visible,
+.card:has(:focus-visible) {
   border-color: var(--px-cyan);
   transform: translateY(-4px);
   box-shadow: 0 12px 28px rgba(0, 217, 255, 0.12);
+  outline: none;
 }
 
 .posterFrame {
@@ -160,7 +162,8 @@
 }
 
 .card:hover .hoverContent,
-.card:focus-within .hoverContent {
+.card:focus-visible .hoverContent,
+.card:has(:focus-visible) .hoverContent {
   opacity: 1;
   transform: translateY(0);
 }
@@ -214,7 +217,8 @@
 }
 
 .card:hover .actions,
-.card:focus-within .actions {
+.card:focus-visible .actions,
+.card:has(:focus-visible) .actions {
   opacity: 1;
   transform: translateY(0);
 }
