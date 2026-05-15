@@ -21,6 +21,26 @@ const USER_FILTERS = {
   DROPPED: "Abandonados",
 };
 
+const LIBRARY_FILTERS = {
+  ALL: "ALL",
+  LINKED: "LINKED",
+  NOT_LINKED: "NOT_LINKED",
+};
+
+const STAT_FILTERS = [
+  { id: "total", label: "Total series", statKey: "total", userFilter: "ALL", libraryFilter: LIBRARY_FILTERS.ALL },
+  { id: "watching", label: "Viendo ahora", statKey: "watching", userFilter: "WATCHING", libraryFilter: LIBRARY_FILTERS.ALL },
+  { id: "completed", label: "Completados", statKey: "completed", userFilter: "COMPLETED", libraryFilter: LIBRARY_FILTERS.ALL },
+  { id: "linked", label: "Con archivos", statKey: "linked", userFilter: "ALL", libraryFilter: LIBRARY_FILTERS.LINKED },
+  {
+    id: "not-linked",
+    label: "Sin archivos vinculados",
+    statKey: "notLinked",
+    userFilter: "ALL",
+    libraryFilter: LIBRARY_FILTERS.NOT_LINKED,
+  },
+];
+
 function Library() {
   const { data, libraryScopeReady, libraryScopeError, setMyAnimes, retryLibraryScope } = useStore();
   const { performSync, syncing, localFilesIndex } = useLibrary();
@@ -28,6 +48,7 @@ function Library() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [userFilter, setUserFilter] = useState("ALL");
+  const [libraryFilter, setLibraryFilter] = useState(LIBRARY_FILTERS.ALL);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCollectionView, setActiveCollectionView] = useState("ANIMES");
   const [pendingFilter, startTransition] = useTransition();
@@ -83,19 +104,23 @@ function Library() {
     const watching = animeEntries.filter((entry) => entry.computedStatus === "WATCHING").length;
     const completed = animeEntries.filter((entry) => entry.computedStatus === "COMPLETED").length;
     const linked = animeEntries.filter((entry) => entry.libraryStatus === "LINKED").length;
-    const unresolved = animeEntries.filter((entry) => entry.libraryStatus === "UNLINKED").length;
-    return { total, watching, completed, linked, unresolved };
+    const notLinked = animeEntries.filter((entry) => entry.libraryStatus !== "LINKED").length;
+    return { total, watching, completed, linked, notLinked };
   }, [animeEntries]);
 
   const filteredAnimeEntries = useMemo(() => {
     const searchLower = searchTerm.toLowerCase();
     return animeEntries.filter((entry) => {
-      const matchesSearch = !searchTerm || entry.anime.title.toLowerCase().includes(searchLower);
+      const entryTitle = entry.anime.title || entry.anime.title_english || "";
+      const matchesSearch = !searchTerm || entryTitle.toLowerCase().includes(searchLower);
       if (!matchesSearch) return false;
 
-      return userFilter === "ALL" || entry.computedStatus === userFilter;
+      if (userFilter !== "ALL" && entry.computedStatus !== userFilter) return false;
+      if (libraryFilter === LIBRARY_FILTERS.LINKED) return entry.libraryStatus === "LINKED";
+      if (libraryFilter === LIBRARY_FILTERS.NOT_LINKED) return entry.libraryStatus !== "LINKED";
+      return true;
     });
-  }, [animeEntries, userFilter, searchTerm]);
+  }, [animeEntries, userFilter, libraryFilter, searchTerm]);
 
   const filteredLocalEntries = useMemo(() => {
     const searchLower = searchTerm.toLowerCase();
@@ -104,8 +129,19 @@ function Library() {
       return displayTitle.toLowerCase().includes(searchLower);
     });
   }, [localEntries, searchTerm]);
-  const changeFilter = (setter, value) => {
-    startTransition(() => setter(value));
+  const changeUserFilter = (value) => {
+    startTransition(() => {
+      setUserFilter(value);
+      setLibraryFilter(LIBRARY_FILTERS.ALL);
+    });
+  };
+
+  const applyStatFilter = (statFilter) => {
+    startTransition(() => {
+      setActiveCollectionView("ANIMES");
+      setUserFilter(statFilter.userFilter);
+      setLibraryFilter(statFilter.libraryFilter);
+    });
   };
 
   const handleOpenAnimeEntry = (item) => {
@@ -367,27 +403,24 @@ function Library() {
         </div>
       </header>
 
-      <section className={styles.statsRow}>
-        <div className={styles.statCard}>
-          <span className={styles.statLabel}>Total series</span>
-          <span className={styles.statValue}>{stats.total}</span>
-        </div>
-        <div className={styles.statCard}>
-          <span className={styles.statLabel}>Viendo ahora</span>
-          <span className={styles.statValue}>{stats.watching}</span>
-        </div>
-        <div className={styles.statCard}>
-          <span className={styles.statLabel}>Completados</span>
-          <span className={styles.statValue}>{stats.completed}</span>
-        </div>
-        <div className={styles.statCard}>
-          <span className={styles.statLabel}>Con archivos</span>
-          <span className={styles.statValue}>{stats.linked}</span>
-        </div>
-        <div className={styles.statCard}>
-          <span className={styles.statLabel}>Sin archivos vinculados</span>
-          <span className={styles.statValue}>{stats.unresolved}</span>
-        </div>
+      <section className={styles.statsRow} aria-label="Filtros rapidos de biblioteca">
+        {STAT_FILTERS.map((statFilter) => {
+          const isActive = userFilter === statFilter.userFilter && libraryFilter === statFilter.libraryFilter;
+
+          return (
+            <button
+              key={statFilter.id}
+              type="button"
+              className={`${styles.statCard} ${isActive ? styles.statCardActive : ""}`}
+              onClick={() => applyStatFilter(statFilter)}
+              aria-pressed={isActive}
+              disabled={pendingFilter}
+            >
+              <span className={styles.statLabel}>{statFilter.label}</span>
+              <span className={styles.statValue}>{stats[statFilter.statKey]}</span>
+            </button>
+          );
+        })}
       </section>
 
       <section className={styles.filterPanel}>
@@ -415,7 +448,7 @@ function Library() {
                 key={id}
                 type="button"
                 className={`${styles.filterButton} ${userFilter === id ? styles.filterButtonActive : ""}`}
-                onClick={() => changeFilter(setUserFilter, id)}
+                onClick={() => changeUserFilter(id)}
                 disabled={pendingFilter}
               >
                 {label}
