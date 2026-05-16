@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildStoredAnimeEntry } from "../../utils/animeEntry";
 import styles from "./AnimeCardExt.module.css";
 
-function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes }) {
+function AnimeCardExt({ anime, malId, onToggleLibrary, isInLibrary }) {
   const navigate = useNavigate();
   const [showMore, setShowMore] = useState(false);
   const cardRef = useRef(null);
@@ -29,22 +28,9 @@ function AnimeCardExt({ anime, malId, onAdd, onRemove, isInLibrary, setMyAnimes 
 
   const animeId = malId;
 
-  const handleToggleLibrary = async (e) => {
+  const handleToggleLibrary = (e) => {
     e.stopPropagation();
-
-    if (isInLibrary) {
-      await setMyAnimes((prev) => {
-        const newState = { ...prev };
-        delete newState[animeId];
-        return newState;
-      });
-      if (onRemove) onRemove(animeId);
-      return;
-    }
-
-    const animeData = buildStoredAnimeEntry(anime, { malId: animeId });
-    await setMyAnimes((prev) => ({ ...prev, [animeId]: animeData }));
-    if (onAdd) onAdd(animeData);
+    onToggleLibrary?.(anime, animeId);
   };
 
   const image = anime.images?.jpg?.large_image_url || anime.coverImage || "";
