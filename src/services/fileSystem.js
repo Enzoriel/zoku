@@ -97,11 +97,16 @@ function toUniqueSearchKeys(values) {
   );
 }
 
-function extractSeasonNumber(text) {
+export function extractSeasonNumber(text, { allowTrailingNumber = false } = {}) {
   if (!text) return null;
 
-  const normalized = String(text).toLowerCase();
-  const patterns = [/\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i, /\bseason\s+(\d{1,2})\b/i, /\bs(\d{1,2})\b/i];
+  const raw = String(text);
+  const normalized = raw.toLowerCase();
+  const patterns = [
+    /\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i,
+    /\bseason\s+(\d{1,2})\b/i,
+    /\bs(\d{1,2})\b/i,
+  ];
 
   for (const pattern of patterns) {
     const match = normalized.match(pattern);
@@ -111,24 +116,114 @@ function extractSeasonNumber(text) {
     }
   }
 
+  // Detección de temporada por número final al estilo anime
+  let cleaned = raw
+    .replace(/\.(?:mkv|mp4|avi|webm|mov|!qb|part|bc!|crdownload|tmp)$/i, "")
+    .replace(/\[.*?\]/g, "")
+    .replace(/\(.*?\)/g, "")
+    .trim();
+
+  // Eliminar rango o número de episodio al final con separador explícito
+  // para exponer el número de temporada que pueda estar detrás
+  const stripped = cleaned
+    .replace(/\s*[-–]\s*\d{1,4}\s*[~]\s*\d{1,4}\s*$/, "")  // batch: "- 01~10"
+    .replace(/\s*[-–]\s*\d{1,4}\s*$/, "")                    // single: "- 06"
+    .trim();
+
+  // Si se eliminó un episodio con separador (ej: "Título 3 - 06" → "Título 3"),
+  // el número final expuesto es la temporada
+  if (stripped !== cleaned) {
+    const match = stripped.match(/^(.{5,})\s+(\d{1,2})\s*$/);
+    if (match) {
+      const num = Number.parseInt(match[2], 10);
+      if (num >= 2 && num <= 20) return num;
+    }
+  }
+
+  // Para carpetas y títulos de API: número final = temporada
+  // Carpetas NO tienen número de episodio, así que "Anime 2" = temporada 2
+  if (allowTrailingNumber) {
+    const match = stripped.match(/^(.{5,})\s+(\d{1,2})\s*$/);
+    if (match) {
+      const num = Number.parseInt(match[2], 10);
+      if (num >= 2 && num <= 20) return num;
+    }
+  }
+
   return null;
 }
 
-function isSeasonCompatible(folder, anime) {
-  const animeSeason = extractSeasonNumber(anime?.title) ?? extractSeasonNumber(anime?.title_english);
-  if (!animeSeason) {
+export function isSeasonCompatible(folder, anime) {
+  if (anime?.folderName && folder?.folderName && anime.folderName === folder.folderName) {
     return true;
   }
 
-  const folderSeasons = [extractSeasonNumber(folder?.folderName), extractSeasonNumber(folder?.files?.[0]?.name)].filter(
-    Number.isFinite,
-  );
+  // Títulos de API son limpios, nunca tienen número de episodio
+  const animeSeason = extractSeasonNumber(anime?.title, { allowTrailingNumber: true })
+    ?? extractSeasonNumber(anime?.title_english, { allowTrailingNumber: true });
+
+  // Carpetas reales NO tienen episodios → número final = temporada
+  const isRealFolder = !folder?.isRootFile;
+  const folderSeasons = [
+    extractSeasonNumber(folder?.folderName, { allowTrailingNumber: isRealFolder }),
+    extractSeasonNumber(folder?.files?.[0]?.name),
+  ].filter(Number.isFinite);
 
   if (folderSeasons.length === 0) {
     return true;
   }
 
+  // Incompatibilidad inversa: carpeta indica temporada ≥2 pero el anime
+  // no tiene temporada → el anime es Season 1, no son compatibles
+  if (!animeSeason) {
+    return !folderSeasons.some((s) => s >= 2);
+  }
+
   return folderSeasons.includes(animeSeason);
+}
+
+const SPECIAL_TYPE_PATTERN = /\b(?:OVA|ONA|OAD)\b/gi;
+
+function getSpecialTypeTags(text) {
+  if (!text) return [];
+  const matches = String(text).match(SPECIAL_TYPE_PATTERN);
+  return matches ? Array.from(new Set(matches.map((m) => m.toUpperCase()))) : [];
+}
+
+/**
+ * Verifica que la carpeta/archivo y el anime coincidan en tipo especial (OVA/ONA/OAD).
+ * - Si uno de los dos tiene tags especiales y el otro no → incompatible.
+ * - Si ambos tienen tags especiales, deben compartir al menos un tag especial para ser compatibles.
+ * - Si ninguno tiene tags especiales → compatible.
+ */
+export function isSpecialTypeCompatible(folder, anime) {
+  if (anime?.folderName && folder?.folderName && anime.folderName === folder.folderName) {
+    return true;
+  }
+
+  const folderTags = new Set([
+    ...getSpecialTypeTags(folder?.folderName),
+    ...(folder?.files || []).flatMap((f) => getSpecialTypeTags(f?.name)),
+  ]);
+
+  const animeTags = new Set([
+    ...getSpecialTypeTags(anime?.title),
+    ...getSpecialTypeTags(anime?.title_english),
+  ]);
+
+  const folderHasSpecial = folderTags.size > 0;
+  const animeHasSpecial = animeTags.size > 0;
+
+  if (folderHasSpecial !== animeHasSpecial) {
+    return false;
+  }
+
+  if (folderHasSpecial && animeHasSpecial) {
+    const hasOverlap = Array.from(folderTags).some((tag) => animeTags.has(tag));
+    return hasOverlap;
+  }
+
+  return true;
 }
 
 function buildFolderSearchKeys(folder) {
@@ -192,7 +287,7 @@ export function findAnimeFolderCandidates(anime, localFiles, options = {}) {
     if (folder?.isLinked) return false;
     if (folder?.isTracking) return false;
     if (options.onlyWithFiles && (!folder?.files || folder.files.length === 0)) return false;
-    if (!isSeasonCompatible(folder, anime)) return false;
+    if (!isSeasonCompatible(folder, anime) || !isSpecialTypeCompatible(folder, anime)) return false;
     return true;
   });
 
@@ -489,7 +584,9 @@ export async function scanLibrary(basePath, myAnimes) {
 
     Object.keys(virtualLibrary).forEach((key) => {
       const folder = virtualLibrary[key];
-      const matchedAnime = animeList.find((a) => a.folderName === key);
+      const matchedAnime = animeList.find(
+        (a) => a.folderName === key && isSeasonCompatible(folder, a) && isSpecialTypeCompatible(folder, a)
+      );
 
       if (matchedAnime) {
         folder.isLinked = true;
@@ -508,6 +605,8 @@ export async function scanLibrary(basePath, myAnimes) {
       if (folder.isLinked) return;
 
       for (const anime of linkedAnimes) {
+        if (!isSeasonCompatible(folder, anime) || !isSpecialTypeCompatible(folder, anime)) continue;
+
         const intentAt = anime.downloadIntentAt ? new Date(anime.downloadIntentAt).getTime() : 0;
         const candidates = findAnimeFolderCandidates(anime, { [key]: folder }, { onlyWithFiles: true });
         

@@ -48,7 +48,8 @@ export function extractEpisodeNumber(fileName, ignoreContext = []) {
 
   cleanName = cleanName
     .replace(/\bs(?:eason)?\s*\d{1,2}\b/gi, " ")
-    .replace(/\b\d{1,2}(?:st|nd|rd|th)\s+season\b/gi, " ");
+    .replace(/\b\d{1,2}(?:st|nd|rd|th)\s+season\b/gi, " ")
+    .replace(/\b\d{1,2}\s*[-\s–—~.]*\s*(?:ova|ona|oad|special|movie|film)\b/gi, " ");
 
   // El patrón "Nombre - 01" es el estándar más fiable en la industria del anime
   const lastHyphenIndex = cleanName.lastIndexOf(" - ");
@@ -69,7 +70,8 @@ export function extractEpisodeNumber(fileName, ignoreContext = []) {
 
   cleanName = cleanName
     .replace(/\bs(?:eason)?\s*\d{1,2}\b/gi, " ")
-    .replace(/\b\d{1,2}(?:st|nd|rd|th)\s+season\b/gi, " ");
+    .replace(/\b\d{1,2}(?:st|nd|rd|th)\s+season\b/gi, " ")
+    .replace(/\b\d{1,2}\s*[-\s–—~.]*\s*(?:ova|ona|oad|special|movie|film)\b/gi, " ");
 
   // Busca prefijos explícitos de episodio
   const priorityMatch = cleanName.match(/(?:ep|e|cap|episode|episode\s|ep\s)0*(\d{1,4})(?:\b|[^0-9])/i);

@@ -30,6 +30,16 @@ export function extractBaseTitle(fileName) {
   name = name.replace(/\[.*?\]/g, "");
   name = name.replace(/\(.*?\)/g, "");
   name = name.replace(/\{.*?\}/g, "");
+  name = name.trim();
+
+  // Proteger patrón de temporada + episodio al final (ej: "Anime 3 - 06" o "Anime 3 - 01~10")
+  const seasonEpisodeMatch = name.match(/^(.+?)\s+(\d{1,2})\s*[-–~.]\s*\d{1,4}(?:\s*[~-]\s*\d{1,4})?(?:v\d{1,2})?\s*$/i);
+  if (seasonEpisodeMatch) {
+    const seasonNum = Number.parseInt(seasonEpisodeMatch[2], 10);
+    if (seasonNum >= 2 && seasonNum <= 20) {
+      return `${seasonEpisodeMatch[1].trim()} ${seasonNum}`.trim();
+    }
+  }
 
   const junk = [
     /2160p/gi,
@@ -63,11 +73,17 @@ export function extractBaseTitle(fileName) {
   name = name.replace(/\bSeason [0-9]{1,2}\b/gi, "");
   name = name.replace(/\bv[0-9]{1}\b/gi, "");
 
+  // Proteger un número final de temporada al final de la cadena si ya no hay episodios (ej: "Anime 3")
+  const seasonOnlyMatch = name.match(/^(.+?)\s+([2-5])\s*$/i);
+  if (seasonOnlyMatch) {
+    return `${seasonOnlyMatch[1].trim()} ${seasonOnlyMatch[2]}`.trim();
+  }
+
   name = name.replace(
     /(?:[ \-_.]+(?:(?:episode|ep|e|cap)\s*)?\d{1,4}(?:v\d{1,2})?(?:\s*[-~]\s*\d{1,4})?)\s*$/i,
     "",
   );
-  name = name.replace(/(?:[ \-_.]+)(?:end|final|ova|special|movie|film)\s*$/i, "");
+  name = name.replace(/(?:[ \-_.]+)(?:end|final|special|movie|film)\s*$/i, "");
 
   name = name.replace(/^[ \-_.:]+|[ \-_.:]+$/g, "");
   name = name.replace(/\s+/g, " ");
