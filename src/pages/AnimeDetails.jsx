@@ -72,7 +72,6 @@ function AnimeDetails() {
   const [isSearchingApi, setIsSearchingApi] = useState(false);
   const [torrentModalOpen, setTorrentModalOpen] = useState(false);
   const [torrentModalItems, setTorrentModalItems] = useState([]);
-  const [deleteSelectionMode, setDeleteSelectionMode] = useState(false);
   const [selectedDeleteEpisodes, setSelectedDeleteEpisodes] = useState([]);
 
   const { toast, showToast } = useToast();
@@ -354,6 +353,20 @@ function AnimeDetails() {
     };
   }, [contextMenu]);
 
+  useEffect(() => {
+    if (selectedDeleteEpisodes.length === 0) return;
+
+    const clearOnLeftPointerDown = (event) => {
+      if (event.button !== 0) return;
+      if (event.target instanceof Element && event.target.closest("[data-selection-context-menu]")) return;
+      setContextMenu(null);
+      setSelectedDeleteEpisodes([]);
+    };
+
+    document.addEventListener("pointerdown", clearOnLeftPointerDown);
+    return () => document.removeEventListener("pointerdown", clearOnLeftPointerDown);
+  }, [selectedDeleteEpisodes.length]);
+
   const handleApiSearch = async (queryToSearch) => {
     const query = typeof queryToSearch === "string" ? queryToSearch : apiSearchQuery;
     if (!query.trim()) return;
@@ -495,16 +508,20 @@ function AnimeDetails() {
   );
 
   const handleContextMenu = useCallback(
-    (event, epNum, status) => {
+    (event, episodeNumbers) => {
       event.preventDefault();
       event.stopPropagation();
       if (!mainAnime?.isInLibrary) return;
+      const normalizedEpisodes = Array.from(
+        new Set((Array.isArray(episodeNumbers) ? episodeNumbers : [episodeNumbers]).filter(Number.isFinite)),
+      ).sort((first, second) => first - second);
+      if (normalizedEpisodes.length === 0) return;
+
+      setSelectedDeleteEpisodes(normalizedEpisodes);
       setContextMenu({
         x: event.clientX,
         y: event.clientY,
-        epNum,
-        isWatched: status.type === "tagWatched",
-        deletableFiles: status.deletableFiles || [],
+        episodeNumbers: normalizedEpisodes,
       });
     },
     [mainAnime?.isInLibrary],
@@ -591,12 +608,10 @@ function AnimeDetails() {
 
   useEffect(() => {
     if (canDeleteFiles) return;
-    setDeleteSelectionMode((prev) => (prev ? false : prev));
     setSelectedDeleteEpisodes((prev) => (prev.length > 0 ? [] : prev));
   }, [canDeleteFiles]);
 
   const closeDeleteSelectionMode = useCallback(() => {
-    setDeleteSelectionMode((prev) => (prev ? false : prev));
     setSelectedDeleteEpisodes((prev) => (prev.length > 0 ? [] : prev));
   }, []);
 
@@ -616,27 +631,8 @@ function AnimeDetails() {
     requestDeleteEpisodes(deletableEpisodeNumbers, { mode: "all" });
   }, [deletableEpisodeNumbers, requestDeleteEpisodes]);
 
-  const handleDeleteSelectedFiles = useCallback(() => {
-    requestDeleteEpisodes(selectedDeleteEpisodes, { mode: "selected" });
-  }, [requestDeleteEpisodes, selectedDeleteEpisodes]);
-
-  const handleToggleDeleteSelectionMode = useCallback(() => {
-    if (!canDeleteFiles) {
-      showInfoModal("No hay archivos para borrar", "Este anime no tiene archivos locales borrables en disco.");
-      return;
-    }
-    setContextMenu(null);
-    if (deleteSelectionMode) {
-      closeDeleteSelectionMode();
-      return;
-    }
-    setDeleteSelectionMode(true);
-  }, [canDeleteFiles, closeDeleteSelectionMode, deleteSelectionMode, showInfoModal]);
-
-  const handleToggleEpisodeSelection = useCallback((epNum) => {
-    setSelectedDeleteEpisodes((prev) =>
-      prev.includes(epNum) ? prev.filter((value) => value !== epNum) : [...prev, epNum].sort((a, b) => a - b),
-    );
+  const handleReplaceEpisodeSelection = useCallback((epNums) => {
+    setSelectedDeleteEpisodes(epNums);
   }, []);
 
   const handleClearEpisodeSelection = useCallback(() => {
@@ -663,7 +659,7 @@ function AnimeDetails() {
           libraryNotice={libraryNotice}
           onAdd={handleAddToLibraryBtnClick}
           onRemove={handleRemoveFromLibrary}
-          onDeleteFiles={handleToggleDeleteSelectionMode}
+          onDeleteFiles={handleDeleteAllFiles}
           canDeleteFiles={canDeleteFiles}
           onLinkFolder={() => setShowLinkFolderModal(true)}
           onEditAlias={() => setShowAliasModal(true)}
@@ -673,7 +669,6 @@ function AnimeDetails() {
           <EpisodeList
             mainAnime={mainAnime}
             episodes={episodes}
-            animeFilesData={animeFilesData}
             episodeFileMap={episodeFileMap}
             torrentData={torrentData}
             playingEp={playingEp}
@@ -683,15 +678,10 @@ function AnimeDetails() {
             activeFansub={effectiveTorrentFansub}
             setTorrentModalItems={setTorrentModalItems}
             setTorrentModalOpen={setTorrentModalOpen}
-            folderName={folderName}
             canManageFiles={canDeleteFiles}
-            deleteSelectionMode={deleteSelectionMode}
             selectedEpisodes={selectedDeleteEpisodes}
-            onToggleDeleteMode={handleToggleDeleteSelectionMode}
-            onToggleEpisodeSelection={handleToggleEpisodeSelection}
+            onReplaceEpisodeSelection={handleReplaceEpisodeSelection}
             onClearEpisodeSelection={handleClearEpisodeSelection}
-            onDeleteSelectedEpisodes={handleDeleteSelectedFiles}
-            onDeleteAllEpisodes={handleDeleteAllFiles}
           />
         </main>
       </div>
@@ -699,28 +689,47 @@ function AnimeDetails() {
       {contextMenu && (
         <div
           className={styles.contextMenu}
+          data-selection-context-menu
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onMouseDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
         >
-          <button
-            className={styles.contextMenuItem}
-            onClick={(event) => {
-              event.stopPropagation();
-              toggleEpisodeWatched(animeId, contextMenu.epNum, contextMenu.isWatched);
-              setContextMenu(null);
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            {contextMenu.isWatched ? "MARCAR COMO NO VISTO" : "MARCAR COMO VISTO"}
-          </button>
-          {deleteSelectionMode && contextMenu.deletableFiles?.length > 0 && (
+          {(() => {
+            const watchedEpisodes = mainAnime?.watchedEpisodes || [];
+            const selectedEpisodes = contextMenu.episodeNumbers || [];
+            const allSelectedWatched =
+              selectedEpisodes.length > 0 && selectedEpisodes.every((epNum) => watchedEpisodes.includes(epNum));
+            const markWatched = !allSelectedWatched;
+
+            return (
+              <button
+                className={styles.contextMenuItem}
+                onClick={async (event) => {
+                  event.stopPropagation();
+                  await Promise.all(
+                    selectedEpisodes
+                      .filter((epNum) =>
+                        markWatched ? !watchedEpisodes.includes(epNum) : watchedEpisodes.includes(epNum),
+                      )
+                      .map((epNum) => toggleEpisodeWatched(animeId, epNum, !markWatched)),
+                  );
+                  setContextMenu(null);
+                  handleClearEpisodeSelection();
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                {markWatched ? "MARCAR COMO VISTO" : "MARCAR COMO NO VISTO"}
+              </button>
+            );
+          })()}
+          {contextMenu.episodeNumbers?.length > 0 && (
             <button
               className={`${styles.contextMenuItem} ${styles.contextMenuItemDanger}`}
               onClick={(event) => {
                 event.stopPropagation();
-                requestDeleteEpisodes([contextMenu.epNum], { mode: "selected" });
+                requestDeleteEpisodes(contextMenu.episodeNumbers, { mode: "selected" });
                 setContextMenu(null);
               }}
             >
@@ -731,7 +740,7 @@ function AnimeDetails() {
                 <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
                 <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
               </svg>
-              BORRAR ESTE EPISODIO DEL DISCO
+              ELIMINAR DEL DISCO
             </button>
           )}
         </div>
