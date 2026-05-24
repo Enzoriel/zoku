@@ -9,6 +9,7 @@ import {
   getPrincipalFansub,
   getPreferredResolution,
   getFansubsByLanguage,
+  getFansubConfig,
   isSpanishUser,
   getCategoryForTab,
 } from "../utils/torrentConfig";
@@ -34,7 +35,19 @@ function TorrentPage() {
   const preferredRes = useMemo(() => getPreferredResolution(storeData.settings), [storeData.settings]);
 
   // English/Spanish mode
-  const [langMode, setLangMode] = useState("en");
+  const [langMode, setLangMode] = useState(() => {
+    if (location.state?.langMode === "es" || location.state?.langMode === "en") {
+      return location.state.langMode;
+    }
+
+    const targetTab = location.state?.activeTab;
+    if (targetTab && targetTab !== "general") {
+      const targetFansub = getFansubConfig(storeData.settings, targetTab);
+      if (targetFansub?.language === "es") return "es";
+    }
+
+    return "en";
+  });
 
   // Spanish suffix toggle: "esp", "spa", or null
   const [spanishSuffix, setSpanishSuffix] = useState(null);

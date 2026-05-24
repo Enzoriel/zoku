@@ -18,13 +18,13 @@ import useSafeAsync from "../hooks/useSafeAsync";
 import { AnimeHeader } from "../components/anime/details/AnimeHeader";
 import { AnimeSidebar } from "../components/anime/details/AnimeSidebar";
 import { EpisodeList } from "../components/anime/details/EpisodeList";
-import { METADATA_REFRESH_DAYS } from "../constants";
+import { METADATA_REFRESH_DAYS, TORRENT_REFRESH_INTERVAL_MS } from "../constants";
 import { buildStoredAnimeEntry } from "../utils/animeEntry";
 import { getReleasedEpisodeCount, isAnimeActivelyAiring, isAiringMetadataStale } from "../utils/airingStatus";
 import { detectNewEpisodeAirDates } from "../utils/recentEpisodes";
 import { buildEpisodeFileMap, buildVisibleEpisodeNumbers } from "../utils/episodeFiles";
 import { acceptSuggestedFolder, rejectSuggestedFolder } from "../utils/linkingState";
-import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
+import { getEffectiveTorrentSourceFansub, getFansubConfig } from "../utils/torrentConfig";
 import { getBestFolderMatch } from "../utils/libraryView";
 import { extractBaseTitle } from "../utils/titleIdentity";
 import { useDeleteEpisodes } from "../hooks/useDeleteEpisodes";
@@ -54,7 +54,13 @@ function AnimeDetails() {
   const { data, setMyAnimes, libraryScopeReady } = useStore();
   const { getAnimeById, getFreshAnimeById, refreshAnimeById, loading: animeLoading } = useAnime();
   const { performSync, localFilesIndex } = useLibrary();
-  const { principalFansub, getItemsForAnime } = useTorrent();
+  const {
+    principalFansub,
+    getItemsForAnime,
+    refresh: refreshTorrents,
+    isLoading: torrentsLoading,
+    lastFetch: torrentsLastFetch,
+  } = useTorrent();
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -133,6 +139,17 @@ function AnimeDetails() {
     [mainAnime, principalFansub],
   );
   const torrentData = useMemo(() => getItemsForAnime(mainAnime), [getItemsForAnime, mainAnime]);
+
+  useEffect(() => {
+    if (!mainAnime?.isInLibrary || !isAnimeActivelyAiring(mainAnime)) return;
+    if (!refreshTorrents || torrentsLoading) return;
+
+    const lastFetchMs = torrentsLastFetch ? Number(torrentsLastFetch) : 0;
+    const isStale = !lastFetchMs || Date.now() - lastFetchMs >= TORRENT_REFRESH_INTERVAL_MS;
+    if (!isStale) return;
+
+    refreshTorrents();
+  }, [mainAnime, refreshTorrents, torrentsLastFetch, torrentsLoading]);
 
   const candidateFolders = useMemo(() => {
     if (!mainAnime?.malId || !mainAnime?.isInLibrary || mainAnime?.folderName) return [];
@@ -631,6 +648,44 @@ function AnimeDetails() {
     requestDeleteEpisodes(deletableEpisodeNumbers, { mode: "all" });
   }, [deletableEpisodeNumbers, requestDeleteEpisodes]);
 
+  const buildTorrentShortcutQuery = useCallback(() => {
+    const candidates = [
+      mainAnime?.torrentSearchTerm,
+      mainAnime?.torrentAlias,
+      mainAnime?.torrentTitle,
+      mainAnime?.title,
+    ];
+
+    for (const candidate of candidates) {
+      const rawValue = String(candidate || "").trim();
+      if (!rawValue) continue;
+
+      const cleanValue = extractBaseTitle(rawValue).trim() || rawValue;
+      if (cleanValue) return cleanValue;
+    }
+
+    return "";
+  }, [mainAnime]);
+
+  const handleSearchTorrent = useCallback(() => {
+    if (!mainAnime) return;
+
+    const query = buildTorrentShortcutQuery();
+    const targetFansub = effectiveTorrentFansub || "general";
+    const fansubConfig = targetFansub === "general" ? null : getFansubConfig(data.settings, targetFansub);
+
+    navigate("/torrents", {
+      state: {
+        activeTab: targetFansub,
+        activeQuery: query,
+        searchInput: query,
+        langMode: fansubConfig?.language === "es" ? "es" : "en",
+        malId: animeId,
+        animeTitle: mainAnime.title,
+      },
+    });
+  }, [animeId, buildTorrentShortcutQuery, data.settings, effectiveTorrentFansub, mainAnime, navigate]);
+
   const handleReplaceEpisodeSelection = useCallback((epNums) => {
     setSelectedDeleteEpisodes(epNums);
   }, []);
@@ -661,6 +716,8 @@ function AnimeDetails() {
           onRemove={handleRemoveFromLibrary}
           onDeleteFiles={handleDeleteAllFiles}
           canDeleteFiles={canDeleteFiles}
+          onSearchTorrent={handleSearchTorrent}
+          canSearchTorrent={Boolean(mainAnime?.title)}
           onLinkFolder={() => setShowLinkFolderModal(true)}
           onEditAlias={() => setShowAliasModal(true)}
         />
