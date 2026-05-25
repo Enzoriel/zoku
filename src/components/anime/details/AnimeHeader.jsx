@@ -1,7 +1,18 @@
 import styles from "../../../pages/AnimeDetails.module.css";
 import BackButton from "../../ui/BackButton";
 
+function getStatusClass(status) {
+  if (!status) return "";
+  const s = status.toLowerCase();
+  if (s.includes("emision") || s.includes("airing") || s.includes("releasing") || s.includes("emisión")) return styles.statusAiring;
+  if (s.includes("finalizado") || s.includes("finished")) return styles.statusFinished;
+  if (s.includes("proximo") || s.includes("próximamente") || s.includes("not yet")) return styles.statusUpcoming;
+  return "";
+}
+
 export function AnimeHeader({ title, type, year, status }) {
+  const statusClass = getStatusClass(status);
+
   return (
     <header className={styles.headerArea}>
       <div style={{ marginBottom: "1rem" }}>
@@ -21,7 +32,7 @@ export function AnimeHeader({ title, type, year, status }) {
         </h1>
         <div className={styles.titleMeta}>
           <span>{type}</span> • <span>{year}</span> •{" "}
-          <span className={styles.statusText}>{status}</span>
+          <span className={`${styles.statusText} ${statusClass}`.trim()}>{status}</span>
         </div>
       </div>
     </header>

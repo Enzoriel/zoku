@@ -10,6 +10,8 @@ export function AnimeSidebar({
   onEditAlias,
   onDeleteFiles,
   canDeleteFiles,
+  onSearchTorrent,
+  canSearchTorrent,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -27,11 +29,22 @@ export function AnimeSidebar({
   return (
     <aside className={styles.sidebar}>
       <div className={styles.posterWrapper}>
-        {mainAnime.coverImage ? (
-          <img src={mainAnime.coverImage} className={styles.poster} alt={mainAnime.title} />
-        ) : (
-          <div className={styles.posterFallback}>DESVINCULADO</div>
-        )}
+        <div className={styles.posterInner}>
+          {mainAnime.coverImage ? (
+            <img src={mainAnime.coverImage} className={styles.poster} alt={mainAnime.title} />
+          ) : (
+            <div className={styles.posterFallback}>DESVINCULADO</div>
+          )}
+          {canSearchTorrent && (
+            <button className={styles.posterTorrentBtn} onClick={onSearchTorrent} type="button">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16.5 16.5 4 4" />
+              </svg>
+              BUSCAR EN TORRENT
+            </button>
+          )}
+        </div>
       </div>
       <div className={styles.mainActions} style={{ width: "100%", marginBottom: "16px" }}>
         {!mainAnime.isInLibrary ? (

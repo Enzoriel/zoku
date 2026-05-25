@@ -43,6 +43,12 @@
   width: 100%;
 }
 
+.posterInner {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
 .posterWrapper::before {
   content: "";
   position: absolute;
@@ -71,6 +77,49 @@
 .posterWrapper:hover .poster {
   transform: scale(1.03);
   transition: transform 0.3s ease;
+}
+
+.posterTorrentBtn {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--px-cyan);
+  background: rgba(5, 8, 16, 0.86);
+  color: var(--px-cyan);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.18), 0 10px 28px rgba(0, 0, 0, 0.45);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.posterWrapper:hover .posterTorrentBtn,
+.posterWrapper:focus-within .posterTorrentBtn {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.posterTorrentBtn:hover,
+.posterTorrentBtn:focus-visible {
+  background: rgba(0, 245, 255, 0.16);
+  color: var(--px-text);
+  outline: none;
 }
 
 /* Tags */
@@ -341,8 +390,20 @@
 }
 
 .statusText {
-  color: var(--px-green);
+  color: var(--px-green); /* Fallback */
   font-weight: 800;
+}
+
+.statusText.statusAiring {
+  color: var(--px-green);
+}
+
+.statusText.statusFinished {
+  color: #ff6f8d;
+}
+
+.statusText.statusUpcoming {
+  color: var(--px-yellow);
 }
 
 .statusText::before {
