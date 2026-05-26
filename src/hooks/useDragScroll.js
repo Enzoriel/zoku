@@ -22,6 +22,26 @@ const rubberBandClamp = (offset, dimension) => {
   return (offset * dimension * RUBBER_BAND_RESISTANCE) / (dimension + RUBBER_BAND_RESISTANCE * Math.abs(offset));
 };
 
+const getNearestScrollable = (target, rootEl, isHorizontal) => {
+  if (!(target instanceof Element) || !rootEl) return rootEl;
+
+  let current = target;
+  while (current && current !== rootEl.parentElement) {
+    if (current instanceof HTMLElement && current !== rootEl) {
+      const scrollSize = isHorizontal ? current.scrollWidth : current.scrollHeight;
+      const clientSize = isHorizontal ? current.clientWidth : current.clientHeight;
+      if (scrollSize > clientSize) {
+        const overflow = window.getComputedStyle(current)[isHorizontal ? "overflowX" : "overflowY"];
+        if (overflow === "auto" || overflow === "scroll") return current;
+      }
+    }
+    if (current === rootEl) break;
+    current = current.parentElement;
+  }
+
+  return rootEl;
+};
+
 // Historial global a nivel de módulo para que persista aunque los componentes (como Carruseles) se desmonten
 const globalScrollHistory = new Map();
 
@@ -31,6 +51,8 @@ export function useDragScroll(scrollRef, options = {}) {
     id = null, // ID único para el historial
     springStiffness = 0.18,
     springDamping = 0.55,
+    ignoreSelector = null,
+    useNestedScrollTarget = false,
   } = options;
 
   const isHorizontal = direction === "horizontal";
@@ -118,18 +140,21 @@ export function useDragScroll(scrollRef, options = {}) {
 
   // 2. Motor Físico (Drag, Inercia, RubberBand)
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+    const rootEl = scrollRef.current;
+    if (!rootEl) return;
     const rb = rubberBandState.current;
+    let activeRubberBandEl = null;
 
-    const stopInertia = () => {
+    const stopInertia = (targetEl) => {
+      const el = targetEl || rootEl;
       if (!inertiaFrame.current) return;
       cancelAnimationFrame(inertiaFrame.current);
       inertiaFrame.current = null;
       el.style.scrollBehavior = "";
     };
 
-    const stopRubberBand = () => {
+    const stopRubberBand = (targetEl) => {
+      const el = targetEl || rootEl;
       if (rb.animFrame) {
         cancelAnimationFrame(rb.animFrame);
         rb.animFrame = null;
@@ -141,7 +166,7 @@ export function useDragScroll(scrollRef, options = {}) {
       el.style.transition = "";
     };
 
-    const startRubberBandReturn = () => {
+    const startRubberBandReturn = (el) => {
       if (rb.animFrame) cancelAnimationFrame(rb.animFrame);
       const animate = () => {
         const spring = -springStiffness * rb.offset;
@@ -151,7 +176,7 @@ export function useDragScroll(scrollRef, options = {}) {
         el.style.transform = isHorizontal ? `translateX(${rb.offset}px)` : `translateY(${rb.offset}px)`;
 
         if (Math.abs(rb.offset) < 0.5 && Math.abs(rb.velocity) < MIN_SPRING_VELOCITY) {
-          stopRubberBand();
+          stopRubberBand(el);
           return;
         }
         rb.animFrame = requestAnimationFrame(animate);
@@ -159,8 +184,8 @@ export function useDragScroll(scrollRef, options = {}) {
       rb.animFrame = requestAnimationFrame(animate);
     };
 
-    const startInertia = (velocity) => {
-      stopInertia();
+    const startInertia = (velocity, el) => {
+      stopInertia(el);
       let currentVelocity = Math.max(-MAX_INERTIA_VELOCITY, Math.min(MAX_INERTIA_VELOCITY, velocity));
       el.style.scrollBehavior = "auto"; // Prevenir conflicto CSS
 
@@ -187,7 +212,7 @@ export function useDragScroll(scrollRef, options = {}) {
             rb.active = true;
             // El multiplicador 15 convierte la velocidad restante en el impulso inicial del resorte
             rb.velocity = -currentVelocity * 15;
-            startRubberBandReturn();
+            startRubberBandReturn(el);
           }
           return;
         }
@@ -198,6 +223,7 @@ export function useDragScroll(scrollRef, options = {}) {
 
     const stopDrag = () => {
       if (!dragState.current) return;
+      const el = dragState.current.scrollEl;
       el.style.scrollBehavior = "";
       el.classList.remove("is-drag-scrolling");
       dragState.current = null;
@@ -209,7 +235,7 @@ export function useDragScroll(scrollRef, options = {}) {
 
       if (state.didDrag) {
         event.stopPropagation();
-        el.releasePointerCapture?.(event.pointerId);
+        state.scrollEl.releasePointerCapture?.(event.pointerId);
       }
       stopDrag();
 
@@ -226,26 +252,31 @@ export function useDragScroll(scrollRef, options = {}) {
 
       if (rb.active) {
         rb.velocity = 0;
-        startRubberBandReturn();
+        startRubberBandReturn(state.scrollEl);
       } else if (shouldStartInertia) {
-        startInertia(state.velocity);
+        startInertia(state.velocity, state.scrollEl);
       }
+
       event.preventDefault();
     };
 
     const handlePointerDown = (event) => {
       if (event.button !== LEFT_MOUSE_BUTTON || event.pointerType !== "mouse") return;
       if (isEditableTarget(event.target)) return;
+      if (ignoreSelector && event.target instanceof Element && event.target.closest(ignoreSelector)) return;
 
       stopInertia();
-      stopRubberBand();
+      stopRubberBand(activeRubberBandEl);
+
+      const scrollEl = useNestedScrollTarget ? getNearestScrollable(event.target, rootEl, isHorizontal) : rootEl;
 
       dragState.current = {
+        scrollEl,
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
         lastTime: performance.now(),
-        scrollStart: isHorizontal ? el.scrollLeft : el.scrollTop,
+        scrollStart: isHorizontal ? scrollEl.scrollLeft : scrollEl.scrollTop,
         didDrag: false,
         velocity: 0,
       };
@@ -265,55 +296,57 @@ export function useDragScroll(scrollRef, options = {}) {
       const deltaCross = isHorizontal ? deltaY : deltaX;
 
       if (!state.didDrag) {
-        if (Math.abs(deltaMain) < DRAG_SCROLL_THRESHOLD) {
-          return;
-        }
+        if (Math.abs(deltaMain) < DRAG_SCROLL_THRESHOLD) return;
 
-        // Solo los contenedores horizontales bloquean por eje. El scroll vertical
-        // principal debe seguir funcionando aunque el gesto empiece diagonal u horizontal.
         if (isHorizontal && Math.abs(deltaCross) > Math.abs(deltaMain)) {
           stopDrag();
           return;
         }
 
         state.didDrag = true;
-        el.style.scrollBehavior = "auto";
-        el.classList.add("is-drag-scrolling");
-        el.setPointerCapture?.(event.pointerId);
+        state.scrollEl.style.scrollBehavior = "auto";
+        state.scrollEl.classList.add("is-drag-scrolling");
+        state.scrollEl.setPointerCapture?.(event.pointerId);
       }
 
-      if (!state.didDrag) return;
-      event.stopPropagation(); // Aislar eventos globalmente
+      event.stopPropagation();
 
-      const maxScroll = isHorizontal ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight;
+      const scrollEl = state.scrollEl;
+      const maxScroll = isHorizontal
+        ? scrollEl.scrollWidth - scrollEl.clientWidth
+        : scrollEl.scrollHeight - scrollEl.clientHeight;
       const intendedScroll = state.scrollStart - deltaMain;
       const now = performance.now();
       const elapsed = Math.max(1, now - state.lastTime);
 
       if (intendedScroll < 0) {
-        if (isHorizontal) el.scrollLeft = 0;
-        else el.scrollTop = 0;
-        const overscroll = Math.abs(intendedScroll);
-        const visualOffset = rubberBandClamp(overscroll, isHorizontal ? el.clientWidth : el.clientHeight);
+        if (isHorizontal) scrollEl.scrollLeft = 0;
+        else scrollEl.scrollTop = 0;
+
+        const visualOffset = rubberBandClamp(Math.abs(intendedScroll), isHorizontal ? scrollEl.clientWidth : scrollEl.clientHeight);
         rb.active = true;
         rb.offset = visualOffset;
-        el.style.transform = isHorizontal ? `translateX(${visualOffset}px)` : `translateY(${visualOffset}px)`;
-        el.style.transition = "none";
+        activeRubberBandEl = scrollEl;
+        scrollEl.style.transform = isHorizontal ? `translateX(${visualOffset}px)` : `translateY(${visualOffset}px)`;
+        scrollEl.style.transition = "none";
       } else if (intendedScroll > maxScroll) {
-        if (isHorizontal) el.scrollLeft = maxScroll;
-        else el.scrollTop = maxScroll;
-        const overscroll = intendedScroll - maxScroll;
-        const visualOffset = -rubberBandClamp(overscroll, isHorizontal ? el.clientWidth : el.clientHeight);
+        if (isHorizontal) scrollEl.scrollLeft = maxScroll;
+        else scrollEl.scrollTop = maxScroll;
+
+        const visualOffset = -rubberBandClamp(intendedScroll - maxScroll, isHorizontal ? scrollEl.clientWidth : scrollEl.clientHeight);
         rb.active = true;
         rb.offset = visualOffset;
-        el.style.transform = isHorizontal ? `translateX(${visualOffset}px)` : `translateY(${visualOffset}px)`;
-        el.style.transition = "none";
+        activeRubberBandEl = scrollEl;
+        scrollEl.style.transform = isHorizontal ? `translateX(${visualOffset}px)` : `translateY(${visualOffset}px)`;
+        scrollEl.style.transition = "none";
       } else {
-        if (rb.active) stopRubberBand();
-        const prevScroll = isHorizontal ? el.scrollLeft : el.scrollTop;
-        if (isHorizontal) el.scrollLeft = intendedScroll;
-        else el.scrollTop = intendedScroll;
-        const scrollDelta = (isHorizontal ? el.scrollLeft : el.scrollTop) - prevScroll;
+        if (rb.active) stopRubberBand(activeRubberBandEl);
+
+        const prevScroll = isHorizontal ? scrollEl.scrollLeft : scrollEl.scrollTop;
+        if (isHorizontal) scrollEl.scrollLeft = intendedScroll;
+        else scrollEl.scrollTop = intendedScroll;
+
+        const scrollDelta = (isHorizontal ? scrollEl.scrollLeft : scrollEl.scrollTop) - prevScroll;
         state.velocity = scrollDelta / elapsed;
       }
 
@@ -321,42 +354,36 @@ export function useDragScroll(scrollRef, options = {}) {
       event.preventDefault();
     };
 
-    const handlePointerUp = (event) => {
-      finishDrag(event);
-    };
-
-    const handlePointerCancel = (event) => {
-      finishDrag(event, false);
-    };
+    const handlePointerUp = (event) => finishDrag(event);
+    const handlePointerCancel = (event) => finishDrag(event, false);
 
     const handleClick = (event) => {
-      if (suppressNextClick.current) {
-        suppressNextClick.current = false;
-        event.preventDefault();
-        event.stopPropagation();
-      }
+      if (!suppressNextClick.current) return;
+      suppressNextClick.current = false;
+      event.preventDefault();
+      event.stopPropagation();
     };
 
-    el.addEventListener("pointerdown", handlePointerDown);
-    el.addEventListener("pointermove", handlePointerMove);
-    el.addEventListener("pointerup", handlePointerUp);
-    el.addEventListener("pointercancel", handlePointerCancel);
-    el.addEventListener("click", handleClick, true);
+    rootEl.addEventListener("pointerdown", handlePointerDown);
+    rootEl.addEventListener("pointermove", handlePointerMove);
+    rootEl.addEventListener("pointerup", handlePointerUp);
+    rootEl.addEventListener("pointercancel", handlePointerCancel);
+    rootEl.addEventListener("click", handleClick, true);
 
     return () => {
-      el.removeEventListener("pointerdown", handlePointerDown);
-      el.removeEventListener("pointermove", handlePointerMove);
-      el.removeEventListener("pointerup", handlePointerUp);
-      el.removeEventListener("pointercancel", handlePointerCancel);
-      el.removeEventListener("click", handleClick, true);
+      rootEl.removeEventListener("pointerdown", handlePointerDown);
+      rootEl.removeEventListener("pointermove", handlePointerMove);
+      rootEl.removeEventListener("pointerup", handlePointerUp);
+      rootEl.removeEventListener("pointercancel", handlePointerCancel);
+      rootEl.removeEventListener("click", handleClick, true);
       if (clickSuppressionTimeout.current) {
         window.clearTimeout(clickSuppressionTimeout.current);
         clickSuppressionTimeout.current = null;
       }
       suppressNextClick.current = false;
       stopDrag();
-      stopInertia();
-      stopRubberBand();
+      stopInertia(activeRubberBandEl);
+      stopRubberBand(activeRubberBandEl);
     };
-  }, [scrollRef, isHorizontal, springStiffness, springDamping]);
+  }, [scrollRef, isHorizontal, springStiffness, springDamping, ignoreSelector, useNestedScrollTarget]);
 }

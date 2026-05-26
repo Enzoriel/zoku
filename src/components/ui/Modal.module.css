@@ -87,6 +87,12 @@
   scrollbar-color: var(--px-border) transparent;
 }
 
+.contentDragging,
+.contentDragging * {
+  user-select: none;
+  cursor: grabbing;
+}
+
 .footer {
   padding: 24px 32px;
   border-top: 1px solid var(--px-border-dim);

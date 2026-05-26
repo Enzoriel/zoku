@@ -134,7 +134,7 @@ function FansubOnboardingModal({ onComplete }) {
   };
 
   return (
-    <div className={styles.overlay}>
+    <div className={styles.overlay} data-drag-scroll-ignore>
       <div className={styles.modal}>
         {/* Header */}
         <div className={styles.header}>
