@@ -15,7 +15,7 @@ import RetryPanel from "../components/ui/RetryPanel";
 import { usePlayback } from "../hooks/usePlayback";
 import { extractEpisodeNumber } from "../utils/fileParsing";
 import { getBatchEpisodeTorrentAvailability } from "../utils/torrentAvailability";
-import { getReleasedEpisodeCount } from "../utils/airingStatus";
+import { getReleasedEpisodeCount, isAnimeActivelyAiring } from "../utils/airingStatus";
 import { buildRecentEpisodeOccurrences } from "../utils/recentEpisodes";
 import { getEffectiveTorrentSourceFansub } from "../utils/torrentConfig";
 import styles from "./Recent.module.css";
@@ -24,6 +24,7 @@ import { DAY_NAMES, DAY_NAMES_SHORT } from "../utils/constants";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const RECENT_MS = 14 * DAY_MS;
+const NOW_CATCH_UP_MIN_DELTA_MS = 1000;
 const AIRING_METADATA_FIELDS = [
   "status",
   "episodes",
@@ -229,7 +230,8 @@ function Recent() {
     const map = new Map();
 
     myAiringAnime.forEach((anime) => {
-      const overrideReleasedCount = anime.localMaxEpisode > 0 ? anime.localMaxEpisode : undefined;
+      const overrideReleasedCount =
+        isAnimeActivelyAiring(anime) && anime.localMaxEpisode > 0 ? anime.localMaxEpisode : undefined;
       const occurrences = buildRecentEpisodeOccurrences(anime, nowMs, { overrideReleasedCount }) || [];
       map.set(getAnimeKey(anime), occurrences);
     });
@@ -271,7 +273,9 @@ function Recent() {
     });
 
     if (shouldCatchUp) {
-      setNowMs(realNowMs);
+      setNowMs((previousNowMs) =>
+        realNowMs - previousNowMs >= NOW_CATCH_UP_MIN_DELTA_MS ? realNowMs : previousNowMs,
+      );
       return;
     }
 
@@ -279,7 +283,9 @@ function Recent() {
 
     const timeUntil = nextTransitionAtMs - realNowMs + 1000;
     if (timeUntil <= 0) {
-      setNowMs(realNowMs);
+      setNowMs((previousNowMs) =>
+        realNowMs - previousNowMs >= NOW_CATCH_UP_MIN_DELTA_MS ? realNowMs : previousNowMs,
+      );
       return;
     }
 
