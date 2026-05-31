@@ -23,7 +23,7 @@ import { buildStoredAnimeEntry } from "../utils/animeEntry";
 import { getReleasedEpisodeCount, isAnimeActivelyAiring, isAiringMetadataStale } from "../utils/airingStatus";
 import { detectNewEpisodeAirDates } from "../utils/recentEpisodes";
 import { buildEpisodeFileMap, buildVisibleEpisodeNumbers } from "../utils/episodeFiles";
-import { acceptSuggestedFolder, rejectSuggestedFolder } from "../utils/linkingState";
+import { acceptSuggestedFolder, rejectSuggestedFolder, unlinkAnimeFolder } from "../utils/linkingState";
 import { getEffectiveTorrentSourceFansub, getFansubConfig } from "../utils/torrentConfig";
 import { getBestFolderMatch } from "../utils/libraryView";
 import { extractBaseTitle } from "../utils/titleIdentity";
@@ -485,6 +485,7 @@ function AnimeDetails() {
 
   const handleRemoveFromLibrary = useCallback(() => {
     if (!animeId) return;
+    const displayTitle = mainAnime?.title || "este anime";
 
     const performRemoval = async () => {
       await safeExecute(async () => {
@@ -502,14 +503,38 @@ function AnimeDetails() {
     };
 
     setConfirmModal({
-      title: "Quitar serie de tu lista de animes?",
-      message: "Se eliminara todo progreso guardado.",
+      title: "Eliminar de biblioteca",
+      message: `Quieres eliminar tambien "${displayTitle}" de tu lista de seguimiento?`,
       onConfirm: async () => {
         setConfirmModal(null);
         await performRemoval();
       },
     });
-  }, [animeId, mainAnime?.folderName, data.myAnimes, setMyAnimes, performSync, navigate, safeExecute]);
+  }, [animeId, mainAnime?.folderName, mainAnime?.title, data.myAnimes, setMyAnimes, performSync, navigate, safeExecute]);
+
+  const handleUnlinkAnime = useCallback(() => {
+    if (!animeId || !mainAnime?.folderName) return;
+    const displayTitle = mainAnime?.title || "este anime";
+
+    setConfirmModal({
+      title: "Desvincular carpeta",
+      message: `"${displayTitle}" dejara de estar vinculada. El anime permanece en tu lista sin archivos asociados.`,
+      onConfirm: async () => {
+        await safeExecute(async () => {
+          const newMyAnimes = {
+            ...data.myAnimes,
+            [animeId]: unlinkAnimeFolder(data.myAnimes[animeId]),
+          };
+
+          await setMyAnimes(newMyAnimes);
+          setAnime(newMyAnimes[animeId]);
+          setConfirmModal(null);
+          await performSync(newMyAnimes);
+          navigate(`/anime/${animeId}`, { replace: true });
+        }, "No se pudo desvincular la serie. Intenta de nuevo.");
+      },
+    });
+  }, [animeId, mainAnime?.folderName, mainAnime?.title, data.myAnimes, setMyAnimes, performSync, navigate, safeExecute]);
 
   const handlePlayEpisode = useCallback(
     (epNumber, filePath) => {
@@ -714,6 +739,7 @@ function AnimeDetails() {
           libraryNotice={libraryNotice}
           onAdd={handleAddToLibraryBtnClick}
           onRemove={handleRemoveFromLibrary}
+          onUnlink={handleUnlinkAnime}
           onDeleteFiles={handleDeleteAllFiles}
           canDeleteFiles={canDeleteFiles}
           onSearchTorrent={handleSearchTorrent}
