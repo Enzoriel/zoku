@@ -78,17 +78,47 @@ function LibraryAnimeCard({ item, onOpen, onUnlink, onDelete, onRemove }) {
 
           <div className={styles.actions} onClick={(event) => event.stopPropagation()}>
             {libraryStatus === "LINKED" && (
-              <button className={styles.actionButton} type="button" onClick={onUnlink}>
-                DESVINCULAR
+              <button
+                className={styles.actionButton}
+                type="button"
+                onClick={onUnlink}
+                aria-label="Desvincular carpeta"
+                title="Desvincular carpeta"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
               </button>
             )}
             {canDelete && (
-              <button className={`${styles.actionButton} ${styles.danger}`} type="button" onClick={onDelete}>
-                ELIMINAR DEL DISCO
+              <button
+                className={`${styles.actionButton} ${styles.danger}`}
+                type="button"
+                onClick={onDelete}
+                aria-label="Eliminar archivos del disco"
+                title="Eliminar archivos del disco"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 7h16" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                  <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+                  <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+                </svg>
               </button>
             )}
-            <button className={styles.actionButton} type="button" onClick={onRemove}>
-              QUITAR DE LISTA
+            <button
+              className={`${styles.actionButton} ${styles.danger}`}
+              type="button"
+              onClick={onRemove}
+              aria-label="Quitar de lista"
+              title="Quitar de lista"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
             </button>
           </div>
         </div>

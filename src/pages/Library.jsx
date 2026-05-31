@@ -12,15 +12,6 @@ import LibraryAnimeCard from "../components/anime/LibraryAnimeCard";
 import styles from "./Library.module.css";
 import SearchLocal from "../components/anime/SearchLocal";
 
-const USER_FILTERS = {
-  ALL: "Todos",
-  WATCHING: "Viendo",
-  COMPLETED: "Completados",
-  PLAN_TO_WATCH: "Pendientes",
-  PAUSED: "Pausados",
-  DROPPED: "Abandonados",
-};
-
 const LIBRARY_FILTERS = {
   ALL: "ALL",
   LINKED: "LINKED",
@@ -29,8 +20,23 @@ const LIBRARY_FILTERS = {
 
 const STAT_FILTERS = [
   { id: "total", label: "Total series", statKey: "total", userFilter: "ALL", libraryFilter: LIBRARY_FILTERS.ALL },
+  {
+    id: "plan-to-watch",
+    label: "Pendientes",
+    statKey: "planToWatch",
+    userFilter: "PLAN_TO_WATCH",
+    libraryFilter: LIBRARY_FILTERS.ALL,
+  },
   { id: "watching", label: "Viendo ahora", statKey: "watching", userFilter: "WATCHING", libraryFilter: LIBRARY_FILTERS.ALL },
+  { id: "paused", label: "Pausados", statKey: "paused", userFilter: "PAUSED", libraryFilter: LIBRARY_FILTERS.ALL },
   { id: "completed", label: "Completados", statKey: "completed", userFilter: "COMPLETED", libraryFilter: LIBRARY_FILTERS.ALL },
+  {
+    id: "dropped",
+    label: "Abandonados",
+    statKey: "dropped",
+    userFilter: "DROPPED",
+    libraryFilter: LIBRARY_FILTERS.ALL,
+  },
   { id: "linked", label: "Con archivos", statKey: "linked", userFilter: "ALL", libraryFilter: LIBRARY_FILTERS.LINKED },
   {
     id: "not-linked",
@@ -103,9 +109,12 @@ function Library() {
     const total = animeEntries.length;
     const watching = animeEntries.filter((entry) => entry.computedStatus === "WATCHING").length;
     const completed = animeEntries.filter((entry) => entry.computedStatus === "COMPLETED").length;
+    const planToWatch = animeEntries.filter((entry) => entry.computedStatus === "PLAN_TO_WATCH").length;
+    const paused = animeEntries.filter((entry) => entry.computedStatus === "PAUSED").length;
+    const dropped = animeEntries.filter((entry) => entry.computedStatus === "DROPPED").length;
     const linked = animeEntries.filter((entry) => entry.libraryStatus === "LINKED").length;
     const notLinked = animeEntries.filter((entry) => entry.libraryStatus !== "LINKED").length;
-    return { total, watching, completed, linked, notLinked };
+    return { total, watching, completed, planToWatch, paused, dropped, linked, notLinked };
   }, [animeEntries]);
 
   const filteredAnimeEntries = useMemo(() => {
@@ -129,13 +138,6 @@ function Library() {
       return displayTitle.toLowerCase().includes(searchLower);
     });
   }, [localEntries, searchTerm]);
-  const changeUserFilter = (value) => {
-    startTransition(() => {
-      setUserFilter(value);
-      setLibraryFilter(LIBRARY_FILTERS.ALL);
-    });
-  };
-
   const applyStatFilter = (statFilter) => {
     startTransition(() => {
       setActiveCollectionView("ANIMES");
@@ -441,23 +443,7 @@ function Library() {
           </button>
         </div>
 
-        {activeCollectionView === "ANIMES" ? (
-          <div className={styles.filterButtons}>
-            {Object.entries(USER_FILTERS).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                className={`${styles.filterButton} ${userFilter === id ? styles.filterButtonActive : ""}`}
-                onClick={() => changeUserFilter(id)}
-                disabled={pendingFilter}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        <div style={{ marginTop: "1rem" }}>
+        <div>
           <SearchLocal onSearch={setSearchTerm} placeholder="BUSCAR EN BIBLIOTECA..." />
         </div>
       </section>

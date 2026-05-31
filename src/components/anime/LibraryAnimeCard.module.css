@@ -77,7 +77,8 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(to bottom, rgba(8, 10, 14, 0.88), rgba(8, 10, 14, 0.18) 34%, rgba(8, 10, 14, 0.95) 100%);
+    radial-gradient(circle at 80% 12%, rgba(0, 217, 255, 0.18), transparent 30%),
+    linear-gradient(to bottom, rgba(8, 10, 14, 0.78), rgba(8, 10, 14, 0.12) 34%, rgba(8, 10, 14, 0.96) 100%);
 }
 
 .topRow {
@@ -151,7 +152,7 @@
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: 64px;
+  bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -202,58 +203,77 @@
 
 .actions {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 12px;
+  top: 72px;
+  right: 12px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 7px;
   opacity: 0;
-  transform: translateY(100%);
+  transform: translateX(8px);
   transition: var(--tx-normal);
   z-index: 3;
-  background: linear-gradient(to top, rgba(8, 10, 14, 0.98), rgba(8, 10, 14, 0.9));
+  padding: 7px;
+  clip-path: var(--clip-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 10, 14, 0.72);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(8px);
 }
 
 .card:hover .actions,
 .card:focus-visible .actions,
 .card:has(:focus-visible) .actions {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0);
 }
 
 .actionButton {
-  flex: 1;
-  border: 1px solid var(--px-border);
-  background: rgba(255, 255, 255, 0.02);
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 217, 255, 0.28);
+  background: rgba(0, 217, 255, 0.08);
   color: var(--px-text);
-  font-family: var(--font-pixel);
-  font-size: 7px;
-  padding: 9px 10px;
   clip-path: var(--clip-sm);
   cursor: pointer;
   transition: var(--tx-fast);
+  outline: none;
 }
 
-.actionButton:hover {
+.actionButton svg {
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 6px rgba(0, 217, 255, 0.22));
+}
+
+.actionButton:hover,
+.actionButton:focus-visible {
   border-color: var(--px-yellow);
   color: var(--px-yellow);
-  background: rgba(232, 240, 0, 0.08);
+  background: rgba(232, 240, 0, 0.12);
+  transform: translateX(-2px);
+  box-shadow: 0 0 0 1px rgba(232, 240, 0, 0.1), 0 8px 18px rgba(232, 240, 0, 0.1);
 }
 
-.danger:hover {
-  border-color: var(--px-pink);
-  color: var(--px-pink);
+.danger {
+  border-color: rgba(255, 74, 141, 0.28);
   background: rgba(255, 74, 141, 0.08);
 }
 
-@media (max-width: 640px) {
-  .hoverContent {
-    bottom: 108px;
-  }
+.danger:hover,
+.danger:focus-visible {
+  border-color: var(--px-pink);
+  color: var(--px-pink);
+  background: rgba(255, 74, 141, 0.13);
+  box-shadow: 0 0 0 1px rgba(255, 74, 141, 0.1), 0 8px 18px rgba(255, 74, 141, 0.12);
+}
 
+@media (max-width: 640px) {
   .actions {
-    flex-direction: column;
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    flex-direction: row;
   }
 }
