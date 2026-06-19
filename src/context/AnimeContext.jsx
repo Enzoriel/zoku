@@ -2,17 +2,21 @@ import { createContext, useContext, useState, useEffect, useRef, useMemo, useCal
 import { getAnimeDetails, getFullSeasonAnime } from "../services/api";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../hooks/useStore";
+import { getReleasedEpisodeCount } from "../utils/airingStatus";
+import { detectNewEpisodeAirDates } from "../utils/recentEpisodes";
+import { REMOTE_METADATA_FIELDS } from "../hooks/useAnimeMetadataSync";
 
 const CACHE_DURATION = 60 * 60 * 1000;
 
 const AnimeContext = createContext(null);
 
 export function AnimeProvider({ children }) {
-  const { data: storeData } = useStore();
+  const { data: storeData, loading: storeLoading, setMyAnimes } = useStore();
   const [seasonalAnime, setSeasonalAnime] = useState([]);
   const [searchState, setSearchState] = useState({ query: "", page: 1, animes: [], pagination: { total: 0, current_page: 1, last_visible_page: 1, has_next_page: false }, hasSearched: false });
   const [extraAnimeById, setExtraAnimeById] = useState({});
   const lastFetchRef = useRef(null);
+  const lastSyncedSeasonalFetchRef = useRef(null);
   const [loading, setLoading] = useState(seasonalAnime.length === 0);
   const [error, setError] = useState(null);
   const isFetching = useRef(false);
@@ -62,6 +66,79 @@ export function AnimeProvider({ children }) {
       unlisten?.();
     };
   }, [fetchSeasonal]);
+  
+  useEffect(() => {
+    if (storeLoading || !seasonalAnime.length) return;
+    if (lastSyncedSeasonalFetchRef.current === lastFetchRef.current) return;
+
+    lastSyncedSeasonalFetchRef.current = lastFetchRef.current;
+
+    const syncWithSeasonal = async () => {
+      try {
+        await setMyAnimes((prevMyAnimes) => {
+          if (!prevMyAnimes || Object.keys(prevMyAnimes).length === 0) return prevMyAnimes;
+
+          let changed = false;
+          const next = { ...prevMyAnimes };
+          const nowIso = new Date().toISOString();
+
+          // Crear un mapa de anime de temporada para búsquedas eficientes
+          const seasonalMap = new Map();
+          for (const anime of seasonalAnime) {
+            const malId = Number(anime.malId || anime.mal_id);
+            if (malId) seasonalMap.set(malId, anime);
+            const anilistId = Number(anime.anilistId);
+            if (anilistId) seasonalMap.set(anilistId, anime);
+          }
+
+          for (const [entryKey, stored] of Object.entries(prevMyAnimes)) {
+            const rawId = stored?.malId ?? stored?.mal_id ?? entryKey;
+            const id = Number(rawId);
+            if (!id) continue;
+
+            const fresh = seasonalMap.get(id);
+            if (!fresh) continue;
+
+            // Comparar y aplicar cambios para los campos de metadatos
+            const patch = {};
+            let hasFieldChanges = false;
+
+            for (const field of REMOTE_METADATA_FIELDS) {
+              if (!(field in fresh)) continue;
+
+              const freshVal = fresh[field] ?? null;
+              const storedVal = stored[field] ?? null;
+
+              if (JSON.stringify(freshVal) !== JSON.stringify(storedVal)) {
+                patch[field] = freshVal;
+                hasFieldChanges = true;
+              }
+            }
+
+            if (hasFieldChanges) {
+              const mergedForCount = { ...stored, ...patch };
+              const freshReleasedCount = getReleasedEpisodeCount(mergedForCount);
+              const updatedAirDates = detectNewEpisodeAirDates(stored, freshReleasedCount);
+
+              next[entryKey] = {
+                ...stored,
+                ...patch,
+                episodeAirDates: updatedAirDates,
+                lastMetadataFetch: nowIso,
+              };
+              changed = true;
+            }
+          }
+
+          return changed ? next : prevMyAnimes;
+        });
+      } catch (error) {
+        console.error("[AnimeContext] Error sincronizando myAnimes con seasonalAnime:", error);
+      }
+    };
+
+    void syncWithSeasonal();
+  }, [storeLoading, seasonalAnime, setMyAnimes]);
 
   const getFreshAnimeById = useCallback(
     (id) => {

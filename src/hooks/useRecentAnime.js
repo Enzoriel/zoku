@@ -22,6 +22,16 @@ function isRecentlyRelevantAnime(anime, now) {
     return true;
   }
 
+  // Verificar episodeAirDates (fuente más confiable que endDate).
+  // Si algún episodio fue registrado dentro de los últimos 14 días, la serie es reciente.
+  const airDates = anime?.episodeAirDates;
+  if (airDates && typeof airDates === "object") {
+    const hasRecentEpisode = Object.values(airDates).some(
+      (timestamp) => Number.isFinite(timestamp) && now - timestamp < RECENT_MS,
+    );
+    if (hasRecentEpisode) return true;
+  }
+
   const isFinished = status === "finished airing" || status === "completed" || status === "finalizado";
   if (!isFinished || !anime.endDate?.year) {
     return false;
@@ -74,7 +84,19 @@ export function useRecentAnime(seasonalAnime, myAnimes) {
       recentAnimeCache.set(cacheKey, { promise: pendingPromise });
       const results = await pendingPromise;
       const now = Date.now();
-      const filteredResults = (results || []).filter((anime) => isRecentlyRelevantAnime(anime, now));
+
+      // Enriquecer resultados de la API con episodeAirDates del store local.
+      // La API no devuelve este campo, pero el store sí lo tiene registrado.
+      // Sin esto, series completadas pasarían el filtro en storedFallback
+      // pero serían descartadas aquí al no tener episodeAirDates.
+      const filteredResults = (results || []).filter((anime) => {
+        const id = Number(anime.malId || anime.mal_id);
+        const stored = myAnimes?.[id] || myAnimes?.[String(id)];
+        const enriched = stored?.episodeAirDates
+          ? { ...anime, episodeAirDates: stored.episodeAirDates }
+          : anime;
+        return isRecentlyRelevantAnime(enriched, now);
+      });
 
       if (!signalObj.active) return;
 
@@ -105,7 +127,7 @@ export function useRecentAnime(seasonalAnime, myAnimes) {
     } finally {
       if (signalObj.active) setLoadingExtra(false);
     }
-  }, []);
+  }, [myAnimes]);
 
   useEffect(() => {
     if (missingIds.length === 0) {

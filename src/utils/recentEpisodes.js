@@ -134,6 +134,12 @@ function buildFallbackOccurrences(anime, releasedEpisodeCount, nowMs) {
     return buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs, true);
   }
 
+  // Fallback: endDate como final de emisión semanal
+  const endDate = parseDateParts(anime?.endDate);
+  if (endDate) {
+    return buildWeeklyOccurrences(releasedEpisodeCount, endDate.getTime(), true);
+  }
+
   // Fallback: startDate como batch premiere
   const startDate = parseDateParts(anime?.startDate || anime?.aired?.from);
   if (startDate) {
@@ -142,12 +148,6 @@ function buildFallbackOccurrences(anime, releasedEpisodeCount, nowMs) {
       airedAt: startDate.getTime(),
       isEstimated: true,
     }));
-  }
-
-  // Último fallback: endDate
-  const endDate = parseDateParts(anime?.endDate);
-  if (endDate) {
-    return buildWeeklyOccurrences(releasedEpisodeCount, endDate.getTime(), true);
   }
 
   return [];

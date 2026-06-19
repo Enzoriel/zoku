@@ -7,7 +7,7 @@ import { useStore } from "./useStore";
 const AIRING_METADATA_REFRESH_MS = 60 * 60 * 1000;
 const INACTIVE_METADATA_REFRESH_MS = 14 * 24 * 60 * 60 * 1000;
 
-const REMOTE_METADATA_FIELDS = [
+export const REMOTE_METADATA_FIELDS = [
   "mal_id",
   "malId",
   "anilistId",
