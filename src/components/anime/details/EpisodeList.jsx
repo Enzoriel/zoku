@@ -340,7 +340,7 @@ export function EpisodeList({
       <div className={styles.episodesHeader}>
         <h2 className={styles.episodesTitle}>Lista de Episodios</h2>
         <span className={styles.episodesStats}>
-          {mainAnime.watchedEpisodes.length} / {episodes.length} VISTOS
+          {mainAnime.watchedEpisodes.length} / {isAnimeActivelyAiring(mainAnime) && !mainAnime.totalEpisodes ? "?" : episodes.length} VISTOS
         </span>
       </div>
       <div className={styles.progressBar}>
@@ -390,7 +390,17 @@ export function EpisodeList({
                 </span>
               )}
               <div className={styles.episodeInfo}>
-                <span className={styles.episodeTitle}>Episodio {epNum}</span>
+                <span className={styles.episodeTitle}>
+                  Episodio {epNum}
+                  {(() => {
+                    const isFinished = mainAnime?.status === "Finalizado" || mainAnime?.status === "Finished Airing" || mainAnime?.status === "FINISHED";
+                    const totalEps = mainAnime?.totalEpisodes || mainAnime?.episodes || 0;
+                    if (isFinished && totalEps > 0 && epNum === totalEps) {
+                      return <span className={styles.finalBadge}>FINAL</span>;
+                    }
+                    return null;
+                  })()}
+                </span>
                 {status.type === "tagWatched" ? (
                   <span className={`${styles.statusTag} ${styles.tagWatched}`}>VISTO</span>
                 ) : (

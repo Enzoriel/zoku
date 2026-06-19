@@ -214,6 +214,28 @@
   text-transform: uppercase;
 }
 
+.finalEpBadge {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #ff4757;
+  background: rgba(255, 71, 87, 0.15);
+  border: 1px solid rgba(255, 71, 87, 0.5);
+  padding: 1px 4px;
+  border-radius: 2px;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+  margin-left: 2px;
+  animation: finalEpPulse 2s ease-in-out infinite;
+}
+
+@keyframes finalEpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .episodeActions {
   flex-shrink: 0;
 }
@@ -380,6 +402,23 @@
   background: var(--primary-color);
   padding: 3px 8px;
   border-radius: 2px;
+}
+
+.scheduleEpFinal {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #ff4757;
+  background: rgba(255, 71, 87, 0.15);
+  border: 1px solid rgba(255, 71, 87, 0.5);
+  padding: 1px 4px;
+  border-radius: 2px;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+  margin-left: 2px;
+  animation: finalEpPulse 2s ease-in-out infinite;
 }
 
 .scheduleCardInfo {

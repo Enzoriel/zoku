@@ -34,7 +34,7 @@ function Carousel({ title, animes = [], loading = false, playback = null }) {
             <div className={`${styles.titleArrows} ${styles.rightArrows}`}>
               <div className={styles.titleArrowsPattern}></div>
             </div>
-            <PixelReveal speed={0.12} tileSize={12} delayFactor={1.5} noiseStack={20} active={!loading} />
+            <PixelReveal speed={0.1} tileSize={26} delayFactor={1.5} noiseStack={15} active={!loading} />
           </>
         )}
         {loading && <div className="loader"></div>}

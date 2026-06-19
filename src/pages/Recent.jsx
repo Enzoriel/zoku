@@ -674,7 +674,18 @@ function Recent() {
                           </div>
                           <div className={styles.episodeInfo}>
                             <span className={styles.animeTitle}>{anime.title}</span>
-                            <span className={styles.epNumber}>Episodio {ep}</span>
+                            <span className={styles.epNumber}>
+                              Episodio {ep}
+                              {(() => {
+                                const normalizedSt = normalizeStatus(anime?.status);
+                                const isFinished = isFinishedStatus(normalizedSt);
+                                const total = getTotalEpisodeCount(anime);
+                                if (isFinished && total > 0 && ep === total) {
+                                  return <> <span className={styles.finalEpBadge}>FINAL</span></>;
+                                }
+                                return null;
+                              })()}
+                            </span>
                           </div>
                           <div className={styles.episodeActions} onClick={(event) => event.stopPropagation()}>
                             {(() => {
@@ -820,7 +831,18 @@ function Recent() {
                         loading="lazy"
                       />
                       <div className={styles.scheduleCardOverlay}>
-                        <span className={styles.scheduleEp}>EP {nextEp}</span>
+                        <span className={styles.scheduleEp}>
+                          EP {nextEp}
+                          {(() => {
+                            const normalizedSt = normalizeStatus(anime?.status);
+                            const isFinished = isFinishedStatus(normalizedSt);
+                            const total = getTotalEpisodeCount(anime);
+                            if (isFinished && total > 0 && nextEp === total) {
+                              return <> <span className={styles.scheduleEpFinal}>FINAL</span></>;
+                            }
+                            return null;
+                          })()}
+                        </span>
                       </div>
                     </div>
                     <div className={styles.scheduleCardInfo}>
