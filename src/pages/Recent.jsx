@@ -34,6 +34,7 @@ const AIRING_METADATA_FIELDS = [
   "endDate",
   "startDate",
   "aired",
+  "episodeAirDates",
 ];
 
 function getAnimeKey(anime) {
@@ -86,7 +87,13 @@ function getBestAiringMetadataSource(apiAnime, storedAnime, nowMs) {
 
 function mergeAiringMetadata(apiAnime, storedAnime, nowMs) {
   const source = getBestAiringMetadataSource(apiAnime, storedAnime, nowMs);
-  if (!source || source === apiAnime) return apiAnime;
+  
+  if (!source || source === apiAnime) {
+    if (storedAnime?.episodeAirDates) {
+      return { ...apiAnime, episodeAirDates: storedAnime.episodeAirDates };
+    }
+    return apiAnime;
+  }
 
   const merged = { ...apiAnime };
   AIRING_METADATA_FIELDS.forEach((field) => {
@@ -94,6 +101,11 @@ function mergeAiringMetadata(apiAnime, storedAnime, nowMs) {
       merged[field] = source[field];
     }
   });
+
+  if (storedAnime?.episodeAirDates) {
+    merged.episodeAirDates = storedAnime.episodeAirDates;
+  }
+
   return merged;
 }
 
