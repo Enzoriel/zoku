@@ -16,7 +16,11 @@ function parseDateParts(value) {
   if (!Number.isFinite(year) || year <= 0) return null;
   const month = Math.max(Number(value.month || 1) - 1, 0);
   const day = Math.max(Number(value.day || 1), 1);
-  const parsed = new Date(year, month, day);
+  
+  // Interpretar en la zona horaria estándar de Japón (UTC+9)
+  const utcMs = Date.UTC(year, month, day, 0, 0, 0);
+  const jstMs = utcMs - 9 * 60 * 60 * 1000;
+  const parsed = new Date(jstMs);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
 }
 
