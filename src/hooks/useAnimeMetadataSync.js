@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getAnimeDetailsBatch } from "../services/api";
-import { isAiringMetadataStale, isAnimeActivelyAiring, getReleasedEpisodeCount } from "../utils/airingStatus";
+import { isAiringMetadataStale, isAnimeActivelyAiring } from "../utils/airingStatus";
 import { detectNewEpisodeAirDates } from "../utils/recentEpisodes";
 import { useStore } from "./useStore";
 
@@ -44,6 +44,7 @@ export const REMOTE_METADATA_FIELDS = [
   "year",
   "season",
   "nextAiringEpisode",
+  "airingSchedule",
   "endDate",
 ];
 
@@ -117,6 +118,7 @@ export function mergeFreshAnimeMetadata(prevMyAnimes, candidates, freshAnimeList
   const freshById = buildFreshAnimeMap(freshAnimeList);
   if (freshById.size === 0) return prevMyAnimes;
 
+  const nowMs = new Date(nowIso).getTime();
   let changed = false;
   const next = { ...prevMyAnimes };
 
@@ -143,8 +145,7 @@ export function mergeFreshAnimeMetadata(prevMyAnimes, candidates, freshAnimeList
 
     // Detectar episodios nuevos y registrar sus fechas reales
     const mergedForCount = { ...stored, ...patch };
-    const freshReleasedCount = getReleasedEpisodeCount(mergedForCount);
-    const updatedAirDates = detectNewEpisodeAirDates(stored, freshReleasedCount);
+    const updatedAirDates = detectNewEpisodeAirDates(stored, mergedForCount, nowMs);
 
     next[entryKey] = {
       ...stored,

@@ -64,6 +64,24 @@ async function queryAniList(query, variables = {}) {
   return task;
 }
 
+function mapAiringSchedule(media) {
+  const nodes = media?.airingSchedule?.nodes;
+  if (!Array.isArray(nodes)) return [];
+
+  return nodes
+    .map((node) => {
+      const episode = Number(node?.episode);
+      const airedAt = Number(node?.airingAt) * 1000;
+      if (!Number.isFinite(episode) || episode <= 0 || !Number.isFinite(airedAt) || airedAt <= 0) {
+        return null;
+      }
+
+      return { episode, airedAt };
+    })
+    .filter(Boolean)
+    .sort((first, second) => first.episode - second.episode);
+}
+
 function mapMedia(media) {
   if (!media) return null;
 
@@ -93,12 +111,15 @@ function mapMedia(media) {
   let normalizedType = media.format || "TV";
   if (normalizedType === "TV_SHORT") normalizedType = "TV";
 
+  const airingSchedule = mapAiringSchedule(media);
+  const airingScheduleByEpisode = new Map(airingSchedule.map((entry) => [entry.episode, entry.airedAt]));
   const totalEpisodes = media.episodes || 0;
   const releasedEpisodes = getReleasedEpisodeCount({
     status: statusMap[media.status] || media.status || "UNKNOWN",
     episodes: 0,
     totalEpisodes,
     nextAiringEpisode: media.nextAiringEpisode,
+    airingSchedule,
   });
 
   const airedDate = media.startDate?.year
@@ -142,6 +163,7 @@ function mapMedia(media) {
         mal_id: index + 1,
         title: `Episodio ${index + 1}`,
         aired: null,
+        airedAt: airingScheduleByEpisode.get(index + 1) || null,
       }));
     },
     duration: media.duration ? `${media.duration} min` : "24 min",
@@ -159,6 +181,7 @@ function mapMedia(media) {
     favorites: media.favourites,
     isAdult: media.isAdult,
     nextAiringEpisode: media.nextAiringEpisode,
+    airingSchedule,
     endDate: media.endDate,
   };
 }
@@ -220,6 +243,12 @@ const MEDIA_FIELDS = `
     airingAt
     timeUntilAiring
     episode
+  }
+  airingSchedule(notYetAired: false, perPage: 50) {
+    nodes {
+      episode
+      airingAt
+    }
   }
 `;
 

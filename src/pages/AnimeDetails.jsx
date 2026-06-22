@@ -322,8 +322,7 @@ function AnimeDetails() {
       await setMyAnimes((prev) => {
         const stored = prev[currentAnimeId];
         const mergedForCount = { ...stored, ...safeApiData };
-        const freshReleasedCount = getReleasedEpisodeCount(mergedForCount);
-        const updatedAirDates = detectNewEpisodeAirDates(stored, freshReleasedCount);
+        const updatedAirDates = detectNewEpisodeAirDates(stored, mergedForCount);
 
         return {
           ...prev,

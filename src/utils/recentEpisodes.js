@@ -1,8 +1,9 @@
-import { getReleasedEpisodeCount, hasAiredNextEpisode } from "./airingStatus";
+import { getReleasedEpisodeCount } from "./airingStatus";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const RECENT_MS = 14 * DAY_MS;
+const AIRING_SCHEDULE_TOLERANCE_MS = 2 * 60 * 60 * 1000;
 
 function parseDateParts(value) {
   if (!value) return null;
@@ -10,6 +11,19 @@ function parseDateParts(value) {
   if (typeof value === "string") {
     const parsed = new Date(value);
     return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+
+  if (typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+
+  if (value.from) {
+    return parseDateParts(value.from);
+  }
+
+  if (value.airedAt || value.airingAt) {
+    return parseDateParts(value.airedAt || value.airingAt);
   }
 
   const year = Number(value.year);
@@ -21,6 +35,25 @@ function parseDateParts(value) {
   const utcMs = Date.UTC(year, month, day, 0, 0, 0);
   const jstMs = utcMs - 9 * 60 * 60 * 1000;
   const parsed = new Date(jstMs);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function parseCalendarDateAsLocalNoon(value) {
+  if (!value) return null;
+
+  if (typeof value === "string") {
+    const dateOnlyMatch = value.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!dateOnlyMatch) return parseDateParts(value);
+
+    const parsed = new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]), 12);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+
+  const year = Number(value.year);
+  if (!Number.isFinite(year) || year <= 0) return null;
+  const month = Math.max(Number(value.month || 1) - 1, 0);
+  const day = Math.max(Number(value.day || 1), 1);
+  const parsed = new Date(year, month, day, 12);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
 }
 
@@ -36,33 +69,137 @@ function buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs, isEstimated
   return occurrences;
 }
 
+function getNextAiringSchedule(anime) {
+  const nextAiring = anime?.nextAiringEpisode;
+  const episode = Number(nextAiring?.episode);
+  const airingAtMs = Number(nextAiring?.airingAt || 0) * 1000;
+
+  if (!Number.isFinite(episode) || episode <= 0 || !Number.isFinite(airingAtMs) || airingAtMs <= 0) {
+    return null;
+  }
+
+  return { episode, airingAtMs };
+}
+
+function addScheduledDateRange(dates, anchorEpisode, anchorAiringAtMs, fromEpisode, toEpisode, nowMs) {
+  let changed = false;
+
+  for (let ep = fromEpisode; ep <= toEpisode; ep += 1) {
+    if (dates[ep]) continue;
+
+    const projectedMs = anchorAiringAtMs + (ep - anchorEpisode) * WEEK_MS;
+    if (projectedMs > nowMs + AIRING_SCHEDULE_TOLERANCE_MS) continue;
+
+    dates[ep] = projectedMs;
+    changed = true;
+  }
+
+  return changed;
+}
+
+function getAiringScheduleOccurrences(anime, releasedEpisodeCount) {
+  const occurrencesByEpisode = new Map();
+
+  (anime?.airingSchedule || []).forEach((entry) => {
+    const ep = Number(entry?.episode ?? entry?.ep);
+    const airedAt = Number(entry?.airedAt);
+    if (ep > 0 && ep <= releasedEpisodeCount && Number.isFinite(airedAt) && airedAt > 0) {
+      occurrencesByEpisode.set(ep, { ep, airedAt, isEstimated: false });
+    }
+  });
+
+  (anime?.episodeList || []).forEach((episode) => {
+    const ep = Number(episode?.mal_id || episode?.episode || episode?.number);
+    if (!ep || ep > releasedEpisodeCount || occurrencesByEpisode.has(ep)) return;
+
+    const airedDate = parseDateParts(episode?.airedAt || episode?.airingAt || episode?.aired);
+    if (airedDate) {
+      occurrencesByEpisode.set(ep, { ep, airedAt: airedDate.getTime(), isEstimated: false });
+    }
+  });
+
+  return Array.from(occurrencesByEpisode.values());
+}
+
+function addAiringScheduleDates(dates, currentAnime, currentReleasedCount, nowMs) {
+  let changed = false;
+
+  getAiringScheduleOccurrences(currentAnime, currentReleasedCount).forEach(({ ep, airedAt }) => {
+    if (airedAt > nowMs + AIRING_SCHEDULE_TOLERANCE_MS) return;
+
+    const existing = Number(dates[ep]);
+    if (Number.isFinite(existing) && existing > 0 && existing <= nowMs + AIRING_SCHEDULE_TOLERANCE_MS) return;
+
+    dates[ep] = airedAt;
+    changed = true;
+  });
+
+  return changed;
+}
+
 /**
  * Compara el released count anterior vs el actual y registra las fechas
  * de los episodios nuevos. Solo registra episodios que NO estaban antes.
  *
  * @returns {Object} episodeAirDates actualizado (o el original si no hay cambios)
  */
-export function detectNewEpisodeAirDates(storedAnime, freshReleasedCount, nowMs = Date.now()) {
-  const existingDates = storedAnime?.episodeAirDates || {};
-  const oldCount = getReleasedEpisodeCount(storedAnime, nowMs);
+export function detectNewEpisodeAirDates(previousAnime, currentAnime, nowMs = Date.now()) {
+  const existingDates = previousAnime?.episodeAirDates || {};
+  const currentReleasedCount = getReleasedEpisodeCount(currentAnime, nowMs);
   const highestRecordedEpisode = Math.max(...Object.keys(existingDates).map(Number), 0);
 
-  if (oldCount <= 0 && highestRecordedEpisode <= 0) {
-    return existingDates;
-  }
-
-  if (freshReleasedCount <= oldCount && freshReleasedCount <= highestRecordedEpisode) {
+  if (currentReleasedCount <= 0) {
     return existingDates;
   }
 
   const dates = { ...existingDates };
   let changed = false;
 
-  for (let ep = oldCount + 1; ep <= freshReleasedCount; ep += 1) {
-    if (!dates[ep]) {
-      dates[ep] = nowMs;
-      changed = true;
-    }
+  changed = addAiringScheduleDates(dates, currentAnime, currentReleasedCount, nowMs) || changed;
+
+  if (currentReleasedCount <= highestRecordedEpisode) {
+    return changed ? dates : existingDates;
+  }
+
+  const previousSchedule = getNextAiringSchedule(previousAnime);
+  if (
+    previousSchedule &&
+    previousSchedule.episode <= currentReleasedCount &&
+    previousSchedule.airingAtMs <= nowMs + AIRING_SCHEDULE_TOLERANCE_MS
+  ) {
+    const fromEpisode = Math.max(previousSchedule.episode, highestRecordedEpisode + 1);
+    changed =
+      addScheduledDateRange(
+        dates,
+        previousSchedule.episode,
+        previousSchedule.airingAtMs,
+        fromEpisode,
+        currentReleasedCount,
+        nowMs,
+      ) || changed;
+  }
+
+  const currentSchedule = getNextAiringSchedule(currentAnime);
+  if (highestRecordedEpisode > 0 && currentSchedule) {
+    changed =
+      addScheduledDateRange(
+        dates,
+        currentSchedule.episode,
+        currentSchedule.airingAtMs,
+        highestRecordedEpisode + 1,
+        currentReleasedCount,
+        nowMs,
+      ) || changed;
+  }
+
+  if (
+    !changed &&
+    highestRecordedEpisode > 0 &&
+    currentReleasedCount === highestRecordedEpisode + 1 &&
+    !dates[currentReleasedCount]
+  ) {
+    dates[currentReleasedCount] = nowMs;
+    changed = true;
   }
 
   return changed ? dates : existingDates;
@@ -112,34 +249,28 @@ export function buildRecentEpisodeOccurrences(anime, nowMs = Date.now(), options
  */
 function buildFallbackOccurrences(anime, releasedEpisodeCount, nowMs) {
   // Fechas explícitas del episodeList
-  const dateMap = new Map();
-  (anime?.episodeList || []).forEach((episode) => {
-    const epNumber = Number(episode?.mal_id || episode?.episode || episode?.number);
-    const airedDate = parseDateParts(episode?.aired || episode?.airingAt || episode?.airedAt);
-    if (epNumber > 0 && airedDate) {
-      dateMap.set(epNumber, airedDate.getTime());
-    }
-  });
-
-  const explicitOccurrences = Array.from(dateMap.entries())
-    .filter(([episode]) => episode > 0 && episode <= releasedEpisodeCount)
-    .map(([ep, airedAt]) => ({ ep, airedAt, isEstimated: false }));
+  const explicitOccurrences = getAiringScheduleOccurrences(anime, releasedEpisodeCount);
 
   if (explicitOccurrences.length > 0) {
     return explicitOccurrences;
   }
 
   // Cálculo hacia atrás desde nextAiringEpisode
-  const nextAiring = anime?.nextAiringEpisode;
-  const airingAtMs = Number(nextAiring?.airingAt || 0) * 1000;
-  if (Number.isFinite(airingAtMs) && airingAtMs > 0) {
-    const rawMs = hasAiredNextEpisode(nextAiring, nowMs) ? airingAtMs : airingAtMs - WEEK_MS;
-    const lastReleaseMs = Math.min(rawMs, nowMs);
+  const nextSchedule = getNextAiringSchedule(anime);
+  if (nextSchedule) {
+    const weeksBetween = nextSchedule.episode - releasedEpisodeCount;
+    let lastReleaseMs = nextSchedule.airingAtMs - weeksBetween * WEEK_MS;
+
+    if (lastReleaseMs > nowMs + AIRING_SCHEDULE_TOLERANCE_MS) {
+      const weeksToPast = Math.ceil((lastReleaseMs - nowMs - AIRING_SCHEDULE_TOLERANCE_MS) / WEEK_MS);
+      lastReleaseMs -= Math.max(1, weeksToPast) * WEEK_MS;
+    }
+
     return buildWeeklyOccurrences(releasedEpisodeCount, lastReleaseMs, true);
   }
 
   // Fallback: endDate como final de emisión semanal
-  const endDate = parseDateParts(anime?.endDate);
+  const endDate = parseCalendarDateAsLocalNoon(anime?.endDate);
   if (endDate) {
     return buildWeeklyOccurrences(releasedEpisodeCount, endDate.getTime(), true);
   }

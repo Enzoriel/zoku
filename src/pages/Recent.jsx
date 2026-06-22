@@ -31,6 +31,7 @@ const AIRING_METADATA_FIELDS = [
   "totalEpisodes",
   "episodeList",
   "nextAiringEpisode",
+  "airingSchedule",
   "endDate",
   "startDate",
   "aired",

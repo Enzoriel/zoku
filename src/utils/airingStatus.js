@@ -19,6 +19,23 @@ function isNotYetReleasedStatus(status) {
   return status.includes("not yet") || status.includes("proximamente");
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
+const AIRING_SCHEDULE_TOLERANCE_MS = 2 * 60 * 60 * 1000;
+
+function getAiringScheduleReleasedCount(anime, nowMs) {
+  const schedule = Array.isArray(anime?.airingSchedule) ? anime.airingSchedule : [];
+  return schedule.reduce((highest, entry) => {
+    const episode = toFiniteNumber(entry?.episode ?? entry?.ep);
+    const airedAt = Number(entry?.airedAt ?? 0);
+    if (!episode || !Number.isFinite(airedAt) || airedAt <= 0 || airedAt > nowMs + AIRING_SCHEDULE_TOLERANCE_MS) {
+      return highest;
+    }
+
+    return Math.max(highest, episode);
+  }, 0);
+}
+
 export function hasAiredNextEpisode(nextAiringEpisode, nowMs = Date.now()) {
   const airingAtSeconds = Number(nextAiringEpisode?.airingAt);
   if (!Number.isFinite(airingAtSeconds) || airingAtSeconds <= 0) {
@@ -44,6 +61,7 @@ export function isAnimeActivelyAiring(anime) {
 
 export function getReleasedEpisodeCount(anime, nowMs = Date.now()) {
   const status = normalizeStatus(anime?.status);
+  const releasedByAiringSchedule = getAiringScheduleReleasedCount(anime, nowMs);
   const finishedCount = Math.max(
     toFiniteNumber(anime?.episodes),
     toFiniteNumber(anime?.totalEpisodes),
@@ -57,18 +75,33 @@ export function getReleasedEpisodeCount(anime, nowMs = Date.now()) {
       return 0;
     }
 
-    return finishedCount;
+    if (releasedByAiringSchedule > 0 && !isFinishedStatus(status)) {
+      return releasedByAiringSchedule;
+    }
+
+    return Math.max(finishedCount, releasedByAiringSchedule);
   }
 
+  const airingAtMs = Number(nextAiring?.airingAt || 0) * 1000;
   const releasedBySchedule = hasAiredNextEpisode(nextAiring, nowMs)
     ? nextEpisodeNumber
-    : Math.max(nextEpisodeNumber - 1, 0);
+    : (() => {
+        if (!Number.isFinite(airingAtMs) || airingAtMs <= 0) {
+          return Math.max(nextEpisodeNumber - 1, 0);
+        }
+
+        const futureEpisodes = Math.max(
+          1,
+          Math.ceil((airingAtMs - nowMs - AIRING_SCHEDULE_TOLERANCE_MS) / WEEK_MS),
+        );
+        return Math.max(nextEpisodeNumber - futureEpisodes, 0);
+      })();
 
   if (isFinishedStatus(status)) {
-    return Math.max(finishedCount, releasedBySchedule);
+    return Math.max(finishedCount, releasedByAiringSchedule, releasedBySchedule);
   }
 
-  return releasedBySchedule;
+  return Math.max(releasedByAiringSchedule, releasedBySchedule);
 }
 
 export function isAiringMetadataStale(anime, nowMs = Date.now()) {

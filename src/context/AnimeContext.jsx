@@ -2,7 +2,6 @@ import { createContext, useContext, useState, useEffect, useRef, useMemo, useCal
 import { getAnimeDetails, getFullSeasonAnime } from "../services/api";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../hooks/useStore";
-import { getReleasedEpisodeCount } from "../utils/airingStatus";
 import { detectNewEpisodeAirDates } from "../utils/recentEpisodes";
 import { REMOTE_METADATA_FIELDS } from "../hooks/useAnimeMetadataSync";
 
@@ -117,8 +116,7 @@ export function AnimeProvider({ children }) {
 
             if (hasFieldChanges) {
               const mergedForCount = { ...stored, ...patch };
-              const freshReleasedCount = getReleasedEpisodeCount(mergedForCount);
-              const updatedAirDates = detectNewEpisodeAirDates(stored, freshReleasedCount);
+              const updatedAirDates = detectNewEpisodeAirDates(stored, mergedForCount);
 
               next[entryKey] = {
                 ...stored,
