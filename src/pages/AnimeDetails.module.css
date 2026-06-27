@@ -546,12 +546,19 @@
 .episodesList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 100vh;
+  gap: 6px;
+  max-height: calc(100vh - 220px);
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px;
   border: 1px solid var(--px-border);
-  background: var(--px-card);
+  background: rgba(18, 18, 30, 0.45);
+  backdrop-filter: blur(10px);
+  clip-path: var(--clip-sm);
+  transition: border-color var(--tx-normal);
+}
+
+.episodesList:hover {
+  border-color: rgba(0, 245, 255, 0.2);
 }
 
 .episodesList::-webkit-scrollbar {
@@ -559,11 +566,16 @@
 }
 
 .episodesList::-webkit-scrollbar-track {
-  background: var(--px-dark);
+  background: rgba(13, 13, 20, 0.5);
 }
 
 .episodesList::-webkit-scrollbar-thumb {
   background: var(--px-border);
+  border-radius: 4px;
+}
+
+.episodesList::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 245, 255, 0.4);
 }
 
 /* Episode Card */
@@ -571,22 +583,25 @@
   position: relative;
   display: flex;
   align-items: center;
-  background: var(--px-dark);
+  background: rgba(13, 13, 20, 0.6);
   border: 1px solid var(--px-border);
-  padding: 8px 12px;
-  gap: 12px;
-  min-height: 40px;
+  padding: 10px 14px;
+  gap: 14px;
+  min-height: 48px;
   overflow: hidden;
+  clip-path: var(--clip-sm);
   transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    padding-right 0.3s ease,
-    padding-left 0.3s ease;
+    background 80ms ease-out,
+    border-color 80ms ease-out,
+    box-shadow 80ms ease-out,
+    transform 80ms ease-out;
 }
 
 .episodeCard:hover {
-  background: rgba(232, 240, 0, 0.05);
+  background: rgba(18, 18, 30, 0.85);
   border-color: var(--px-yellow);
+  box-shadow: 0 0 12px rgba(232, 240, 0, 0.12);
+  transform: translateY(-1px);
 }
 
 .episodeCardPlayable {
@@ -594,17 +609,33 @@
 }
 
 .episodeCardWatched {
-  opacity: 0.5;
+  opacity: 0.7;
+  background: rgba(57, 255, 20, 0.025);
+  border-color: rgba(57, 255, 20, 0.12);
+}
+
+.episodeCardWatched:hover {
+  background: rgba(57, 255, 20, 0.05);
+  border-color: var(--px-yellow);
 }
 
 .episodeCardPlaying {
-  border-color: var(--px-yellow);
-  background: rgba(232, 240, 0, 0.08);
+  opacity: 1;
+  border-color: rgba(232, 240, 0, 0.5);
+  background: rgba(232, 240, 0, 0.06);
+  box-shadow: 0 0 18px rgba(232, 240, 0, 0.1);
+}
+
+.episodeCardPlaying:hover {
+  border-color: rgba(232, 240, 0, 0.7);
+  background: rgba(232, 240, 0, 0.09);
+  box-shadow: 0 0 22px rgba(232, 240, 0, 0.15);
 }
 
 .episodeCardSelected {
   border-color: var(--px-cyan);
   background: rgba(0, 245, 255, 0.08);
+  box-shadow: 0 0 16px rgba(0, 245, 255, 0.08);
 }
 
 .episodeCardSelectableDelete {
@@ -612,7 +643,7 @@
 }
 
 .episodeCardNoFile {
-  border: 1px dashed var(--px-border);
+  border: 1px dashed rgba(30, 30, 48, 0.8);
 }
 
 .episodeSelectToggle {
@@ -635,75 +666,115 @@
   background: rgba(255, 75, 110, 0.12);
 }
 
-/* Play Icon - Pixel art with text */
-.epPlayIcon {
-  position: absolute;
-  right: 110px;
-  top: 50%;
-  transform: translateY(-50%) translateX(10px);
+/* Play Icon & Index Wrapper */
+.playIndexWrapper {
+  position: relative;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  opacity: 0;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
+    border-color 80ms ease-out,
+    background 80ms ease-out;
+}
+
+.episodeIndex {
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--px-text-dim);
+  transition:
+    opacity 80ms ease-out,
+    transform 80ms ease-out;
+}
+
+.episodeIndexPlaying {
+  color: var(--px-yellow);
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.episodeIndexDisabled {
+  opacity: 0.35;
+}
+
+.episodePlayHoverIcon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.6);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--px-yellow);
+  background: rgba(232, 240, 0, 0.1);
+  box-shadow: 0 0 10px rgba(232, 240, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--px-yellow);
+  opacity: 0;
   pointer-events: none;
+  transition:
+    opacity 80ms ease-out,
+    transform 80ms ease-out;
 }
 
-.episodeCardPlayable:hover .epPlayIcon {
+.episodeCardPlayable:hover .episodeIndex:not(.episodeIndexPlaying) {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+.episodeCardPlayable:hover .playIndexWrapper {
+  border-color: rgba(232, 240, 0, 0.2);
+  background: rgba(232, 240, 0, 0.04);
+}
+
+.episodeCardPlayable:hover .episodePlayHoverIcon {
   opacity: 1;
-  transform: translateY(-50%) translateX(0);
+  transform: translate(-50%, -50%) scale(1);
 }
 
-.playPixel {
-  width: 24px;
-  height: 28px;
-}
-
-.pixelFill {
-  fill: #a855f7;
-  animation: playPixelPulse 1.2s ease-in-out infinite;
-}
-
-@keyframes playPixelPulse {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-.playText {
-  font-family: var(--font-pixel);
-  font-size: 8px;
-  color: #a855f7;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  animation: playPixelPulse 1.2s ease-in-out infinite;
-}
-
-/* Episode Info */
-.episodeInfo {
+/* Episode Meta (Middle area) */
+.episodeMeta {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   min-width: 0;
 }
 
-.episodeTitle {
+.episodeFileName {
+  font-family: var(--font-text);
   font-size: 0.8rem;
+  font-weight: 600;
   color: var(--px-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.episodeSubText {
+  font-family: var(--font-text);
+  font-size: 0.8rem;
+  color: var(--px-text-dim);
+}
+
+/* Episode Card Right actions/status */
+.episodeCardRight {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .finalBadge {
@@ -726,6 +797,13 @@
 }
 
 /* Status Tags */
+.statusTagGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .statusTag {
   font-family: var(--font-pixel);
   font-size: 6px;
@@ -733,12 +811,23 @@
   font-weight: 700;
   text-transform: uppercase;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1;
 }
 
 .tagWatched {
   color: var(--px-green);
   background: rgba(57, 255, 20, 0.1);
   border: 1px solid var(--px-green);
+}
+
+.tagOnDisk {
+  color: var(--px-cyan);
+  background: rgba(0, 245, 255, 0.08);
+  border: 1px solid rgba(0, 245, 255, 0.4);
 }
 
 .tagDownloaded {
@@ -759,28 +848,51 @@
 }
 
 .tagPlaying {
-  font-family: var(--font-pixel);
-  font-size: 7px;
-  padding: 4px 8px;
-  font-weight: 700;
-  text-transform: uppercase;
+  color: var(--px-yellow);
+  background: rgba(232, 240, 0, 0.1);
+  border: 1px solid var(--px-yellow);
+  padding: 3px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  color: var(--px-dark);
-  background: var(--px-yellow);
-  border: 1px solid var(--px-yellow-dim);
-  box-shadow: 2px 2px 0 var(--px-yellow-dim);
-  animation: pulsePlaying 1.5s infinite;
 }
 
-@keyframes pulsePlaying {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
+.playingEqualizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  width: 10px;
+  height: 8px;
+}
+
+.playingEqualizer span {
+  width: 2px;
+  height: 100%;
+  background-color: var(--px-yellow);
+  animation: bounceEqualizer 0.8s infinite ease-in-out alternate;
+}
+
+.playingEqualizer span:nth-child(1) {
+  animation-duration: 0.6s;
+}
+
+.playingEqualizer span:nth-child(2) {
+  animation-duration: 0.9s;
+  animation-delay: 0.15s;
+}
+
+.playingEqualizer span:nth-child(3) {
+  animation-duration: 0.75s;
+  animation-delay: 0.3s;
+}
+
+@keyframes bounceEqualizer {
+  0% {
+    height: 20%;
   }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.02);
+  100% {
+    height: 100%;
   }
 }
 

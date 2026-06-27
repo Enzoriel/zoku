@@ -47,6 +47,31 @@ export function EpisodeList({
     selectedEpisodesRef.current = selectedEpisodes;
   }, [selectedEpisodes]);
 
+  // Auto-scroll al último episodio visto (solo dentro de la lista de episodios)
+  useEffect(() => {
+    if (!listRef.current || !cardRefs.current || episodes.length === 0) return;
+    const watched = mainAnime?.watchedEpisodes || [];
+    if (watched.length === 0) return;
+
+    const highestWatched = Math.max(...watched);
+    const targetNode = cardRefs.current.get(highestWatched);
+    const container = listRef.current;
+    if (targetNode && container) {
+      const timer = setTimeout(() => {
+        const containerHeight = container.clientHeight;
+        const nodeTop = targetNode.offsetTop;
+        const nodeHeight = targetNode.clientHeight;
+        const scrollTopTarget = nodeTop - (containerHeight / 2) + (nodeHeight / 2);
+
+        container.scrollTo({
+          top: Math.max(0, scrollTopTarget),
+          behavior: "smooth",
+        });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [mainAnime?.malId, mainAnime?.mal_id, episodes.length]);
+
   const progressPct = useMemo(
     () => (episodes.length > 0 ? (mainAnime?.watchedEpisodes?.length / episodes.length) * 100 : 0),
     [mainAnime?.watchedEpisodes, episodes.length],
@@ -87,7 +112,7 @@ export function EpisodeList({
       const deletableFiles = localFiles.filter((file) => !file.isDownloading);
 
       if (isWatched) {
-        statusMap.set(epNum, { label: "VISTO", type: "tagWatched", file: localFile, deletableFiles });
+        statusMap.set(epNum, { label: "VISTO", type: "tagWatched", file: localFile, deletableFiles, hasFile: !!playableFile });
         return;
       }
 
@@ -137,6 +162,11 @@ export function EpisodeList({
         episodes.filter((epNum) => (episodeStatusByNumber.get(epNum)?.deletableFiles || []).length > 0),
       ),
     [episodeStatusByNumber, episodes],
+  );
+
+  const reversedEpisodes = useMemo(
+    () => [...episodes].reverse(),
+    [episodes],
   );
 
   const replaceSelectionIfChanged = useCallback(
@@ -347,7 +377,7 @@ export function EpisodeList({
         <div className={styles.progressFill} style={{ width: `${progressPct}%` }} />
       </div>
       <div ref={listRef} className={styles.episodesList}>
-        {episodes.map((epNum) => {
+        {reversedEpisodes.map((epNum) => {
           const status = episodeStatusByNumber.get(epNum);
           const isSelected = selectedEpisodes.includes(epNum);
           const canToggleDelete = canManageFiles && selectableEpisodes.has(epNum);
@@ -367,7 +397,7 @@ export function EpisodeList({
                 else cardRefs.current.delete(epNum);
               }}
               data-episode-number={epNum}
-              className={`${styles.episodeCard} ${isPlaying ? styles.episodeCardPlaying : ""} ${isPlayable ? styles.episodeCardPlayable : ""} ${isSelected ? styles.episodeCardSelected : ""} ${canToggleDelete ? styles.episodeCardSelectableDelete : ""}`}
+              className={`${styles.episodeCard} ${isPlaying ? styles.episodeCardPlaying : ""} ${isPlayable ? styles.episodeCardPlayable : ""} ${status.type === "tagWatched" ? styles.episodeCardWatched : ""} ${isSelected ? styles.episodeCardSelected : ""} ${canToggleDelete ? styles.episodeCardSelectableDelete : ""}`}
               onPointerDown={(event) => handleEpisodePointerDown(event, epNum)}
               onPointerMove={handleEpisodePointerMove}
               onPointerUp={finishSelectionDrag}
@@ -378,48 +408,115 @@ export function EpisodeList({
                 event.stopPropagation();
               }}
             >
-              {isPlayable && !isPlaying && (
-                <span className={styles.epPlayIcon}>
-                  <svg width="40" height="50" viewBox="0 0 70 90" className={styles.playPixel}>
-                    <polygon
-                      points="0,0 12,0 12,6 18,6 18,12 24,12 24,18 30,18 30,24 36,24 36,30 42,30 42,36 48,36 48,42 42,42 42,48 36,48 36,54 30,54 30,60 24,60 24,66 18,66 18,72 12,72 12,78 0,78"
-                      className={styles.pixelFill}
-                    />
-                  </svg>
-                  <span className={styles.playText}>REPRODUCIR</span>
-                </span>
-              )}
-              <div className={styles.episodeInfo}>
-                <span className={styles.episodeTitle}>
-                  Episodio {epNum}
-                  {(() => {
-                    const isFinished = mainAnime?.status === "Finalizado" || mainAnime?.status === "Finished Airing" || mainAnime?.status === "FINISHED";
-                    const totalEps = mainAnime?.totalEpisodes || mainAnime?.episodes || 0;
-                    if (isFinished && totalEps > 0 && epNum === totalEps) {
-                      return <span className={styles.finalBadge}>FINAL</span>;
-                    }
-                    return null;
-                  })()}
-                </span>
+              {/* 1. Columna Izquierda: Número de episodio / Play icon en hover */}
+              <div className={styles.playIndexWrapper}>
+                {isPlayable && !isPlaying ? (
+                  <>
+                    <span className={styles.episodeIndex}>
+                      {String(epNum).padStart(2, "0")}
+                    </span>
+                    <span className={styles.episodePlayHoverIcon}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="8,5 19,12 8,19" />
+                      </svg>
+                    </span>
+                  </>
+                ) : (
+                  <span className={`${styles.episodeIndex} ${isPlaying ? styles.episodeIndexPlaying : styles.episodeIndexDisabled}`}>
+                    {String(epNum).padStart(2, "0")}
+                  </span>
+                )}
+              </div>
+
+              {/* 2. Columna Central: Nombre del archivo en disco o Estado */}
+              <div className={styles.episodeMeta}>
+                {status.file ? (
+                  <span className={styles.episodeFileName} title={status.file.name}>
+                    {status.file.name}
+                    {(() => {
+                      const isFinished = mainAnime?.status === "Finalizado" || mainAnime?.status === "Finished Airing" || mainAnime?.status === "FINISHED";
+                      const totalEps = mainAnime?.totalEpisodes || mainAnime?.episodes || 0;
+                      if (isFinished && totalEps > 0 && epNum === totalEps) {
+                        return <span className={styles.finalBadge} style={{ marginLeft: "8px" }}>FINAL</span>;
+                      }
+                      return null;
+                    })()}
+                  </span>
+                ) : (
+                  <span className={styles.episodeSubText}>
+                    {status.label === "PROXIMO" ? "Próximamente disponible" : "Sin archivo local"}
+                    {(() => {
+                      const isFinished = mainAnime?.status === "Finalizado" || mainAnime?.status === "Finished Airing" || mainAnime?.status === "FINISHED";
+                      const totalEps = mainAnime?.totalEpisodes || mainAnime?.episodes || 0;
+                      if (isFinished && totalEps > 0 && epNum === totalEps) {
+                        return <span className={styles.finalBadge} style={{ marginLeft: "8px" }}>FINAL</span>;
+                      }
+                      return null;
+                    })()}
+                  </span>
+                )}
+              </div>
+
+              {/* 3. Columna Derecha: Badges de estado, Reproduciendo (Equalizer), y Torrent */}
+              <div className={styles.episodeCardRight}>
+                {isPlaying && (
+                  <span className={`${styles.statusTag} ${styles.tagPlaying}`} title="Reproduciendo">
+                    <div className={styles.playingEqualizer}>
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  </span>
+                )}
+
                 {status.type === "tagWatched" ? (
-                  <span className={`${styles.statusTag} ${styles.tagWatched}`}>VISTO</span>
+                  <span className={styles.statusTagGroup}>
+                    <span className={`${styles.statusTag} ${styles.tagWatched}`} title="Visto">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    {status.hasFile && (
+                      <span className={`${styles.statusTag} ${styles.tagOnDisk}`} title="Archivo en disco">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" />
+                          <polyline points="13 2 13 9 20 9" />
+                        </svg>
+                      </span>
+                    )}
+                  </span>
+                ) : status.type === "tagDownloaded" ? (
+                  <span className={`${styles.statusTag} ${styles.tagDownloaded}`} title="Descargado">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" />
+                      <polyline points="13 2 13 9 20 9" />
+                    </svg>
+                  </span>
+                ) : status.type === "tagDownloading" ? (
+                  <span className={`${styles.statusTag} ${styles.tagDownloading}`} title="Descargando">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </span>
                 ) : (
                   <span className={`${styles.statusTag} ${styles[status.type]}`}>{status.label}</span>
                 )}
+
+                {(activeFansub || principalFansub) && !isPlayable && !isPlaying && matches.length > 0 && (
+                  <button
+                    className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setTorrentModalItems(matches);
+                      setTorrentModalOpen(true);
+                    }}
+                  >
+                    Disponible
+                  </button>
+                )}
               </div>
-              {isPlaying && <span className={styles.tagPlaying}>REPRODUCIENDO</span>}
-              {(activeFansub || principalFansub) && !isPlayable && !isPlaying && matches.length > 0 && (
-                <button
-                  className={`${styles.torrentBtn} ${hasPrincipalMatch ? styles.torrentBtnPrincipal : styles.torrentBtnAlt}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setTorrentModalItems(matches);
-                    setTorrentModalOpen(true);
-                  }}
-                >
-                  Disponible
-                </button>
-              )}
             </div>
           );
         })}
